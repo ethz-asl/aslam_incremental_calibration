@@ -38,8 +38,11 @@ namespace aslam {
     class DiscreteFunction :
       public virtual Function<Y, Eigen::Matrix<X, M, N> > {
     public:
+      /// \cond
+      // Template parameters assertion
       static_assert(M > 0 || M == Eigen::Dynamic, "M should be larger than 0!");
       static_assert(N > 0 || N == Eigen::Dynamic, "N should be larger than 0!");
+      /// \endcond
 
       /** \name Constructors/Destructor
         @{

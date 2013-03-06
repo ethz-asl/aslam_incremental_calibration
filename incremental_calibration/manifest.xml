@@ -1,13 +1,13 @@
 <package>
-  <description brief="aslam_incremental_calibration">
+  <description brief="incremental_calibration">
 
-     aslam_incremental_calibration
+     incremental_calibration
 
   </description>
   <author>Jerome Maye</author>
   <license>LGPL</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/aslam_incremental_calibration</url>
+  <url>http://ros.org/wiki/incremental_calibration</url>
   <depend package="aslam_backend"/>
   <depend package="aslam_backend_expressions"/>
   <depend package="bsplines"/>

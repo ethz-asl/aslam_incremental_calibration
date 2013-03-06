@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2012 by Jerome Maye                                          *
+ * Copyright (C) 2013 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -39,11 +39,13 @@ namespace aslam {
     class VectorDesignVariable :
       public aslam::backend::DesignVariable {
     public:
+      /// \cond
       // Required by Eigen for fixed-size matrices members
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
       // Template parameters assertion
       static_assert(M > 0 || M == Eigen::Dynamic, "M should be larger than 0!");
+      /// \endcond
 
       /** \name Types definitions
         @{

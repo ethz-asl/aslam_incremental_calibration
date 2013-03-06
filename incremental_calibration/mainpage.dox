@@ -2,7 +2,7 @@
 \mainpage
 \htmlinclude manifest.html
 
-\b aslam_incremental_calibration
+\b incremental_calibration
 
 <!-- 
 Provide an overview of your package.
