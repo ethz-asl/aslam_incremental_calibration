@@ -1,0 +1,14 @@
+<stack>
+  <description brief="aslam_incremental_calibration">
+    A C++-based library for calibrating robot sensors. It employs a Gauss-Newton
+    algorithm with Truncated QR (TQR) linear system solving. Therefore, it can
+    well cope with unobservability in the input data. For long term and online
+    operation, an information theoeretic scheme selects informative measurements
+    for updating the calibration.
+  </description>
+  <author>Maintained by Jerome Maye</author>
+  <license>LGPL</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/aslam_incremental_calibration</url>
+<!--  <depend stack="ros"/>-->
+</stack>
