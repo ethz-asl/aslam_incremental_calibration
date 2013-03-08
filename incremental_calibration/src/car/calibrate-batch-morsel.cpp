@@ -453,7 +453,7 @@ int main(int argc, char** argv) {
       << " " << ypr.rotationMatrixToParameters(
         bspline.orientation(timestampsParse[i])).transpose()
       << " " << bspline.linearVelocity(timestampsParse[i]).transpose()
-      << " " << bspline.angularVelocityBodyFrame(timestampsParse[i]).transpose()
+      << " " << bspline.angularVelocity(timestampsParse[i]).transpose()
       << " " << bspline.linearAcceleration(timestampsParse[i]).transpose()
       << std::endl;
   }

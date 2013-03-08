@@ -26,10 +26,10 @@
 
 #include <aslam/backend/ErrorTerm.hpp>
 
-#include "aslam/calibration/data-structures/VectorDesignVariable.h"
-
 namespace aslam {
   namespace calibration {
+
+    template <int M> class VectorDesignVariable;
 
     /** The class ErrorTermMotion implements a motion model for the 2D-LRF
         problem.

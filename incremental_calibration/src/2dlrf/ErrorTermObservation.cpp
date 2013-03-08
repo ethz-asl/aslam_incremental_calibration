@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2012 by Jerome Maye                                          *
+ * Copyright (C) 2013 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -21,6 +21,8 @@
 #include <Eigen/Dense>
 
 #include <sm/kinematics/rotations.hpp>
+
+#include "aslam/calibration/data-structures/VectorDesignVariable.h"
 
 namespace aslam {
   namespace calibration {

@@ -22,6 +22,8 @@
 
 #include <sm/kinematics/rotations.hpp>
 
+#include "aslam/calibration/data-structures/VectorDesignVariable.h"
+
 namespace aslam {
   namespace calibration {
 

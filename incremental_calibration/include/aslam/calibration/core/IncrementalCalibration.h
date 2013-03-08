@@ -9,65 +9,72 @@
  *                                                                            *
  * This program is distributed in the hope that it will be useful,            *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the               *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
  * Lesser GNU General Public License for more details.                        *
  *                                                                            *
  * You should have received a copy of the Lesser GNU General Public License   *
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file ContinuousDistribution1v.h
-    \brief This file contains an interface to the univariate continuous
-           distributions
+/** \file IncrementalCalibration.h
+    \brief This file defines the IncrementalCalibration class, which implements
+           the core algorithm for incremental calibration.
   */
 
-#include "aslam/calibration/functions/ContinuousFunction.h"
-#include "aslam/calibration/statistics/Distribution.h"
+#ifndef ASLAM_CALIBRATION_CORE_INCREMENTAL_CALIBRATION_H
+#define ASLAM_CALIBRATION_CORE_INCREMENTAL_CALIBRATION_H
 
 namespace aslam {
   namespace calibration {
 
-    /** The ContinuousDistribution1v class represents an interface to the
-        univariate continuous distributions.
-        \brief Univariate continuous distribution
+    /** The class IncrementalCalibration implements the core algorithm for
+        incremental calibration.
+        \brief Incremental calibration
       */
-    template <typename X> class ContinuousDistribution<X> :
-      public ContinuousFunction<double, X>,
-      public virtual Distribution<X> {
+    class IncrementalCalibration {
     public:
-      /** \name Types
+      /** \name Types definitions
         @{
         */
-      /// Distribution type
-      typedef ContinuousDistribution<X> DistributionType;
-      /// Random variable type
-      typedef X RandomVariable;
-      /// Mean type
-      typedef double Mean;
-      /// Variance type
-      typedef double Variance;
-      /// Mode type
-      typedef X Mode;
-      /// Median type
-      typedef double Median;
       /** @}
         */
 
-      /** \name Constructors/Destructor
+      /** \name Constructors/destructor
         @{
         */
+      /// Default constructor
+      IncrementalCalibration();
+      /// Copy constructor
+      IncrementalCalibration(const IncrementalCalibration& other);
+      /// Assignment operator
+      IncrementalCalibration& operator = (const IncrementalCalibration& other);
       /// Destructor
-      virtual ~ContinuousDistribution();
+      virtual ~IncrementalCalibration();
+      /** @}
+        */
+
+      /** \name Methods
+        @{
+        */
       /** @}
         */
 
       /** \name Accessors
         @{
         */
-      /// Access the probablity density function at the given value
-      virtual double pdf(const RandomVariable& value) const = 0;
-      /// Interface to function
-      virtual double getValue(const X& argument) const;
+      /** @}
+        */
+
+    protected:
+      /** \name Protected methods
+        @{
+        */
+      /** @}
+        */
+
+      /** \name Protected members
+        @{
+        */
       /** @}
         */
 
@@ -76,4 +83,4 @@ namespace aslam {
   }
 }
 
-#include "aslam/calibration/statistics/ContinuousDistribution1v.tpp"
+#endif // ASLAM_CALIBRATION_CORE_INCREMENTAL_CALIBRATION_H
