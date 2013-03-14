@@ -44,6 +44,7 @@
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/TransformationExpression.hpp>
+#include <aslam/backend/MEstimatorPolicies.hpp>
 
 #include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/statistics/NormalDistribution.h"
@@ -286,9 +287,7 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Matrix<double, 6, 1> > posesParse;
   std::vector<Eigen::Matrix<double, 5, 1> > odometryParse;
   std::vector<Eigen::Matrix<double, 6, 1> > velocityParse;
-  std::vector<Eigen::Matrix<double, 5, 1> > odometryParseComp;
   const sm::kinematics::EulerAnglesYawPitchRoll ypr;
-  std::ofstream odoFile("odometry.txt");
   while (!logFile.eof()) {
     // timestamp
     double timestamp;
@@ -310,6 +309,7 @@ int main(int argc, char** argv) {
 //    pose = aslam::calibration::NormalDistribution<6>(pose, Q).getSample();
 
     // parameterization of rotation as a rotation vector
+    // CHANGE THIS TO ZXY convention
     pose.tail<3>() = rv->rotationMatrixToParameters(
       ypr.parametersToRotationMatrix(pose.tail<3>()));
 
@@ -343,7 +343,7 @@ int main(int argc, char** argv) {
     // store it
     posesParse.push_back(pose);
 
-    // translational and rotational velocity
+    // translational and angular velocity
     Eigen::Matrix<double, 6, 1> velocity;
     logFile >> velocity(0, 0) >> velocity(1, 0) >> velocity(2, 0)
       >> velocity(3, 0) >> velocity(4, 0) >> velocity(5, 0);
@@ -367,48 +367,13 @@ int main(int argc, char** argv) {
     odometry(4, 0) = sm::kinematics::deg2rad(odometryFileRead(1, 0));
 
     // add some noise to the odometry to make it a measurement
-    // to be checked: noise induced from the simulation?
     odometry =
       aslam::calibration::NormalDistribution<5>(odometry, R).getSample();
 
-    // odometry computed
-    const Eigen::Matrix<double, 3, 3> C_wi =
-      rv->parametersToRotationMatrix(pose.tail<3>());
-    const Eigen::Matrix<double, 3, 3> C_io =
-      ypr.parametersToRotationMatrix(
-      Eigen::Matrix<double, 3, 1>(r_z, r_y, r_x));
-    const Eigen::Matrix<double, 3, 1> t_io(t_x, t_y, t_z);
-    const Eigen::Matrix<double, 3, 1> v_iw = velocity.head<3>();
-    const Eigen::Matrix<double, 3, 1> om_iw = velocity.tail<3>();
-    const Eigen::Matrix<double, 3, 1> v_ii = C_wi.transpose() * v_iw;
-    const Eigen::Matrix<double, 3, 1> om_ii = C_wi.transpose() * om_iw;
-    const Eigen::Matrix<double, 3, 1> v_oo = C_io.transpose() *
-      (v_ii + om_ii.cross(t_io));
-    const Eigen::Matrix<double, 3, 1> om_oo = C_io.transpose() * om_ii;
-    const double v_oo_x = v_oo(0);
-    const double om_oo_z = om_oo(2);
-    const double phi_L = atan(L_RF * om_oo_z / (v_oo_x - e_F * om_oo_z));
-    const double phi_R = atan(L_RF * om_oo_z / (v_oo_x + e_F * om_oo_z));
-    const double phi = atan(L_RF * om_oo_z / v_oo_x);
-    Eigen::Matrix<double, 5, 1> odometryComp;
-    odometryComp(0) = phi;
-    odometryComp(1) = (v_oo_x - e_R * om_oo_z) / r_RL;
-    odometryComp(2) = (v_oo_x + e_R * om_oo_z) / r_RR;
-    odometryComp(3) = (v_oo_x - e_F * om_oo_z) / cos(phi_L) / r_FL;
-    odometryComp(4) = (v_oo_x + e_F * om_oo_z) / cos(phi_R) / r_FR;
-
-    odometryComp =
-      aslam::calibration::NormalDistribution<5>(odometryComp, R).getSample();
-//    if (fabs(odometry(0) - odometryComp(0)) < 0.1 &&
-//      fabs(odometry(1) - odometryComp(1)) < 0.1 &&
-//      fabs(odometry(2) - odometryComp(2)) < 0.1 &&
-//      fabs(odometry(3) - odometryComp(3)) < 0.1 &&
-//      fabs(odometry(4) - odometryComp(4)) < 0.1)
-//    odoFile << odometry.transpose() << " " << odometryComp.transpose() << std::endl;
     // store odometry
-    odometryParse.push_back(odometryComp);
-    odometryParseComp.push_back(odometryComp);
+    odometryParse.push_back(odometry);
   }
+  // kick out the last stuff, problem of parsing?
   timestampsParse.pop_back();
   posesParse.pop_back();
   odometryParse.pop_back();
@@ -486,39 +451,28 @@ int main(int argc, char** argv) {
 
   // create car parameters design variable
   std::cout << "Creating car parameters design variable..." << std::endl;
-//  const double L =
-//    aslam::calibration::NormalDistribution<1>(L_RF, 1e-4).getSample();
-//  const double e_r = aslam::calibration::NormalDistribution<1>(
-//    e_R, 1e-4).getSample();
-//  const double e_f = aslam::calibration::NormalDistribution<1>(
-//    e_F, 1e-4).getSample();
-//  const double a0 =
-//    aslam::calibration::NormalDistribution<1>(0, 1e-4).getSample();
-//  const double a1 =
-//    aslam::calibration::NormalDistribution<1>(1.0, 1e-4).getSample();
-//  const double a2 =
-//    aslam::calibration::NormalDistribution<1>(0, 1e-4).getSample();
-//  const double a3 =
-//    aslam::calibration::NormalDistribution<1>(0, 1e-4).getSample();
-//  const double k_rl =
-//    aslam::calibration::NormalDistribution<1>(r_RL, 1e-4).getSample();
-//  const double k_rr =
-//    aslam::calibration::NormalDistribution<1>(r_RR, 1e-4).getSample();
-//  const double k_fl =
-//    aslam::calibration::NormalDistribution<1>(r_FL, 1e-4).getSample();
-//  const double k_fr =
-//    aslam::calibration::NormalDistribution<1>(r_FR, 1e-4).getSample();
-  const double L = L_RF;
-  const double e_r = e_R;
-  const double e_f = e_F;
-  const double a0 = 0;
-  const double a1 = 1;
-  const double a2 = 0;
-  const double a3 = 0;
-  const double k_rl = r_RL;
-  const double k_rr = r_RR;
-  const double k_fl = r_FL;
-  const double k_fr = r_FR;
+  const double L =
+    aslam::calibration::NormalDistribution<1>(L_RF, 1e-12).getSample();
+  const double e_r = aslam::calibration::NormalDistribution<1>(
+    e_R, 1e-12).getSample();
+  const double e_f = aslam::calibration::NormalDistribution<1>(
+    e_F, 1e-12).getSample();
+  const double a0 =
+    aslam::calibration::NormalDistribution<1>(0, 1e-12).getSample();
+  const double a1 =
+    aslam::calibration::NormalDistribution<1>(1.0, 1e-12).getSample();
+  const double a2 =
+    aslam::calibration::NormalDistribution<1>(0, 1e-12).getSample();
+  const double a3 =
+    aslam::calibration::NormalDistribution<1>(0, 1e-12).getSample();
+  const double k_rl =
+    aslam::calibration::NormalDistribution<1>(r_RL, 1e-12).getSample();
+  const double k_rr =
+    aslam::calibration::NormalDistribution<1>(r_RR, 1e-12).getSample();
+  const double k_fl =
+    aslam::calibration::NormalDistribution<1>(r_FL, 1e-12).getSample();
+  const double k_fr =
+    aslam::calibration::NormalDistribution<1>(r_FR, 1e-12).getSample();
   boost::shared_ptr<aslam::calibration::VectorDesignVariable<11> > cpdv(
     new aslam::calibration::VectorDesignVariable<11>(
     (aslam::calibration::VectorDesignVariable<11>::Container() <<
@@ -536,9 +490,27 @@ int main(int argc, char** argv) {
   boost::shared_ptr<aslam::backend::EuclideanPoint> t_io_dv(
     new aslam::backend::EuclideanPoint(t_odo));
   t_io_dv->setActive(true);
+
+  // TODO: implement another kinematics
+  const double cx = cos(r_x);
+  const double sx = sin(r_x);
+  const double cy = cos(r_y);
+  const double sy = sin(r_y);
+  const double cz = cos(r_z);
+  const double sz = sin(r_z);
+  const Eigen::Matrix<double, 3, 3> C_io_x (
+    (Eigen::Matrix<double, 3, 3>()
+    << 1, 0, 0, 0, cx, -sx, 0, sx, cx).finished());
+  const Eigen::Matrix<double, 3, 3> C_io_y (
+    (Eigen::Matrix<double, 3, 3>()
+    << cy, 0, sy, 0, 1, 0, -sy, 0, cy).finished());
+  const Eigen::Matrix<double, 3, 3> C_io_z (
+    (Eigen::Matrix<double, 3, 3>()
+    << cz, -sz, 0, sz, cz, 0, 0, 0, 1).finished());
+  const Eigen::Matrix<double, 3, 3> C_io_R = C_io_z * C_io_x * C_io_y;
+
   boost::shared_ptr<aslam::backend::RotationQuaternion> C_io_dv(
-    new aslam::backend::RotationQuaternion(
-    ypr.parametersToRotationMatrix(r_odo)));
+    new aslam::backend::RotationQuaternion(C_io_R));
   C_io_dv->setActive(true);
   aslam::backend::RotationExpression C_io(C_io_dv);
   aslam::backend::EuclideanExpression t_io(t_io_dv);
@@ -550,47 +522,22 @@ int main(int argc, char** argv) {
   // create error terms for each odometry measurement
   std::cout << "Creating error terms for odometry measurements..." << std::endl;
   for (size_t i = 0; i < odometryParse.size(); ++i) {
-//    if (fabs(odometryParse[i](0) - odometryParseComp[i](0)) > 0.2 ||
-//        fabs(odometryParse[i](1) - odometryParseComp[i](1)) > 0.2 ||
-//        fabs(odometryParse[i](2) - odometryParseComp[i](2)) > 0.2 ||
-//        fabs(odometryParse[i](3) - odometryParseComp[i](3)) > 0.2 ||
-//        fabs(odometryParse[i](4) - odometryParseComp[i](4)) > 0.2)
-//      continue;
-
-    // linear velocity in the world frame
-//    aslam::backend::EuclideanExpression v_w =
-//      bspdv->linearVelocity(timestampsParse[i]);
-    boost::shared_ptr<aslam::backend::EuclideanPoint> v_iw_dv(
+    // translational velocity of IMU center in its own reference frame
+    boost::shared_ptr<aslam::backend::EuclideanPoint> v_ii_c_dv(
       new aslam::backend::EuclideanPoint(velocityParse[i].head<3>()));
-    aslam::backend::EuclideanExpression v_iw(v_iw_dv);
+    aslam::backend::EuclideanExpression v_ii_c(v_ii_c_dv);
 
-    // orientation
-//    aslam::backend::RotationExpression C_w =
-//      bspdv->orientation(timestampsParse[i]);
-    boost::shared_ptr<aslam::backend::RotationQuaternion> C_wi_dv(
-      new aslam::backend::RotationQuaternion(
-      rv->parametersToRotationMatrix(posesParse[i].tail<3>())));
-    aslam::backend::RotationExpression C_wi(C_wi_dv);
-
-    // linear velocity in the body frame
-    aslam::backend::EuclideanExpression v_ii = C_wi.inverse() * v_iw;
-
-    // angular velocity in the world frame
-    boost::shared_ptr<aslam::backend::EuclideanPoint> om_iw_dv(
+    // angular velocity of IMU center in its own reference frame
+    boost::shared_ptr<aslam::backend::EuclideanPoint> om_ii_c_dv(
       new aslam::backend::EuclideanPoint(velocityParse[i].tail<3>()));
-    aslam::backend::EuclideanExpression om_iw(om_iw_dv);
+    aslam::backend::EuclideanExpression om_ii_c(om_ii_c_dv);
 
-    // angular velocity in the body frame
-//    aslam::backend::EuclideanExpression om_b =
-//      bspdv->angularVelocityBodyFrame(timestampsParse[i]);
-    aslam::backend::EuclideanExpression om_ii = C_wi.inverse() * om_iw;
-
-    // linear velocity in the odometry frame
+    // translational velocity of odometry center in its own reference frame
     aslam::backend::EuclideanExpression v_oo = C_io.inverse() *
-      (v_ii + om_ii.cross(t_io));
+      (v_ii_c + om_ii_c.cross(t_io));
 
-    // angular velocity in the odometry frame
-    aslam::backend::EuclideanExpression om_oo = C_io.inverse() * om_ii;
+    // angular velocity of odometry center in its own reference frame
+    aslam::backend::EuclideanExpression om_oo = C_io.inverse() * om_ii_c;
 
     // skip when velocity is null
     if (fabs(v_oo.toValue()(0)) < std::numeric_limits<double>::epsilon() &&
@@ -604,7 +551,10 @@ int main(int argc, char** argv) {
 
     problem->addErrorTerm(e_odo);
     errorFile << e_odo->evaluateError() << std::endl;
-//    e_odo->setMEstimatorPolicy(boost::shared_ptr<aslam::backend::GemanMcClureMEstimator>(new aslam::backend::GemanMcClureMEstimator(1e+3)));
+    e_odo->setMEstimatorPolicy(
+      boost::shared_ptr<aslam::backend::BlakeZissermanMEstimator>(
+      new aslam::backend::BlakeZissermanMEstimator(e_odo->dimension(),
+      0.999, 0.01)));
   }
 
   // optimize
@@ -614,9 +564,7 @@ int main(int argc, char** argv) {
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout <<
-    ypr.rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
-    << std::endl;
+  std::cout << C_io.toRotationMatrix() << std::endl;
   std::cout << "Optimizing..." << std::endl;
   aslam::backend::Optimizer2Options options;
   options.verbose = true;
@@ -636,9 +584,7 @@ int main(int argc, char** argv) {
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout <<
-    ypr.rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
-    << std::endl;
+  std::cout << C_io.toRotationMatrix() << std::endl;
   std::cout << "True values: " << std::endl;
   std::cout << "Odometry parameters: " << std::endl;
   std::cout << L_RF << " " << e_R << " " << e_F << " " << 0 << " "
@@ -647,7 +593,7 @@ int main(int argc, char** argv) {
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_x << " " << t_y << " " << t_z << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << r_z << " " << r_y << " " << r_x << std::endl;
+  std::cout << C_io_R << std::endl;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Sigma;
   optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
     ->computeSigma(Sigma,
