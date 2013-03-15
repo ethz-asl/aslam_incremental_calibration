@@ -31,6 +31,7 @@
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/RotationVector.hpp>
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
+#include <sm/kinematics/EulerAnglesZXY.h>
 
 #include <bsplines/BSplinePose.hpp>
 
@@ -288,6 +289,7 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Matrix<double, 5, 1> > odometryParse;
   std::vector<Eigen::Matrix<double, 6, 1> > velocityParse;
   const sm::kinematics::EulerAnglesYawPitchRoll ypr;
+  const sm::kinematics::EulerAnglesZXY zxy;
   while (!logFile.eof()) {
     // timestamp
     double timestamp;
@@ -305,13 +307,17 @@ int main(int argc, char** argv) {
     // change roll-pitch-yaw to yaw-pitch-roll
     pose.tail<3>().reverseInPlace();
 
+    // invert roll and pitch for the zxy convention
+    const double temp = pose(5, 0);
+    pose(5, 0) = pose(4, 0);
+    pose(4, 0) = temp,
+
     // add some noise to the pose to make it a measurement
 //    pose = aslam::calibration::NormalDistribution<6>(pose, Q).getSample();
 
     // parameterization of rotation as a rotation vector
-    // CHANGE THIS TO ZXY convention
     pose.tail<3>() = rv->rotationMatrixToParameters(
-      ypr.parametersToRotationMatrix(pose.tail<3>()));
+      zxy.parametersToRotationMatrix(pose.tail<3>()));
 
     // ensure rotation vector do not flip
     if (!posesParse.empty()) {
@@ -415,11 +421,12 @@ int main(int argc, char** argv) {
     outFile << std::fixed << std::setprecision(16)
       << timestampsParse[i]
       << " " << bspline.position(timestampsParse[i]).transpose()
-      << " " << ypr.rotationMatrixToParameters(
+      << " " << zxy.rotationMatrixToParameters(
         bspline.orientation(timestampsParse[i])).transpose()
+      << " " << bspline.linearVelocityBodyFrame(timestampsParse[i]).transpose()
+      << " " << bspline.angularVelocityBodyFrame(timestampsParse[i]).transpose()
       << " " << bspline.linearVelocity(timestampsParse[i]).transpose()
       << " " << bspline.angularVelocity(timestampsParse[i]).transpose()
-      << " " << bspline.linearAcceleration(timestampsParse[i]).transpose()
       << std::endl;
   }
 
@@ -482,36 +489,18 @@ int main(int argc, char** argv) {
 
   // transformation between IMU and odometry design variable
   Eigen::Matrix<double, 3, 1> t_odo(t_x, t_y, t_z);
-  Eigen::Matrix<double, 3, 1> r_odo(r_z, r_y, r_x);
+  Eigen::Matrix<double, 3, 1> r_odo(r_z, r_x, r_y);
   Eigen::Matrix<double, 3, 3> S = Eigen::Matrix<double, 3, 3>::Zero();
   S(0, 0) = 1e-4; S(1, 1) = 1e-4; S(2, 2) = 1e-4;
 //  t_odo = aslam::calibration::NormalDistribution<3>(t_odo, S).getSample();
 //  r_odo = aslam::calibration::NormalDistribution<3>(r_odo, S).getSample();
   boost::shared_ptr<aslam::backend::EuclideanPoint> t_io_dv(
     new aslam::backend::EuclideanPoint(t_odo));
-  t_io_dv->setActive(true);
-
-  // TODO: implement another kinematics
-  const double cx = cos(r_x);
-  const double sx = sin(r_x);
-  const double cy = cos(r_y);
-  const double sy = sin(r_y);
-  const double cz = cos(r_z);
-  const double sz = sin(r_z);
-  const Eigen::Matrix<double, 3, 3> C_io_x (
-    (Eigen::Matrix<double, 3, 3>()
-    << 1, 0, 0, 0, cx, -sx, 0, sx, cx).finished());
-  const Eigen::Matrix<double, 3, 3> C_io_y (
-    (Eigen::Matrix<double, 3, 3>()
-    << cy, 0, sy, 0, 1, 0, -sy, 0, cy).finished());
-  const Eigen::Matrix<double, 3, 3> C_io_z (
-    (Eigen::Matrix<double, 3, 3>()
-    << cz, -sz, 0, sz, cz, 0, 0, 0, 1).finished());
-  const Eigen::Matrix<double, 3, 3> C_io_R = C_io_z * C_io_x * C_io_y;
-
+//  t_io_dv->setActive(true);
   boost::shared_ptr<aslam::backend::RotationQuaternion> C_io_dv(
-    new aslam::backend::RotationQuaternion(C_io_R));
-  C_io_dv->setActive(true);
+    new aslam::backend::RotationQuaternion(
+    zxy.parametersToRotationMatrix(r_odo)));
+//  C_io_dv->setActive(true);
   aslam::backend::RotationExpression C_io(C_io_dv);
   aslam::backend::EuclideanExpression t_io(t_io_dv);
   problem->addDesignVariable(t_io_dv);
@@ -554,7 +543,7 @@ int main(int argc, char** argv) {
     e_odo->setMEstimatorPolicy(
       boost::shared_ptr<aslam::backend::BlakeZissermanMEstimator>(
       new aslam::backend::BlakeZissermanMEstimator(e_odo->dimension(),
-      0.999, 0.01)));
+      0.999, 0.1)));
   }
 
   // optimize
@@ -564,7 +553,9 @@ int main(int argc, char** argv) {
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << C_io.toRotationMatrix() << std::endl;
+  std::cout <<
+    zxy.rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
+    << std::endl;
   std::cout << "Optimizing..." << std::endl;
   aslam::backend::Optimizer2Options options;
   options.verbose = true;
@@ -584,7 +575,9 @@ int main(int argc, char** argv) {
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << C_io.toRotationMatrix() << std::endl;
+  std::cout <<
+    zxy.rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
+    << std::endl;
   std::cout << "True values: " << std::endl;
   std::cout << "Odometry parameters: " << std::endl;
   std::cout << L_RF << " " << e_R << " " << e_F << " " << 0 << " "
@@ -593,7 +586,7 @@ int main(int argc, char** argv) {
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_x << " " << t_y << " " << t_z << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << C_io_R << std::endl;
+  std::cout << r_z << " " << r_x << " " << r_y << std::endl;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Sigma;
   optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
     ->computeSigma(Sigma,
@@ -618,17 +611,16 @@ int main(int argc, char** argv) {
       bspdv->orientation(timestampsParse[i]).toRotationMatrix();
     const Eigen::Vector3d v =
       bspdv->linearVelocity(timestampsParse[i]).toEuclidean();
-    const Eigen::Vector3d a =
-      bspdv->linearAcceleration(timestampsParse[i]).toEuclidean();
     const Eigen::Vector3d om =
       bspdv->angularVelocityBodyFrame(timestampsParse[i]).toEuclidean();
     outFile2 << std::fixed << std::setprecision(16)
       << timestampsParse[i]
       << " " << r.transpose()
-      << " " << ypr.rotationMatrixToParameters(C).transpose()
+      << " " << zxy.rotationMatrixToParameters(C).transpose()
       << " " << v.transpose()
       << " " << om.transpose()
-      << " " << a.transpose()
+      << " " << v.transpose()
+      << " " << om.transpose()
       << std::endl;
   }
 
