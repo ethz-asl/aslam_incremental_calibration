@@ -60,7 +60,7 @@ namespace aslam {
        * \brief Constructs the error term
        * 
        * @param v_oo \f$\mathbf{v}_{oo}\f$ linear velocity in odometry frame
-       * @param om_oo \f$\boldsymbol{\omega}_{oo}\f$ rotational velocity in
+       * @param om_oo \f$\boldsymbol{\omega}_{oo}\f$ angular velocity in
        *              odometry frame
        * @param params odometry parameters (\f$[L,e_r,e_f,a_0,a_1,a_2,a_3,
        *        \kappa_{rl},\kappa_{rr},\kappa_{fl},\kappa_{fr}]\f$)
