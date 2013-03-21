@@ -29,6 +29,7 @@
 
 #include "aslam/calibration/car/ErrorTermOdometry.h"
 #include "aslam/calibration/statistics/NormalDistribution.h"
+#include "aslam/calibration/data-structures/VectorDesignVariable.h"
 
 TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
 
