@@ -12,5 +12,8 @@
   <depend package="aslam_backend_expressions"/>
   <depend package="bsplines"/>
   <depend package="aslam_splines"/>
+  <depend package="aslam_cameras"/>
+  <depend package="aslam_camera_system"/>
+  <depend package="aslam_matcher"/>
 
 </package>

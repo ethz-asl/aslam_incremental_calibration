@@ -11,7 +11,11 @@ set(ROS_BUILD_TYPE Release)
 
 rosbuild_init()
 
-set(CMAKE_CXX_FLAGS "-std=c++0x")
+if(APPLE)
+  set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-unused-local-typedefs")
+else()
+  set(CMAKE_CXX_FLAGS "-std=c++0x")
+endif()
 
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
@@ -33,8 +37,9 @@ rosbuild_add_library(${PROJECT_NAME}
   src/exceptions/SystemException.cpp
   src/statistics/NormalDistribution1v.cpp
   src/car/ErrorTermPose.cpp
-  src/car/ErrorTermOdometry.cpp)
-
+  src/car/ErrorTermOdometry.cpp
+#  src/vision/VisionDataAssociation.cpp
+)
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
   test/VectorDesignVariableTest.cpp

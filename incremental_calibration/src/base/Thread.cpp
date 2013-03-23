@@ -19,7 +19,9 @@
 #include "aslam/calibration/base/Thread.h"
 
 #include <cmath>
-
+#ifdef __APPLE__
+#include <unistd.h>
+#endif
 #include "aslam/calibration/base/Threads.h"
 #include "aslam/calibration/exceptions/SystemException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
