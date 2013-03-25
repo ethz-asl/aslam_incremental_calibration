@@ -15,5 +15,6 @@
   <depend package="aslam_cameras"/>
   <depend package="aslam_camera_system"/>
   <depend package="aslam_matcher"/>
+  <depend package="sm_eigen"/>
 
 </package>

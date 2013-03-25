@@ -38,7 +38,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/statistics/NormalDistribution1v.cpp
   src/car/ErrorTermPose.cpp
   src/car/ErrorTermOdometry.cpp
-#  src/vision/VisionDataAssociation.cpp
+  src/vision/VisionDataAssociation.cpp
 )
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
