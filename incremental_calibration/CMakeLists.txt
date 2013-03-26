@@ -22,6 +22,10 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+# find GSL library
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(gsl REQUIRED gsl)
+
 rosbuild_add_library(${PROJECT_NAME}
   src/2dlrf/ErrorTermMotion.cpp
   src/2dlrf/ErrorTermObservation.cpp
@@ -36,10 +40,18 @@ rosbuild_add_library(${PROJECT_NAME}
   src/exceptions/InvalidOperationException.cpp
   src/exceptions/SystemException.cpp
   src/statistics/NormalDistribution1v.cpp
+  src/statistics/ChiSquareDistribution.cpp
+  src/functions/DigammaFunction.cpp
+  src/functions/IncompleteGammaPFunction.cpp
+  src/functions/IncompleteGammaQFunction.cpp
+  src/functions/LogFactorialFunction.cpp
+  src/functions/LogGammaFunction.cpp
   src/car/ErrorTermPose.cpp
   src/car/ErrorTermOdometry.cpp
   src/vision/VisionDataAssociation.cpp
 )
+target_link_libraries(${PROJECT_NAME} ${gsl_LIBRARIES})
+
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
   test/VectorDesignVariableTest.cpp
