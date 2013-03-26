@@ -549,7 +549,7 @@ int main(int argc, char** argv) {
   // optimize
   std::cout << "Initial guess: " << std::endl;
   std::cout << "Odometry parameters: " << std::endl;
-  std::cout << cpdv->getValue().transpose() << std::endl;
+  std::cout << *cpdv << std::endl;
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
@@ -571,7 +571,7 @@ int main(int argc, char** argv) {
   optimizer.optimize();
   std::cout << "Estimated parameters: " << std::endl;
   std::cout << "Odometry parameters: " << std::endl;
-  std::cout << cpdv->getValue().transpose() << std::endl;
+  std::cout << *cpdv << std::endl;
   std::cout << "Translation IMU-ODO: " << std::endl;
   std::cout << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;

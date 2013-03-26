@@ -263,8 +263,7 @@ int main(int argc, char** argv) {
       ->computeSigma(Sigma, 3);
     const double SigmaDet = Sigma.determinant();
 
-    std::cout << "Calibration after: " << dv_Theta->getValue().transpose()
-      << std::endl;
+    std::cout << "Calibration after: " << *dv_Theta << std::endl;
     std::cout << "Sigma: " << std::endl << Sigma << std::endl;
 
     // decision round
@@ -303,13 +302,13 @@ int main(int argc, char** argv) {
   std::ofstream x_est_log("x_est.txt");
   for (size_t i = 0; i < batchIdx.size(); ++i)
     for (size_t j = batchIdx[i]; j < batchIdx[i] + batchSize; ++j)
-      x_est_log << dv_x[j]->getValue().transpose() << std::endl;
+      x_est_log << *(dv_x[j]) << std::endl;
   std::ofstream l_log("l.txt");
   for (size_t i = 0; i < nl; ++i)
     l_log << x_l[i].transpose() << std::endl;
   std::ofstream l_est_log("l_est.txt");
   for (size_t i = 0; i < nl; ++i)
-    l_est_log << dv_x_l[i]->getValue().transpose() << std::endl;
+    l_est_log << *(dv_x_l[i]) << std::endl;
 
   // align landmarks
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> l =

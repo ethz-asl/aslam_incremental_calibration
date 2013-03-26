@@ -21,8 +21,8 @@
            digamma function
   */
 
-#ifndef ASLAM_CALIBRATION_DIGAMMAFUNCTION_H
-#define ASLAM_CALIBRATION_DIGAMMAFUNCTION_H
+#ifndef ASLAM_CALIBRATION_FUNCTIONS_DIGAMMAFUNCTION_H
+#define ASLAM_CALIBRATION_FUNCTIONS_DIGAMMAFUNCTION_H
 
 #include "aslam/calibration/functions/ContinuousFunction.h"
 
@@ -127,4 +127,4 @@ namespace aslam {
 
 #include "aslam/calibration/functions/DigammaFunction.tpp"
 
-#endif // ASLAM_CALIBRATION_DIGAMMAFUNCTION_H
+#endif // ASLAM_CALIBRATION_FUNCTIONS_DIGAMMAFUNCTION_H

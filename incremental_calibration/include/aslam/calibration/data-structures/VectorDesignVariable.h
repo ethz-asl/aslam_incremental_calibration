@@ -28,6 +28,8 @@
 
 #include <aslam/backend/DesignVariable.hpp>
 
+#include "aslam/calibration/base/Serializable.h"
+
 namespace aslam {
   namespace calibration {
 
@@ -37,7 +39,8 @@ namespace aslam {
       */
     template <int M>
     class VectorDesignVariable :
-      public aslam::backend::DesignVariable {
+      public aslam::backend::DesignVariable,
+      public virtual Serializable {
     public:
       /// \cond
       // Required by Eigen for fixed-size matrices members
@@ -89,6 +92,20 @@ namespace aslam {
       virtual void updateImplementation(const double* dp, int size);
       /// Revert the last state update.
       virtual void revertUpdateImplementation();
+      /** @}
+        */
+
+      /** \name Stream methods
+        @{
+        */
+      /// Reads from standard input
+      virtual void read(std::istream& stream);
+      /// Writes to standard output
+      virtual void write(std::ostream& stream) const;
+      /// Reads from a file
+      virtual void read(std::ifstream& stream);
+      /// Writes to a file
+      virtual void write(std::ofstream& stream) const;
       /** @}
         */
 

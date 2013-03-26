@@ -21,8 +21,8 @@
            represents the normalized incomplete gamma function
   */
 
-#ifndef ASLAM_CALIBRATION_INCOMPLETEGAMMAQFUNCTION_H
-#define ASLAM_CALIBRATION_INCOMPLETEGAMMAQFUNCTION_H
+#ifndef ASLAM_CALIBRATION_FUNCTIONS_INCOMPLETEGAMMAQFUNCTION_H
+#define ASLAM_CALIBRATION_FUNCTIONS_INCOMPLETEGAMMAQFUNCTION_H
 
 #include "aslam/calibration/functions/ContinuousFunction.h"
 #include "aslam/calibration/base/Serializable.h"
@@ -101,4 +101,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_INCOMPLETEGAMMAQFUNCTION_H
+#endif // ASLAM_CALIBRATION_FUNCTIONS_INCOMPLETEGAMMAQFUNCTION_H

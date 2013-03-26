@@ -21,8 +21,8 @@
            log-gamma function
   */
 
-#ifndef ASLAM_CALIBRATION_LOGGAMMAFUNCTION_H
-#define ASLAM_CALIBRATION_LOGGAMMAFUNCTION_H
+#ifndef ASLAM_CALIBRATION_FUNCTIONS_LOGGAMMAFUNCTION_H
+#define ASLAM_CALIBRATION_FUNCTIONS_LOGGAMMAFUNCTION_H
 
 #include "aslam/calibration/functions/ContinuousFunction.h"
 #include "aslam/calibration/functions/LogFactorialFunction.h"
@@ -150,4 +150,4 @@ namespace aslam {
 
 #include "aslam/calibration/functions/LogGammaFunction.tpp"
 
-#endif // ASLAM_CALIBRATION_LOGGAMMAFUNCTION_H
+#endif // ASLAM_CALIBRATION_FUNCTIONS_LOGGAMMAFUNCTION_H

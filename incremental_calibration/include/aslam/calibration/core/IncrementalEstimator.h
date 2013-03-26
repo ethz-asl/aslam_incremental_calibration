@@ -16,22 +16,28 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file IncrementalCalibration.h
-    \brief This file defines the IncrementalCalibration class, which implements
-           the core algorithm for incremental calibration.
+/** \file IncrementalEstimator.h
+    \brief This file defines the IncrementalEstimator class, which implements
+           an incremental estimator for robotic calibration problems.
   */
 
-#ifndef ASLAM_CALIBRATION_CORE_INCREMENTAL_CALIBRATION_H
-#define ASLAM_CALIBRATION_CORE_INCREMENTAL_CALIBRATION_H
+#ifndef ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
+#define ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
+
+#include <vector>
+
+#include <boost/shared_ptr.hpp>
+
+#include <aslam/backend/ErrorTerm.hpp>
 
 namespace aslam {
   namespace calibration {
 
-    /** The class IncrementalCalibration implements the core algorithm for
-        incremental calibration.
-        \brief Incremental calibration
+    /** The class IncrementalEstimator implements an incremental estimator
+        for robotic calibration problems.
+        \brief Incremental estimator
       */
-    class IncrementalCalibration {
+    class IncrementalEstimator {
     public:
       /** \name Types definitions
         @{
@@ -43,19 +49,22 @@ namespace aslam {
         @{
         */
       /// Default constructor
-      IncrementalCalibration();
+      IncrementalEstimator();
       /// Copy constructor
-      IncrementalCalibration(const IncrementalCalibration& other);
+      IncrementalEstimator(const IncrementalEstimator& other);
       /// Assignment operator
-      IncrementalCalibration& operator = (const IncrementalCalibration& other);
+      IncrementalEstimator& operator = (const IncrementalEstimator& other);
       /// Destructor
-      virtual ~IncrementalCalibration();
+      virtual ~IncrementalEstimator();
       /** @}
         */
 
       /** \name Methods
         @{
         */
+      /// Add a measurement batch to the estimator
+      bool addMeasurementBatch(const std::vector<boost::shared_ptr<
+        aslam::backend::ErrorTerm> >& errorTermsNew);
       /** @}
         */
 
@@ -75,6 +84,8 @@ namespace aslam {
       /** \name Protected members
         @{
         */
+      /// Stored informative error terms
+      std::vector<boost::shared_ptr<aslam::backend::ErrorTerm> >_errorTermsInfo;
       /** @}
         */
 
@@ -83,4 +94,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_CORE_INCREMENTAL_CALIBRATION_H
+#endif // ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H

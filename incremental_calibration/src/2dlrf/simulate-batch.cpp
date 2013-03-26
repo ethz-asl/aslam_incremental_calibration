@@ -209,8 +209,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::cout << "Calibration before: " << dv_Theta->getValue().transpose()
-    << std::endl;
+  std::cout << "Calibration before: " << *dv_Theta << std::endl;
 
   aslam::backend::Optimizer2Options options;
   options.verbose = true;
@@ -228,8 +227,7 @@ int main(int argc, char** argv) {
   optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
     ->computeSigma(Sigma, 3);
 
-  std::cout << "Calibration after: " << dv_Theta->getValue().transpose()
-    << std::endl;
+  std::cout << "Calibration after: " << *dv_Theta << std::endl;
 
   std::cout << "Sigma: " << std::endl << Sigma << std::endl;
 
@@ -242,13 +240,13 @@ int main(int argc, char** argv) {
     x_odom_log << x_odom[i].transpose() << std::endl;
   std::ofstream x_est_log("x_est.txt");
   for (size_t i = 0; i < steps; ++i)
-    x_est_log << dv_x[i]->getValue().transpose() << std::endl;
+    x_est_log << *(dv_x[i]) << std::endl;
   std::ofstream l_log("l.txt");
   for (size_t i = 0; i < nl; ++i)
     l_log << x_l[i].transpose() << std::endl;
   std::ofstream l_est_log("l_est.txt");
   for (size_t i = 0; i < nl; ++i)
-    l_est_log << dv_x_l[i]->getValue().transpose() << std::endl;
+    l_est_log << *(dv_x_l[i]) << std::endl;
 
   // align landmarks
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> l =
