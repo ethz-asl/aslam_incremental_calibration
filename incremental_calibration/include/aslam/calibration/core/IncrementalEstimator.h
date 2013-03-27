@@ -28,9 +28,14 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <aslam/backend/ErrorTerm.hpp>
-
 namespace aslam {
+  namespace backend {
+
+    class DesignVariable;
+    class ErrorTerm;
+    class SparseQrLinearSystemSolver;
+
+  }
   namespace calibration {
 
     /** The class IncrementalEstimator implements an incremental estimator
@@ -42,18 +47,49 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
+      /// Design variables container
+      typedef std::vector<boost::shared_ptr<aslam::backend::DesignVariable> >
+        DVContainer;
+      /// Design variables container iterator
+      typedef DVContainer::iterator DVContainerIt;
+      /// Design variables const iterator
+      typedef DVContainer::const_iterator DVContainerConstIt;
+      /// Error terms container
+      typedef std::vector<boost::shared_ptr<aslam::backend::ErrorTerm> >
+        ETContainer;
+      /// Error terms container iterator
+      typedef ETContainer::iterator ETContainerIt;
+      /// Error terms const iterator
+      typedef ETContainer::const_iterator ETContainerConstIt;
+      /// Self type
+      typedef IncrementalEstimator Self;
+      /// Solver type
+      typedef aslam::backend::SparseQrLinearSystemSolver LinearSolver;
+      /// Options for the incremental estimator
+      struct Options {
+        /// Mutual information threshold
+        double _miTol;
+        /// QR treshold for rank-deficiency
+        double _qrTol;
+      };
       /** @}
         */
 
       /** \name Constructors/destructor
         @{
         */
-      /// Default constructor
-      IncrementalEstimator();
+      /// Constructs estimator with specific marginalized variables and options
+      IncrementalEstimator(const DVContainer& designVariablesMarg,
+        const DVContainer& designVariablesInv = DVContainer(),
+        const Options& options = _defaultOptions);
       /// Copy constructor
-      IncrementalEstimator(const IncrementalEstimator& other);
-      /// Assignment operator
-      IncrementalEstimator& operator = (const IncrementalEstimator& other);
+      IncrementalEstimator(const Self& other) = delete;
+      /// Copy assignment operator
+      IncrementalEstimator& operator = (const Self& other) = delete;
+      /// Move constructor
+      IncrementalEstimator(Self&& other) = delete;
+      /// Move assignment operator
+      IncrementalEstimator& operator = (Self&& other) = delete;
       /// Destructor
       virtual ~IncrementalEstimator();
       /** @}
@@ -63,14 +99,54 @@ namespace aslam {
         @{
         */
       /// Add a measurement batch to the estimator
-      bool addMeasurementBatch(const std::vector<boost::shared_ptr<
-        aslam::backend::ErrorTerm> >& errorTermsNew);
+      bool addMeasurementBatch(const ETContainer& errorTermsNew,
+        const DVContainer& designVariablesNew);
       /** @}
         */
 
       /** \name Accessors
         @{
         */
+      /// Returns informative error terms container
+      const ETContainer& getErrorTermsInfo() const;
+      /// Returns informative error terms container
+      ETContainer& getErrorTermsInfo();
+      /// Returns error terms begin iterator
+      ETContainerIt getETBegin();
+      /// Returns informative error terms cbegin iterator
+      ETContainerConstIt getETCBegin() const;
+      /// Returns informative error terms end iterator
+      ETContainerIt getETEnd();
+      /// Returns informative error terms cend iterator
+      ETContainerConstIt getETCEnd() const;
+      /// Returns marginalized design variables container
+      const DVContainer& getDesignVariablesMarg() const;
+      /// Returns marginalized design variables container
+      DVContainer& getDesignVariablesMarg();
+      /// Returns marginalized design variables begin iterator
+      DVContainerIt getDVMBegin();
+      /// Returns marginalized design variables cbegin iterator
+      DVContainerConstIt getDVMCBegin() const;
+      /// Returns marginalized design variables end iterator
+      DVContainerIt getDVMEnd();
+      /// Returns marginalized design variables cend iterator
+      DVContainerConstIt getDVMCEnd() const;
+      /// Returns informative design variables container
+      const DVContainer& getDesignVariablesInfo() const;
+      /// Returns informative design variables container
+      DVContainer& getDesignVariablesInfo();
+      /// Returns informative design variables begin iterator
+      DVContainerIt getDVIBegin();
+      /// Returns informative design variables cbegin iterator
+      DVContainerConstIt getDVICBegin() const;
+      /// Returns informative design variables end iterator
+      DVContainerIt getDVIEnd();
+      /// Returns informative design variables cend iterator
+      DVContainerConstIt getDVICEnd() const;
+      /// Returns the current options
+      const Options& getOptions() const;
+      /// Returns the current options
+      Options& getOptions();
       /** @}
         */
 
@@ -85,7 +161,19 @@ namespace aslam {
         @{
         */
       /// Stored informative error terms
-      std::vector<boost::shared_ptr<aslam::backend::ErrorTerm> >_errorTermsInfo;
+      ETContainer _errorTermsInfo;
+      /// Stored informative design variables
+      DVContainer _designVariablesInfo;
+      /// Stored marginalized design variables
+      DVContainer _designVariablesMarg;
+      /// Stored time-invariant design variables
+      DVContainer _designVariablesInv;
+      /// Previous sum log diag(R)
+      double _sumLogDiagROld;
+      /// Options
+      Options _options;
+      /// Default options
+      static const struct Options _defaultOptions;
       /** @}
         */
 

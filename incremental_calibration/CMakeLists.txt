@@ -69,6 +69,9 @@ target_link_libraries(2dlrf-simulate-batch ${PROJECT_NAME})
 rosbuild_add_executable(2dlrf-simulate-it src/2dlrf/simulate-it.cpp)
 target_link_libraries(2dlrf-simulate-it ${PROJECT_NAME})
 
+rosbuild_add_executable(2dlrf-simulate-it-new src/2dlrf/simulate-it-new.cpp)
+target_link_libraries(2dlrf-simulate-it-new ${PROJECT_NAME})
+
 rosbuild_add_executable(bsplineFromApplanix src/car/bsplineFromApplanix.cpp)
 target_link_libraries(bsplineFromApplanix ${PROJECT_NAME})
 
