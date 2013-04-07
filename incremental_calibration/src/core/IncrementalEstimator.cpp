@@ -34,7 +34,7 @@ namespace aslam {
 /******************************************************************************/
 
 const struct IncrementalEstimator::Options
-  IncrementalEstimator::_defaultOptions = {0.5, 0.02};
+  IncrementalEstimator::_defaultOptions = {0.5, 0.02, true, true};
 
 /******************************************************************************/
 /* Constructors and Destructor                                                */
@@ -46,6 +46,7 @@ const struct IncrementalEstimator::Options
         _designVariablesMarg(designVariablesMarg),
         _designVariablesInv(designVariablesInv),
         _sumLogDiagROld(0),
+        _mi(0),
         _options(options) {
     }
 
@@ -149,6 +150,10 @@ const struct IncrementalEstimator::Options
       return _options;
     }
 
+    double IncrementalEstimator::getMutualInformation() const {
+      return _mi;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -194,13 +199,13 @@ const struct IncrementalEstimator::Options
 
       // optimization options
       aslam::backend::Optimizer2Options options;
-      options.verbose = true;
+      options.verbose = _options._verbose;
       options.doLevenbergMarquardt = false;
       options.linearSolver = "sparse_qr";
 
       // linear solver options
       aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
-      linearSolverOptions.colNorm = true;
+      linearSolverOptions.colNorm = _options._colNorm;
       linearSolverOptions.qrTol = _options._qrTol;
 
       // create optimizer with given options
@@ -215,7 +220,7 @@ const struct IncrementalEstimator::Options
 
       // compute sum of log of the diagonal elements of R
       const double sumLogDiagR = optimizer.getSolver<LinearSolver>()
-        ->computeSumLogDiagR(3);
+        ->computeSumLogDiagR(dim);
 
       // batch is kept?
       bool keepBatch = false;
@@ -233,6 +238,7 @@ const struct IncrementalEstimator::Options
         if (mi > _options._miTol) {
           _sumLogDiagROld = sumLogDiagR;
           keepBatch = true;
+          _mi = mi;
         }
       }
 
@@ -251,6 +257,10 @@ const struct IncrementalEstimator::Options
       }
 
       return keepBatch;
+    }
+
+    Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {
+      return Eigen::MatrixXd::Zero(2, 2);
     }
 
   }
