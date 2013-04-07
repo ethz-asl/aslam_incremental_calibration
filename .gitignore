@@ -2,3 +2,10 @@ incremental_calibration/bin/
 incremental_calibration/build/
 incremental_calibration/lib/
 data
+*~
+incremental_calibration_python/bin/
+incremental_calibration_python/build/
+incremental_calibration_python/lib/
+*.pyc
+*.so
+*.dylib

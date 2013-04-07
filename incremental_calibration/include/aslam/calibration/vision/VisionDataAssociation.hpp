@@ -9,6 +9,7 @@
 #include <aslam/SurfFrameBuilder.hpp>
 #include <sm/eigen/traits.hpp>
 #include <aslam/DenseMatcher.hpp>
+#include <aslam/DescriptorTrackingAlgorithm.hpp>
 
 namespace aslam {
     namespace calibration {
@@ -25,7 +26,11 @@ namespace aslam {
             VisionDataAssociation(const sm::kinematics::Transformation & T_v_cl,
                                   boost::shared_ptr<camera_t> leftCamera,
                                   const sm::kinematics::Transformation & T_v_cr,
-                                  boost::shared_ptr<camera_t> rightCamera);
+                                  boost::shared_ptr<camera_t> rightCamera,
+                                  double descriptorDistanceThreshold,
+                                  double disparityTrackingThreshold,
+                                  double disparityKeyframeThreshold,
+                                  int numTracksThreshold);
                         
             virtual ~VisionDataAssociation();
             
@@ -34,15 +39,26 @@ namespace aslam {
                           const cv::Mat & image);
             
             
+            void reset();
             
         private:
-            MultiFrameId _nextId;
+            double computeDisparity( const boost::shared_ptr<MultiFrame> & F0,
+                                     const boost::shared_ptr<MultiFrame> & F1,
+                                     const KeypointIdentifierMatch & match);
+                                   
+
+            MultiFrameId _nextFrameId;
+            LandmarkId _nextLandmarkId;
+
+            boost::shared_ptr<MultiFrame> _previousFrame;
+
             boost::shared_ptr<synchronizer_t> _synchronizer;
             std::map< MultiFrameId, boost::shared_ptr<MultiFrame> > _frames;
             std::vector< KeypointIdentifierMatch > _matches;
-            std::map< LandmarkId, std::vector< KeypointIdentifier > > _observations;
-            sm::eigen::MapTraits< LandmarkId, Eigen::Vector4d > _landmarks;
             aslam::DenseMatcher _matcher;
+            aslam::DescriptorTrackingAlgorithm _tracking;
+            double _disparityKeyframeThreshold;
+            int _numTracksThreshold;
         };
 
     } // namespace calibration
