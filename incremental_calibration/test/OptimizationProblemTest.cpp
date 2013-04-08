@@ -99,4 +99,7 @@ TEST(AslamCalibrationTestSuite, testOptimizationProblem) {
   }
   ASSERT_EQ(problem.getGroupDim(0), 2);
   ASSERT_EQ(problem.getGroupDim(1), 7);
+  ASSERT_TRUE(problem.isGroupInProblem(0));
+  ASSERT_TRUE(problem.isGroupInProblem(1));
+  ASSERT_FALSE(problem.isGroupInProblem(2));
 }
