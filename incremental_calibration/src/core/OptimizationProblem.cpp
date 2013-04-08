@@ -102,6 +102,16 @@ namespace aslam {
           "design variable is not in the problem");
     }
 
+    size_t OptimizationProblem::getGroupDim(size_t groupId) const {
+      const DesignVariablesSP& designVariables =
+        getDesignVariablesGroup(groupId);
+      size_t dim = 0;
+      for (auto it = designVariables.cbegin(); it != designVariables.cend();
+          ++it)
+        dim += (*it)->minimalDimensions();
+      return dim;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
