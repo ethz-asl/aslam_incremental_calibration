@@ -28,6 +28,8 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <Eigen/Core>
+
 namespace aslam {
   namespace backend {
 
@@ -71,6 +73,10 @@ namespace aslam {
         double _miTol;
         /// QR treshold for rank-deficiency
         double _qrTol;
+        /// Verbosity of the optimizer
+        bool _verbose;
+        /// Perform column normalization
+        bool _colNorm;
       };
       /** @}
         */
@@ -101,6 +107,8 @@ namespace aslam {
       /// Add a measurement batch to the estimator
       bool addMeasurementBatch(const ETContainer& errorTermsNew,
         const DVContainer& designVariablesNew);
+      /// Returns the covariance matrix of the marginalized variables
+      Eigen::MatrixXd getMarginalizedCovariance() const;
       /** @}
         */
 
@@ -147,6 +155,8 @@ namespace aslam {
       const Options& getOptions() const;
       /// Returns the current options
       Options& getOptions();
+      /// Returns the last mutual information
+      double getMutualInformation() const;
       /** @}
         */
 
@@ -170,6 +180,8 @@ namespace aslam {
       DVContainer _designVariablesInv;
       /// Previous sum log diag(R)
       double _sumLogDiagROld;
+      /// Mutual information
+      double _mi;
       /// Options
       Options _options;
       /// Default options
