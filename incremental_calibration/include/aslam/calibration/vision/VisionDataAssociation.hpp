@@ -10,6 +10,7 @@
 #include <sm/eigen/traits.hpp>
 #include <aslam/DenseMatcher.hpp>
 #include <aslam/DescriptorTrackingAlgorithm.hpp>
+#include <sm/PropertyTree.hpp>
 
 namespace aslam {
     namespace calibration {
@@ -23,6 +24,8 @@ namespace aslam {
             typedef aslam::ImageSynchronizer<undistorter_t> synchronizer_t;
             typedef aslam::CameraSystem<undistorter_t::camera_system_definition_t> camera_system_t;
 
+            
+
             VisionDataAssociation(const sm::kinematics::Transformation & T_v_cl,
                                   boost::shared_ptr<camera_t> leftCamera,
                                   const sm::kinematics::Transformation & T_v_cr,
@@ -31,6 +34,8 @@ namespace aslam {
                                   double disparityTrackingThreshold,
                                   double disparityKeyframeThreshold,
                                   int numTracksThreshold);
+
+            VisionDataAssociation(const sm::PropertyTree & config);
                         
             virtual ~VisionDataAssociation();
             

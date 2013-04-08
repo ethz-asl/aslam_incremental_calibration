@@ -42,6 +42,16 @@ namespace aslam {
 
         }
 
+
+        VisionDataAssociation::VisionDataAssociation(const sm::PropertyTree & config) :
+            _tracking( sm::PropertyTree( config, "descriptorTracking" ) )
+        {
+            _synchronizer.reset( new synchronizer_t( sm::PropertyTree( config, "synchronizer" ) ) );
+            _nextFrameId = MultiFrameId(0);
+            _nextLandmarkId = LandmarkId(0);
+        }
+
+
        
                         
         VisionDataAssociation::~VisionDataAssociation()
