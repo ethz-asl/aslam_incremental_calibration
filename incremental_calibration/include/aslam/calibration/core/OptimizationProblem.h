@@ -26,6 +26,7 @@
 
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/shared_ptr.hpp>
@@ -53,20 +54,24 @@ namespace aslam {
         */
       /// Design variable type
       typedef aslam::backend::DesignVariable DesignVariable;
-      /// Design variable type (shared_ptr)
+      /// Design variable type (shared pointer)
       typedef boost::shared_ptr<DesignVariable> DesignVariableSP;
       /// Fast lookup container for design variables pointers
-      typedef std::unordered_set<const DesignVariable*> DesignVariablesP;
+      typedef std::unordered_map<const DesignVariable*, size_t>
+        DesignVariablesP;
       /// Error term type
       typedef aslam::backend::ErrorTerm ErrorTerm;
-      /// Error term type (shared_ptr)
+      /// Error term type (shared pointer)
       typedef boost::shared_ptr<ErrorTerm> ErrorTermSP;
       /// Fast lookup container for error terms pointers
       typedef std::unordered_set<const ErrorTerm*> ErrorTermsP;
-      /// Container for design variables (shared_ptr)
+      /// Container for design variables (shared pointer)
       typedef std::vector<DesignVariableSP> DesignVariablesSP;
-      /// Container for error terms (shared_ptr)
+      /// Container for error terms (shared pointer)
       typedef std::vector<ErrorTermSP> ErrorTermsSP;
+      /// Container for design variable groups
+      typedef std::unordered_map<size_t, DesignVariablesSP>
+        DesignVariableSPGroups;
       /// Self type
       typedef OptimizationProblem Self;
       /** @}
@@ -94,7 +99,8 @@ namespace aslam {
         @{
         */
       /// Inserts a design variable into the problem
-      void addDesignVariable(const DesignVariableSP& designVariable);
+      void addDesignVariable(const DesignVariableSP& designVariable,
+        size_t groupId = 0);
       /// Checks if a design variable is in the problem
       bool isDesignVariableInProblem(const DesignVariable* designVariable)
         const;
@@ -102,6 +108,11 @@ namespace aslam {
       void addErrorTerm(const ErrorTermSP& errorTerm);
       /// Checks if an error term is in the problem
       bool isErrorTermInProblem(const ErrorTerm* errorTerm) const;
+      /// Permutes the error terms
+      void permuteErrorTerms(const std::vector<size_t>& permutation);
+      /// Permutes the design variables in a group
+      void permuteDesignVariables(const std::vector<size_t>& permutation,
+        size_t groupId);
       /// Clears the optimization problem
       void clear();
       /** @}
@@ -110,10 +121,20 @@ namespace aslam {
       /** \name Accessors
         @{
         */
-      /// Returns the design variables
-      const DesignVariablesSP& getDesignVariables() const;
+      /// Returns the design variables groups
+      const DesignVariableSPGroups& getDesignVariablesGroups() const;
+      /// Returns the design variables associated with a group
+      const DesignVariablesSP& getDesignVariablesGroup(size_t groupId) const;
       /// Returns the error terms
       const ErrorTermsSP& getErrorTerms() const;
+      /// Returns the number of groups
+      size_t getNumGroups() const;
+      /// Sets the groups ordering
+      void setGroupsOrdering(const std::vector<size_t>& groupsOrdering);
+      /// Returns the groups ordering
+      const std::vector<size_t>& getGroupsOrdering() const;
+      /// Returns the group id of a design variable
+      size_t getGroupId(const DesignVariable* designVariable) const;
       /** @}
         */
 
@@ -137,6 +158,8 @@ namespace aslam {
       /// Returns error terms associated with a design variable
       virtual void getErrorsImplementation(const DesignVariable* dv,
         std::set<ErrorTerm*>& outErrorSet);
+      /// Returns the group id an index falls in
+      void getGroupId(size_t idx, size_t& groupId, size_t& idxGroup) const;
       /** @}
         */
 
@@ -147,10 +170,12 @@ namespace aslam {
       DesignVariablesP _designVariablesLookup;
       /// Lookup structure for error terms pointers
       ErrorTermsP _errorTermsLookup;
-      /// Storage for the design variables shared pointers
-      DesignVariablesSP _designVariables;
+      /// Storage for the design variables shared pointers in groups
+      DesignVariableSPGroups _designVariables;
       /// Storage for the error terms shared pointers
       ErrorTermsSP _errorTerms;
+      /// Groups ordering
+      std::vector<size_t> _groupsOrdering;
       /** @}
         */
 

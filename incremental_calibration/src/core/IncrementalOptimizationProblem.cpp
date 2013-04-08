@@ -37,9 +37,12 @@ namespace aslam {
     IncrementalOptimizationProblem::IncrementalOptimizationProblem(
         const DesignVariablesP& designVariables) :
         _designVariablesMarg(designVariables) {
+      size_t dim = 0;
       for (auto it = designVariables.cbegin(); it != designVariables.cend();
-          ++it)
+          ++it) {
         _designVariablesMargLookup.insert(*it);
+        dim += (*it)->minimalDimensions();
+      }
     }
 
     IncrementalOptimizationProblem::~IncrementalOptimizationProblem() {
@@ -137,6 +140,11 @@ namespace aslam {
     const IncrementalOptimizationProblem::DesignVariablesP&
         IncrementalOptimizationProblem::getMarginalizedDesignVariables() const {
       return _designVariablesMarg;
+    }
+
+    size_t IncrementalOptimizationProblem::
+        getMarginalizedDesignVariablesDim() const {
+      return _designVariablesMargDim;
     }
 
     const IncrementalOptimizationProblem::OptimizationProblemsSP&

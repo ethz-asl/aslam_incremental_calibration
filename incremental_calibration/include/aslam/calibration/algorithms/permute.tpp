@@ -28,18 +28,22 @@ namespace aslam {
 /******************************************************************************/
 
     template <typename T>
-    void permute(std::vector<T>& container, std::vector<size_t> permutation) {
+    void permute(std::vector<T>& container, const std::vector<size_t>&
+        permutation) {
       if (container.size() != permutation.size())
         throw OutOfBoundException<size_t>(permutation.size(),
           "permute(): permutation vector must match container size",
           __FILE__, __LINE__);
-      for (size_t i = 0; i < permutation.size(); ++i) {
+      for (size_t i = 0; i < container.size(); ++i) {
         if (permutation[i] >= container.size())
           throw OutOfBoundException<size_t>(permutation[i],
-            "permute(): permutation vector indices out of bound",
+            "permute(): permutation vector index out of bound",
             __FILE__, __LINE__);
-        std::swap<T>(container[i], container[permutation[i]]);
-        permutation[permutation[i]] = permutation[i];
+        size_t k = permutation[i];
+        while (k < i)
+          k = permutation[k];
+        if (k > i)
+          std::swap<T>(container[i], container[permutation[i]]);
       }
     }
 

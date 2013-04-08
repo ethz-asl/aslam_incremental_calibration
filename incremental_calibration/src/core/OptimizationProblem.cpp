@@ -23,6 +23,7 @@
 
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
+#include "aslam/calibration/algorithms/permute.h"
 
 namespace aslam {
   namespace calibration {
@@ -41,9 +42,19 @@ namespace aslam {
 /* Accessors                                                                  */
 /******************************************************************************/
 
-    const OptimizationProblem::DesignVariablesSP&
-        OptimizationProblem::getDesignVariables() const {
+    const OptimizationProblem::DesignVariableSPGroups&
+        OptimizationProblem::getDesignVariablesGroups() const {
       return _designVariables;
+    }
+
+    const OptimizationProblem::DesignVariablesSP&
+        OptimizationProblem::getDesignVariablesGroup(size_t groupId) const {
+      if (_designVariables.count(groupId))
+        return _designVariables.at(groupId);
+      else
+        throw OutOfBoundException<size_t>(groupId,
+          "OptimizationProblem::getDesignVariablesGroup(): "
+          "unknown group", __FILE__, __LINE__);
     }
 
     const OptimizationProblem::ErrorTermsSP&
@@ -51,18 +62,63 @@ namespace aslam {
       return _errorTerms;
     }
 
+    size_t OptimizationProblem::getNumGroups() const {
+      return _groupsOrdering.size();
+    }
+
+    void OptimizationProblem::
+        setGroupsOrdering(const std::vector<size_t>& groupsOrdering) {
+      if (groupsOrdering.size() != _groupsOrdering.size())
+        throw OutOfBoundException<size_t>(groupsOrdering.size(),
+          "OptimizationProblem::setGroupsOrdering(): "
+          "wrong groups ordering size", __FILE__, __LINE__);
+      std::unordered_set<size_t> groupsLookup;
+      for (auto it = groupsOrdering.cbegin(); it != groupsOrdering.cend();
+          ++it) {
+        if (!_designVariables.count(*it))
+          throw OutOfBoundException<size_t>(*it,
+            "OptimizationProblem::setGroupsOrdering(): unknown group",
+            __FILE__, __LINE__);
+        if (groupsLookup.count(*it))
+          throw OutOfBoundException<size_t>(*it,
+            "OptimizationProblem::setGroupsOrdering(): duplicate group",
+            __FILE__, __LINE__);
+        groupsLookup.insert(*it);
+      }
+      _groupsOrdering = groupsOrdering;
+    }
+
+    const std::vector<size_t>& OptimizationProblem::getGroupsOrdering() const {
+      return _groupsOrdering;
+    }
+
+    size_t OptimizationProblem::
+        getGroupId(const DesignVariable* designVariable) const {
+      if (isDesignVariableInProblem(designVariable))
+        return _designVariablesLookup.at(designVariable);
+      else
+        throw InvalidOperationException(
+          "OptimizationProblem::getGroupId(): "
+          "design variable is not in the problem");
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
 
     void OptimizationProblem::
-        addDesignVariable(const DesignVariableSP& designVariable) {
+        addDesignVariable(const DesignVariableSP& designVariable,
+        size_t groupId) {
       if (isDesignVariableInProblem(designVariable.get()))
         throw InvalidOperationException(
           "OptimizationProblem::addDesignVariable(): "
           "design variable already included");
-      _designVariablesLookup.insert(designVariable.get());
-      _designVariables.push_back(designVariable);
+      _designVariablesLookup.insert(std::pair<const DesignVariable*, size_t>(
+        designVariable.get(), groupId));
+      if (!_designVariables.count(groupId)) {
+        _groupsOrdering.push_back(groupId);
+      }
+      _designVariables[groupId].push_back(designVariable);
     }
 
     bool OptimizationProblem::
@@ -96,6 +152,7 @@ namespace aslam {
       _errorTermsLookup.clear();
       _designVariables.clear();
       _errorTerms.clear();
+      _groupsOrdering.clear();
     }
 
     size_t OptimizationProblem::numDesignVariablesImplementation() const {
@@ -104,22 +161,16 @@ namespace aslam {
 
     OptimizationProblem::DesignVariable* OptimizationProblem::
         designVariableImplementation(size_t idx) {
-      if (idx >= _designVariables.size())
-        throw OutOfBoundException<size_t>(idx,
-          "OptimizationProblem::designVariableImplementation(): "
-          "index out of bounds", __FILE__, __LINE__);
-      else
-        return _designVariables[idx].get();
+      size_t groupId, idxGroup;
+      getGroupId(idx, groupId, idxGroup);
+      return _designVariables.at(groupId)[idxGroup].get();
     }
 
     const OptimizationProblem::DesignVariable* OptimizationProblem::
         designVariableImplementation(size_t idx) const {
-      if (idx >= _designVariables.size())
-        throw OutOfBoundException<size_t>(idx,
-          "OptimizationProblem::designVariableImplementation(): "
-          "index out of bounds", __FILE__, __LINE__);
-      else
-        return _designVariables[idx].get();
+      size_t groupId, idxGroup;
+      getGroupId(idx, groupId, idxGroup);
+      return _designVariables.at(groupId)[idxGroup].get();
     }
 
     size_t OptimizationProblem::OptimizationProblem::
@@ -150,7 +201,46 @@ namespace aslam {
     void OptimizationProblem::getErrorsImplementation(const DesignVariable* dv,
         std::set<ErrorTerm*>& outErrorSet) {
       throw InvalidOperationException(
-        "OptimizationProblem::getErrorsImplementation(): not implemented");
+        "OptimizationProblem::getErrorsImplementation(): "
+        "not implemented (deprecated)");
+    }
+
+    void OptimizationProblem::permuteErrorTerms(const std::vector<size_t>&
+        permutation) {
+      permute(_errorTerms, permutation);
+    }
+
+    void OptimizationProblem::permuteDesignVariables(const std::vector<size_t>&
+        permutation, size_t groupId) {
+      if (_designVariables.count(groupId))
+        permute(_designVariables.at(groupId), permutation);
+      else
+        throw OutOfBoundException<size_t>(groupId,
+          "OptimizationProblem::permuteDesignVariables(): "
+          "unknown group", __FILE__, __LINE__);
+    }
+
+    void OptimizationProblem::getGroupId(size_t idx, size_t& groupId,
+        size_t& idxGroup) const {
+      if (idx >= _designVariablesLookup.size())
+        throw OutOfBoundException<size_t>(idx,
+          "OptimizationProblem::getGroupId(): "
+          "index out of bounds", __FILE__, __LINE__);
+      size_t idxRunning = 0;
+      size_t groupIdRunning = 0;
+      for (auto it = _groupsOrdering.cbegin(); it != _groupsOrdering.cend();
+          ++it) {
+        const DesignVariablesSP& designVariables = _designVariables.at(*it);
+        const size_t groupSize = designVariables.size();
+        if ((idxRunning + groupSize) > idx) {
+          groupIdRunning = *it;
+          break;
+        }
+        else
+          idxRunning += groupSize;
+      }
+      groupId = groupIdRunning;
+      idxGroup = idx - idxRunning;
     }
 
   }

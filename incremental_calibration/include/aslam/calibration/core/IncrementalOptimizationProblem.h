@@ -87,7 +87,7 @@ namespace aslam {
       /** \name Constructors/destructor
         @{
         */
-      /// Constructor with the marignalized variables
+      /// Constructor with the marginalized variables
       IncrementalOptimizationProblem(const DesignVariablesP& designVariables);
       /// Copy constructor
       IncrementalOptimizationProblem(const Self& other) = delete;
@@ -154,6 +154,8 @@ namespace aslam {
       DesignVariable* getMarginalizedDesignVariable(size_t idx);
       /// Returns the marginalized design variables
       const DesignVariablesP& getMarginalizedDesignVariables() const;
+      /// Returns the dimension of the marginalized design variables
+      size_t getMarginalizedDesignVariablesDim() const;
       /// Returns the design variables
       const DesignVariablesP& getDesignVariables() const;
       /// Returns the error terms
@@ -195,6 +197,8 @@ namespace aslam {
       DesignVariablesP _designVariablesMarg;
       /// Fast lookup of marginalized design variables pointers
       DesignVariablesPLookup _designVariablesMargLookup;
+      /// Marginalized design variables dimension
+      size_t _designVariablesMargDim;
       /// Design variables pointers
       DesignVariablesP _designVariables;
       /// Error terms pointers

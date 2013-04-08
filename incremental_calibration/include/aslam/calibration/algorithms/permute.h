@@ -29,7 +29,7 @@ namespace aslam {
   namespace calibration {
     /// Permutes an stl vector
     template <typename T> void permute(std::vector<T>& container,
-      std::vector<size_t> permutation);
+      const std::vector<size_t>& permutation);
 
   }
 }
