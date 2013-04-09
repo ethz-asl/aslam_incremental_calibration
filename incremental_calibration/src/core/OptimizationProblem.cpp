@@ -49,7 +49,7 @@ namespace aslam {
 
     const OptimizationProblem::DesignVariablesSP&
         OptimizationProblem::getDesignVariablesGroup(size_t groupId) const {
-      if (_designVariables.count(groupId))
+      if (isGroupInProblem(groupId))
         return _designVariables.at(groupId);
       else
         throw OutOfBoundException<size_t>(groupId,
@@ -75,7 +75,7 @@ namespace aslam {
       std::unordered_set<size_t> groupsLookup;
       for (auto it = groupsOrdering.cbegin(); it != groupsOrdering.cend();
           ++it) {
-        if (!_designVariables.count(*it))
+        if (!isGroupInProblem(*it))
           throw OutOfBoundException<size_t>(*it,
             "OptimizationProblem::setGroupsOrdering(): unknown group",
             __FILE__, __LINE__);
@@ -100,6 +100,20 @@ namespace aslam {
         throw InvalidOperationException(
           "OptimizationProblem::getGroupId(): "
           "design variable is not in the problem");
+    }
+
+    size_t OptimizationProblem::getGroupDim(size_t groupId) const {
+      const DesignVariablesSP& designVariables =
+        getDesignVariablesGroup(groupId);
+      size_t dim = 0;
+      for (auto it = designVariables.cbegin(); it != designVariables.cend();
+          ++it)
+        dim += (*it)->minimalDimensions();
+      return dim;
+    }
+
+    bool OptimizationProblem::isGroupInProblem(size_t groupId) const {
+      return _designVariables.count(groupId);
     }
 
 /******************************************************************************/
@@ -212,7 +226,7 @@ namespace aslam {
 
     void OptimizationProblem::permuteDesignVariables(const std::vector<size_t>&
         permutation, size_t groupId) {
-      if (_designVariables.count(groupId))
+      if (isGroupInProblem(groupId))
         permute(_designVariables.at(groupId), permutation);
       else
         throw OutOfBoundException<size_t>(groupId,

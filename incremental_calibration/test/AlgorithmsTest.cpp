@@ -16,36 +16,36 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/exceptions/OutOfBoundException.h"
+/** \file AlgorithmsTest.cpp
+    \brief This file tests the algorithms.
+  */
 
-#include <utility>
+#include <vector>
 
-namespace aslam {
-  namespace calibration {
+#include <gtest/gtest.h>
 
-/******************************************************************************/
-/* Methods                                                                    */
-/******************************************************************************/
+#include "aslam/calibration/algorithms/permute.h"
+#include "aslam/calibration/statistics/UniformDistribution.h"
 
-    template <typename T>
-    void permute(std::vector<T>& container, const std::vector<size_t>&
-        permutation) {
-      if (container.size() != permutation.size())
-        throw OutOfBoundException<size_t>(permutation.size(),
-          "permute(): permutation vector must match container size",
-          __FILE__, __LINE__);
-      for (size_t i = 0; i < container.size(); ++i) {
-        if (permutation[i] >= container.size())
-          throw OutOfBoundException<size_t>(permutation[i],
-            "permute(): permutation vector index out of bound",
-            __FILE__, __LINE__);
-        size_t k = permutation[i];
-        while (k < i)
-          k = permutation[k];
-        if (k > i)
-          std::swap<T>(container[i], container[k]);
-      }
-    }
+using namespace aslam::calibration;
 
+TEST(AslamCalibrationTestSuite, testAlgorithms) {
+  UniformDistribution<double> dist(0, 100);
+  const std::vector<double> input = {dist.getSample(), dist.getSample(),
+    dist.getSample(), dist.getSample(), dist.getSample(), dist.getSample()};
+  const std::vector<size_t> p = {1, 3, 0, 2, 5, 4};
+  std::vector<double> pinput = input;
+  permute(pinput, p);
+  ASSERT_EQ(pinput, std::vector<double>({input[p[0]], input[p[1]], input[p[2]],
+    input[p[3]], input[p[4]], input[p[5]]}));
+  try {
+    permute(pinput, std::vector<size_t>({1, 3, 0}));
+  }
+  catch (OutOfBoundException<size_t>& e) {
+  }
+  try {
+    permute(pinput, std::vector<size_t>({10, 3, 0, 2, 5, 4}));
+  }
+  catch (OutOfBoundException<size_t>& e) {
   }
 }

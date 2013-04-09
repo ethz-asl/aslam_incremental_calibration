@@ -135,6 +135,10 @@ namespace aslam {
       const std::vector<size_t>& getGroupsOrdering() const;
       /// Returns the group id of a design variable
       size_t getGroupId(const DesignVariable* designVariable) const;
+      /// Returns the dimension of a group
+      size_t getGroupDim(size_t groupId) const;
+      /// Checks if a group is in the problem
+      bool isGroupInProblem(size_t groupId) const;
       /** @}
         */
 
