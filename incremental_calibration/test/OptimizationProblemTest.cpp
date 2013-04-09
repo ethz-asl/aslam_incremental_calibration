@@ -24,6 +24,8 @@
 
 #include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/data-structures/VectorDesignVariable.h"
+#include "aslam/calibration/exceptions/OutOfBoundException.h"
+#include "aslam/calibration/exceptions/InvalidOperationException.h"
 
 using namespace aslam::calibration;
 
@@ -40,63 +42,33 @@ TEST(AslamCalibrationTestSuite, testOptimizationProblem) {
   ASSERT_TRUE(problem.isDesignVariableInProblem(dv2.get()));
   ASSERT_TRUE(problem.isDesignVariableInProblem(dv3.get()));
   ASSERT_FALSE(problem.isDesignVariableInProblem(dv4.get()));
-  try {
-    problem.addDesignVariable(dv1);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(problem.addDesignVariable(dv1), InvalidOperationException);
   ASSERT_EQ(problem.getNumGroups(), 2);
   ASSERT_EQ(problem.getDesignVariablesGroup(1),
     OptimizationProblem::DesignVariablesSP({dv2, dv3}));
   ASSERT_EQ(problem.getDesignVariablesGroup(0),
     OptimizationProblem::DesignVariablesSP({dv1}));
-  try {
-    problem.getDesignVariablesGroup(2);
-  }
-  catch (...) {
-  }
-  problem.setGroupsOrdering(std::vector<size_t>({1, 0}));
+  ASSERT_THROW(problem.getDesignVariablesGroup(2), OutOfBoundException<size_t>);
+  problem.setGroupsOrdering({1, 0});
   ASSERT_EQ(problem.getGroupsOrdering(), std::vector<size_t>({1, 0}));
-  try {
-    problem.setGroupsOrdering(std::vector<size_t>({2, 0}));
-  }
-  catch (...) {
-  }
-  try {
-    problem.setGroupsOrdering(std::vector<size_t>({2, 0, 3}));
-  }
-  catch (...) {
-  }
-  try {
-    problem.setGroupsOrdering(std::vector<size_t>({0, 0}));
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(problem.setGroupsOrdering({2, 0}), OutOfBoundException<size_t>);
+  ASSERT_THROW(problem.setGroupsOrdering({2, 0, 3}),
+    OutOfBoundException<size_t>);
+  ASSERT_THROW(problem.setGroupsOrdering({0, 0}), OutOfBoundException<size_t>);
   ASSERT_EQ(problem.getGroupId(dv1.get()), 0);
   ASSERT_EQ(problem.getGroupId(dv2.get()), 1);
   ASSERT_EQ(problem.getGroupId(dv3.get()), 1);
-  try {
-    problem.getGroupId(dv4.get());
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(problem.getGroupId(dv4.get()), InvalidOperationException);
   ASSERT_EQ(problem.numDesignVariables(), 3);
   ASSERT_EQ(problem.designVariable(0), dv2.get());
   ASSERT_EQ(problem.designVariable(1), dv3.get());
   ASSERT_EQ(problem.designVariable(2), dv1.get());
-  try {
-    problem.designVariable(3);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(problem.designVariable(3), OutOfBoundException<size_t>);
   ASSERT_EQ(problem.numErrorTerms(), 0);
-  problem.permuteDesignVariables(std::vector<size_t>({1, 0}), 1);
+  problem.permuteDesignVariables({1, 0}, 1);
   ASSERT_EQ(problem.designVariable(0), dv3.get());
-  try {
-    problem.permuteDesignVariables(std::vector<size_t>({1, 0}), 2);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(problem.permuteDesignVariables({1, 0}, 2),
+    OutOfBoundException<size_t>);
   ASSERT_EQ(problem.getGroupDim(0), 2);
   ASSERT_EQ(problem.getGroupDim(1), 7);
   ASSERT_TRUE(problem.isGroupInProblem(0));

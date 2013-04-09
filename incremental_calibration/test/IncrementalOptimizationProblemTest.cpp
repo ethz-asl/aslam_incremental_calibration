@@ -27,6 +27,8 @@
 #include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 #include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/data-structures/VectorDesignVariable.h"
+#include "aslam/calibration/exceptions/OutOfBoundException.h"
+#include "aslam/calibration/exceptions/InvalidOperationException.h"
 
 using namespace aslam::calibration;
 
@@ -58,11 +60,8 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   ASSERT_EQ(incProblem.getOptimizationProblem(0), problem1.get());
   ASSERT_EQ(incProblem.getOptimizationProblem(1), problem2.get());
   ASSERT_EQ(incProblem.getOptimizationProblem(2), problem3.get());
-  try {
-    incProblem.getOptimizationProblem(3);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.getOptimizationProblem(3),
+    OutOfBoundException<size_t>);
   const IncrementalOptimizationProblem::OptimizationProblemsSP& problems =
     incProblem.getOptimizationProblems();
   ASSERT_EQ(problems.size(), 3);
@@ -82,11 +81,8 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   const IncrementalOptimizationProblem::DesignVariablesP& dvs1 =
     incProblem.getDesignVariablesGroup(1);
   ASSERT_EQ(dvs1.size(), 1);
-  try {
-    incProblem.getDesignVariablesGroup(2);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.getDesignVariablesGroup(2),
+    OutOfBoundException<size_t>);
   const IncrementalOptimizationProblem::ErrorTermsP& et =
     incProblem.getErrorTerms();
   ASSERT_EQ(et.size(), 0);
@@ -97,18 +93,10 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   ASSERT_EQ(incProblem.getGroupId(dv4.get()), 0);
   ASSERT_EQ(incProblem.getGroupId(dv5.get()), 0);
   ASSERT_EQ(incProblem.getGroupId(dv6.get()), 0);
-  try {
-    incProblem.getGroupId(dv7.get());
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.getGroupId(dv7.get()), InvalidOperationException);
   ASSERT_EQ(incProblem.getGroupDim(0), 16);
   ASSERT_EQ(incProblem.getGroupDim(1), 4);
-  try {
-    incProblem.getGroupDim(2);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.getGroupDim(2), OutOfBoundException<size_t>);
   ASSERT_TRUE(incProblem.isGroupInProblem(0));
   ASSERT_TRUE(incProblem.isGroupInProblem(1));
   ASSERT_FALSE(incProblem.isGroupInProblem(2));
@@ -120,35 +108,18 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   ASSERT_EQ(incProblem.designVariable(3), dv5.get());
   ASSERT_EQ(incProblem.designVariable(4), dv6.get());
   ASSERT_EQ(incProblem.designVariable(5), dv3.get());
-  try {
-    incProblem.designVariable(7);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.designVariable(7), OutOfBoundException<size_t>);
   incProblem.setGroupsOrdering({1, 0});
   ASSERT_EQ(incProblem.getGroupsOrdering(), std::vector<size_t>({1, 0}));
   ASSERT_EQ(incProblem.designVariable(0), dv3.get());
-  try {
-    incProblem.setGroupsOrdering({1, 0, 2});
-  }
-  catch (...) {
-  }
-  try {
-    incProblem.setGroupsOrdering({1, 2});
-  }
-  catch (...) {
-  }
-  try {
-    incProblem.setGroupsOrdering({0, 0});
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.setGroupsOrdering({1, 0, 2}),
+    OutOfBoundException<size_t>);
+  ASSERT_THROW(incProblem.setGroupsOrdering({1, 2}),
+    OutOfBoundException<size_t>);
+  ASSERT_THROW(incProblem.setGroupsOrdering({0, 0}),
+    OutOfBoundException<size_t>);
   ASSERT_EQ(incProblem.numErrorTerms(), 0);
-  try {
-    incProblem.errorTerm(2);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.errorTerm(2), OutOfBoundException<size_t>);
   incProblem.permuteDesignVariables({1, 0, 2, 3, 4}, 0);
   ASSERT_EQ(incProblem.designVariable(1), dv2.get());
   incProblem.remove(2);
@@ -159,9 +130,5 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   const IncrementalOptimizationProblem::DesignVariablesP& dvs0update =
     incProblem.getDesignVariablesGroup(0);
   ASSERT_EQ(dvs0update.size(), 4);
-  try {
-    incProblem.remove(4);
-  }
-  catch (...) {
-  }
+  ASSERT_THROW(incProblem.remove(4), OutOfBoundException<size_t>);
 }
