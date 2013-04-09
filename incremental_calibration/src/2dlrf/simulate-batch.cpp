@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
   }
 
   // set the ordering of the problem
-  problem->setGroupsOrdering(std::vector<size_t>({0, 1, 2}));
+  problem->setGroupsOrdering({0, 1, 2});
 
   // add motion and observation error terms
   for (size_t i = 1; i < steps; ++i) {

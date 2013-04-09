@@ -27,7 +27,6 @@
 #include <set>
 #include <vector>
 #include <unordered_map>
-#include <unordered_set>
 
 #include <boost/shared_ptr.hpp>
 
@@ -42,8 +41,12 @@ namespace aslam {
   }
   namespace calibration {
 
+    class OptimizationProblem;
+
     /** The class IncrementalOptimizationProblem implements a container for
         optimization problems.
+        TODO: * error terms lookup? for isErrorTermInProblem()
+              * optimization problems lookup?
         \brief Incremental optimization problem
       */
     class IncrementalOptimizationProblem :
@@ -52,8 +55,6 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
-      /// Optimization problem type
-      typedef aslam::backend::OptimizationProblemBase OptimizationProblem;
       /// Optimization problem type (shared_ptr)
       typedef boost::shared_ptr<OptimizationProblem> OptimizationProblemSP;
       /// Optimization problem container (shared_ptr)
@@ -64,17 +65,14 @@ namespace aslam {
       typedef OptimizationProblemsSP::const_iterator OptimizationProblemsSPCIt;
       /// Design variable type
       typedef aslam::backend::DesignVariable DesignVariable;
-      /// Design variable (pointer) to count container
-      typedef std::unordered_map<const DesignVariable*, size_t>
-        DesignVariablesPCount;
-      /// Design variable (pointer) lookup
-      typedef std::unordered_set<const DesignVariable*> DesignVariablesPLookup;
-      /// Design variable container (pointer)
+      /// Design variable (pointer) to count, group ID container
+      typedef std::unordered_map<const DesignVariable*,
+        std::pair<size_t, size_t> > DesignVariablesPCountId;
+      /// Container for design variables (pointer)
       typedef std::vector<const DesignVariable*> DesignVariablesP;
-      /// Design variable container (pointer) iterator
-      typedef DesignVariablesP::iterator DesignVariablesPIt;
-      /// Design variable container (pointer) constant iterator
-      typedef DesignVariablesP::const_iterator DesignVariablesPCIt;
+      /// Container for design variable groups
+      typedef std::unordered_map<size_t, DesignVariablesP>
+        DesignVariablePGroups;
       /// Error term type
       typedef aslam::backend::ErrorTerm ErrorTerm;
       /// Error term container (pointer)
@@ -87,8 +85,8 @@ namespace aslam {
       /** \name Constructors/destructor
         @{
         */
-      /// Constructor with the marginalized variables
-      IncrementalOptimizationProblem(const DesignVariablesP& designVariables);
+      /// Default constructor
+      IncrementalOptimizationProblem();
       /// Copy constructor
       IncrementalOptimizationProblem(const Self& other) = delete;
       /// Copy assignment operator
@@ -111,15 +109,13 @@ namespace aslam {
       void remove(const OptimizationProblemsSPIt& problemIt);
       /// Remove an optimization problem
       void remove(size_t idx);
+      /// Permutes the design variables in a group
+      void permuteDesignVariables(const std::vector<size_t>& permutation,
+        size_t groupId);
+      /// Permutes the error terms
+      void permuteErrorTerms(const std::vector<size_t>& permutation);
       /// Clears the content of the problem
       void clear();
-      /// Apply a permutation to the marginalized design variables
-      void permuteMarginalizedDesignVariables(const std::vector<size_t>&
-        permutation);
-      /// Apply a permutation to the design variables
-      void permuteDesignVariables(const std::vector<size_t>& permutation);
-      /// Apply a permutation to the error terms
-      void permuteErrorTerms(const std::vector<size_t>& permutation);
       /** @}
         */
 
@@ -140,26 +136,29 @@ namespace aslam {
       OptimizationProblem* getOptimizationProblem(size_t idx);
       /// Returns the optimization problems
       const OptimizationProblemsSP& getOptimizationProblems() const;
-      /// Returns the number of marginalized design variables
-      size_t getNumMarginalizedDesignVariables() const;
-      /// Returns a marginalized design variable from an iterator
-      const DesignVariable* getMarginalizedDesignVariable(
-        const DesignVariablesPCIt dvIt) const;
-      /// Returns a marginalized design variable from an iterator
-      DesignVariable* getMarginalizedDesignVariable(const DesignVariablesPIt
-        dvIt);
-      /// Returns a marginalized design variable from an index
-      const DesignVariable* getMarginalizedDesignVariable(size_t idx) const;
-      /// Returns a marginalized design variable from an index
-      DesignVariable* getMarginalizedDesignVariable(size_t idx);
-      /// Returns the marginalized design variables
-      const DesignVariablesP& getMarginalizedDesignVariables() const;
-      /// Returns the dimension of the marginalized design variables
-      size_t getMarginalizedDesignVariablesDim() const;
-      /// Returns the design variables
-      const DesignVariablesP& getDesignVariables() const;
+      /// Checks if a design variable is in the problem
+      bool isDesignVariableInProblem(const DesignVariable* designVariable)
+        const;
+      /// Checks if an error term is in the problem
+      bool isErrorTermInProblem(const ErrorTerm* errorTerm) const;
+      /// Returns the design variables groups
+      const DesignVariablePGroups& getDesignVariablesGroups() const;
+      /// Returns the design variables associated with a group
+      const DesignVariablesP& getDesignVariablesGroup(size_t groupId) const;
       /// Returns the error terms
       const ErrorTermsP& getErrorTerms() const;
+      /// Returns the number of groups
+      size_t getNumGroups() const;
+      /// Sets the groups ordering
+      void setGroupsOrdering(const std::vector<size_t>& groupsOrdering);
+      /// Returns the groups ordering
+      const std::vector<size_t>& getGroupsOrdering() const;
+      /// Returns the group id of a design variable
+      size_t getGroupId(const DesignVariable* designVariable) const;
+      /// Returns the dimension of a group
+      size_t getGroupDim(size_t groupId) const;
+      /// Checks if a group is in the problem
+      bool isGroupInProblem(size_t groupId) const;
       /** @}
         */
 
@@ -183,6 +182,8 @@ namespace aslam {
       /// Returns error terms associated with a design variable
       virtual void getErrorsImplementation(const DesignVariable* dv,
         std::set<ErrorTerm*>& outErrorSet);
+      /// Returns the group id an index falls in
+      void getGroupId(size_t idx, size_t& groupId, size_t& idxGroup) const;
       /** @}
         */
 
@@ -191,16 +192,12 @@ namespace aslam {
         */
       /// Optimization problems shared pointers
       OptimizationProblemsSP _optimizationProblems;
-      /// Design variable pointers counts
-      DesignVariablesPCount _designVariablesCounts;
-      /// Marginalized design variables pointers
-      DesignVariablesP _designVariablesMarg;
-      /// Fast lookup of marginalized design variables pointers
-      DesignVariablesPLookup _designVariablesMargLookup;
-      /// Marginalized design variables dimension
-      size_t _designVariablesMargDim;
-      /// Design variables pointers
-      DesignVariablesP _designVariables;
+      /// Design variable pointers counts and group ID
+      DesignVariablesPCountId _designVariablesCounts;
+      /// Storage for the design variables pointers in groups
+      DesignVariablePGroups _designVariables;
+      /// Groups ordering
+      std::vector<size_t> _groupsOrdering;
       /// Error terms pointers
       ErrorTermsP _errorTerms;
       /** @}

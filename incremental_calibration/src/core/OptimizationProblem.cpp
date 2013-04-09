@@ -127,11 +127,10 @@ namespace aslam {
         throw InvalidOperationException(
           "OptimizationProblem::addDesignVariable(): "
           "design variable already included");
-      _designVariablesLookup.insert(std::pair<const DesignVariable*, size_t>(
-        designVariable.get(), groupId));
-      if (!_designVariables.count(groupId)) {
+      _designVariablesLookup.insert(std::make_pair(designVariable.get(),
+        groupId));
+      if (!isGroupInProblem(groupId))
         _groupsOrdering.push_back(groupId);
-      }
       _designVariables[groupId].push_back(designVariable);
     }
 

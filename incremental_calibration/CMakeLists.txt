@@ -51,6 +51,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/vision/VisionDataAssociation.cpp
   src/core/IncrementalEstimator.cpp
   src/core/OptimizationProblem.cpp
+  src/core/IncrementalOptimizationProblem.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${gsl_LIBRARIES})
 
@@ -61,6 +62,9 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/ErrorTermObservationTest.cpp
   test/ErrorTermPoseTest.cpp
   test/ErrorTermOdometryTest.cpp
+  test/AlgorithmsTest.cpp
+  test/OptimizationProblemTest.cpp
+  test/IncrementalOptimizationProblemTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
