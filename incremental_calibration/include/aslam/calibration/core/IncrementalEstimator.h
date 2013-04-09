@@ -24,8 +24,6 @@
 #ifndef ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 #define ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 
-#include <vector>
-
 #include <boost/shared_ptr.hpp>
 
 #include <Eigen/Core>
@@ -33,12 +31,13 @@
 namespace aslam {
   namespace backend {
 
-    class DesignVariable;
-    class ErrorTerm;
     class SparseQrLinearSystemSolver;
 
   }
   namespace calibration {
+
+    class OptimizationProblem;
+    class IncrementalOptimizationProblem;
 
     /** The class IncrementalEstimator implements an incremental estimator
         for robotic calibration problems.
@@ -49,20 +48,11 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
-      /// Design variables container
-      typedef std::vector<boost::shared_ptr<aslam::backend::DesignVariable> >
-        DVContainer;
-      /// Design variables container iterator
-      typedef DVContainer::iterator DVContainerIt;
-      /// Design variables const iterator
-      typedef DVContainer::const_iterator DVContainerConstIt;
-      /// Error terms container
-      typedef std::vector<boost::shared_ptr<aslam::backend::ErrorTerm> >
-        ETContainer;
-      /// Error terms container iterator
-      typedef ETContainer::iterator ETContainerIt;
-      /// Error terms const iterator
-      typedef ETContainer::const_iterator ETContainerConstIt;
+      /// Optimization problem type (shared pointer)
+      typedef boost::shared_ptr<OptimizationProblem> Batch;
+      /// Incremental optimization problem (shared pointer)
+      typedef boost::shared_ptr<IncrementalOptimizationProblem>
+        IncrementalOptimizationProblemSP;
       /// Self type
       typedef IncrementalEstimator Self;
       /// Solver type
@@ -84,15 +74,9 @@ namespace aslam {
       /** \name Constructors/destructor
         @{
         */
-      /// Constructs estimator with specific marginalized variables and options
-      IncrementalEstimator(const DVContainer& designVariablesMarg,
-        const DVContainer& designVariablesInv = DVContainer(),
+      /// Constructs estimator with group to marginalize and options
+      IncrementalEstimator(size_t groupId,
         const Options& options = _defaultOptions);
-
-      /// Constructs estimator with specific marginalized variables and options
-      IncrementalEstimator(const DVContainer& designVariablesMarg,
-                           const Options& options);
-
       /// Copy constructor
       IncrementalEstimator(const Self& other) = delete;
       /// Copy assignment operator
@@ -110,8 +94,9 @@ namespace aslam {
         @{
         */
       /// Add a measurement batch to the estimator
-      bool addMeasurementBatch(const ETContainer& errorTermsNew,
-        const DVContainer& designVariablesNew);
+      void addBatch(const Batch& batch, bool force = false);
+      /// Remove a measurement batch from the estimator
+      void removeBatch(size_t idx);
       /// Returns the covariance matrix of the marginalized variables
       Eigen::MatrixXd getMarginalizedCovariance() const;
       /** @}
@@ -120,48 +105,16 @@ namespace aslam {
       /** \name Accessors
         @{
         */
-      /// Returns informative error terms container
-      const ETContainer& getErrorTermsInfo() const;
-      /// Returns informative error terms container
-      ETContainer& getErrorTermsInfo();
-      /// Returns error terms begin iterator
-      ETContainerIt getETBegin();
-      /// Returns informative error terms cbegin iterator
-      ETContainerConstIt getETCBegin() const;
-      /// Returns informative error terms end iterator
-      ETContainerIt getETEnd();
-      /// Returns informative error terms cend iterator
-      ETContainerConstIt getETCEnd() const;
-      /// Returns marginalized design variables container
-      const DVContainer& getDesignVariablesMarg() const;
-      /// Returns marginalized design variables container
-      DVContainer& getDesignVariablesMarg();
-      /// Returns marginalized design variables begin iterator
-      DVContainerIt getDVMBegin();
-      /// Returns marginalized design variables cbegin iterator
-      DVContainerConstIt getDVMCBegin() const;
-      /// Returns marginalized design variables end iterator
-      DVContainerIt getDVMEnd();
-      /// Returns marginalized design variables cend iterator
-      DVContainerConstIt getDVMCEnd() const;
-      /// Returns informative design variables container
-      const DVContainer& getDesignVariablesInfo() const;
-      /// Returns informative design variables container
-      DVContainer& getDesignVariablesInfo();
-      /// Returns informative design variables begin iterator
-      DVContainerIt getDVIBegin();
-      /// Returns informative design variables cbegin iterator
-      DVContainerConstIt getDVICBegin() const;
-      /// Returns informative design variables end iterator
-      DVContainerIt getDVIEnd();
-      /// Returns informative design variables cend iterator
-      DVContainerConstIt getDVICEnd() const;
+      /// Returns the incremental optimization problem
+      const IncrementalOptimizationProblem* getProblem() const;
       /// Returns the current options
       const Options& getOptions() const;
       /// Returns the current options
       Options& getOptions();
-      /// Returns the last mutual information
+      /// Returns the last computed mutual information
       double getMutualInformation() const;
+      /// Return the marginalized group ID
+      size_t getMargGroupId() const;
       /** @}
         */
 
@@ -169,24 +122,22 @@ namespace aslam {
       /** \name Protected methods
         @{
         */
+      /// Runs an optimization with current setup
+      double optimize();
       /** @}
         */
 
       /** \name Protected members
         @{
         */
-      /// Stored informative error terms
-      ETContainer _errorTermsInfo;
-      /// Stored informative design variables
-      DVContainer _designVariablesInfo;
-      /// Stored marginalized design variables
-      DVContainer _designVariablesMarg;
-      /// Stored time-invariant design variables
-      DVContainer _designVariablesInv;
-      /// Previous sum log diag(R)
-      double _sumLogDiagROld;
+      /// Underlying optimization problem
+      IncrementalOptimizationProblemSP _problem;
+      /// Group ID to marginalize
+      size_t _margGroupId;
       /// Mutual information
       double _mi;
+      /// Sum of the log of the diagonal elements of R
+      double _sumLogDiagR;
       /// Options
       Options _options;
       /// Default options

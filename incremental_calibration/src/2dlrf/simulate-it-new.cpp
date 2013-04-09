@@ -22,6 +22,10 @@
   */
 
 #include <vector>
+#include <iostream>
+#include <fstream>
+
+#include <boost/shared_ptr.hpp>
 
 #include <Eigen/Core>
 
@@ -36,8 +40,16 @@
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
 #include "aslam/calibration/geometry/Transformation.h"
 #include "aslam/calibration/core/IncrementalEstimator.h"
+#include "aslam/calibration/core/IncrementalOptimizationProblem.h"
+#include "aslam/calibration/core/OptimizationProblem.h"
+#include "aslam/calibration/base/Timestamp.h"
+
+using namespace aslam::calibration;
+using namespace aslam::backend;
+using namespace sm::kinematics;
 
 int main(int argc, char** argv) {
+
   // steps to simulate
   const size_t steps = 5000;
 
@@ -56,8 +68,7 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Vector3d> u_true;
   const double sineWaveAmplitude = 1.0;
   const double sineWaveFrequency = 0.01;
-  aslam::calibration::genSineWavePath(u_true, steps, sineWaveAmplitude,
-    sineWaveFrequency, T);
+  genSineWavePath(u_true, steps, sineWaveAmplitude, sineWaveFrequency, T);
 
   // measured control input
   std::vector<Eigen::Vector3d> u_noise;
@@ -67,8 +78,8 @@ int main(int argc, char** argv) {
   const size_t nl = 17;
 
   // playground size
-  Eigen::Vector2d min(0, 0);
-  Eigen::Vector2d max(30, 30);
+  const Eigen::Vector2d min(0, 0);
+  const Eigen::Vector2d max(30, 30);
 
   // bearing measurements
   std::vector<std::vector<double> > b;
@@ -93,17 +104,16 @@ int main(int argc, char** argv) {
 
   // landmark positions
   std::vector<Eigen::Vector2d> x_l;
-  aslam::calibration::UniformDistribution<double, 2>(min, max).
-    getSamples(x_l, nl);
+  UniformDistribution<double, 2>(min, max).getSamples(x_l, nl);
 
   // true calibration parameters
-  Eigen::Vector3d Theta(0.219, 0.1, 0.78);
+  const Eigen::Vector3d Theta(0.219, 0.1, 0.78);
 
   // guessed calibration parameters
-  Eigen::Vector3d Theta_hat(0.23, 0.11, 0.8);
+  const Eigen::Vector3d Theta_hat(0.23, 0.11, 0.8);
 
   // initial state
-  Eigen::Vector3d x_0(1.0, 1.0, M_PI / 4);
+  const Eigen::Vector3d x_0(1.0, 1.0, M_PI / 4);
   x_true.push_back(x_0);
   x_odom.push_back(x_0);
   u_noise.push_back(Eigen::Vector3d::Zero());
@@ -116,17 +126,16 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_true[i - 1](2));
     B(1, 1) = cos(x_true[i - 1](2));
     Eigen::Vector3d xk = x_true[i - 1] + T * B * u_true[i];
-    xk(3) = sm::kinematics::angleMod(xk(3));
+    xk(3) = angleMod(xk(3));
     x_true.push_back(xk);
     u_noise.push_back(u_true[i] +
-      aslam::calibration::NormalDistribution<3>(
-      Eigen::Vector3d::Zero(), Q).getSample());
+      NormalDistribution<3>(Eigen::Vector3d::Zero(), Q).getSample());
     B(0, 0) = cos(x_odom[i - 1](2));
     B(0, 1) = -sin(x_odom[i - 1](2));
     B(1, 0) = sin(x_odom[i - 1](2));
     B(1, 1) = cos(x_odom[i - 1](2));
     xk = x_odom[i - 1] + T * B * u_noise[i];
-    xk(3) = sm::kinematics::angleMod(xk(3));
+    xk(3) = angleMod(xk(3));
     x_odom.push_back(xk);
     const double ct = cos(x_true[i](2));
     const double st = sin(x_true[i](2));
@@ -138,12 +147,10 @@ int main(int argc, char** argv) {
       const double bb = x_l[j](1) - x_true[i](1) - Theta(0) * st -
         Theta(1) * ct;
       const double range = sqrt(aa * aa + bb * bb) +
-        aslam::calibration::NormalDistribution<1>(
-        0, R(0, 0)).getSample();
+        NormalDistribution<1>(0, R(0, 0)).getSample();
       rk[j] = range;
-      bk[j] = sm::kinematics::angleMod(atan2(bb, aa) - x_true[i](2)
-        - Theta(2) + aslam::calibration::NormalDistribution<1>(
-        0, R(1, 1)).getSample());
+      bk[j] = angleMod(atan2(bb, aa) - x_true[i](2) - Theta(2) +
+        NormalDistribution<1>(0, R(1, 1)).getSample());
     }
     r.push_back(rk);
     b.push_back(bk);
@@ -151,83 +158,83 @@ int main(int argc, char** argv) {
 
   // landmark guess
   std::vector<Eigen::Vector2d> x_l_hat;
-  aslam::calibration::initLandmarks(x_l_hat, x_odom, Theta_hat, r, b);
+  initLandmarks(x_l_hat, x_odom, Theta_hat, r, b);
 
   // create landmarks design variables
-  aslam::calibration::IncrementalEstimator::DVContainer dv_x_l;
+  std::vector<boost::shared_ptr<VectorDesignVariable<2> > > dv_x_l;
   dv_x_l.reserve(nl);
   for (size_t i = 0; i < nl; ++i) {
-    dv_x_l.push_back(
-      boost::shared_ptr<aslam::calibration::VectorDesignVariable<2> >
-      (new aslam::calibration::VectorDesignVariable<2>(x_l_hat[i])));
+    dv_x_l.push_back(boost::shared_ptr<VectorDesignVariable<2> >
+      (new VectorDesignVariable<2>(x_l_hat[i])));
     dv_x_l[i]->setActive(true);
   }
 
   // create calibration parameters design variable
-  boost::shared_ptr<aslam::calibration::VectorDesignVariable<3> >
-    dv_Theta(new aslam::calibration::VectorDesignVariable<3>(Theta_hat));
+  boost::shared_ptr<VectorDesignVariable<3> >
+    dv_Theta(new VectorDesignVariable<3>(Theta_hat));
   dv_Theta->setActive(true);
 
-  // design variable to be marginalized
-  aslam::calibration::IncrementalEstimator::DVContainer designVariablesMarg;
-  designVariablesMarg.push_back(dv_Theta);
+  std::cout << "calibration before: " << *dv_Theta << std::endl;
 
   // create incremental estimator
-  aslam::calibration::IncrementalEstimator
-    incrementalEstimator(designVariablesMarg, dv_x_l);
+  IncrementalEstimator incrementalEstimator(2);
 
   // batch size
   const size_t batchSize = 200;
 
   // run over the dataset
   for (size_t i = 0; i < steps; i += batchSize) {
-    // new design variables to be added
-    aslam::calibration::IncrementalEstimator::DVContainer designVariablesNew;
 
-    // new error terms to be added
-    aslam::calibration::IncrementalEstimator::ETContainer errorTermsNew;
+    // create batch
+    IncrementalEstimator::Batch batch(new OptimizationProblem);
 
-    // create starting state variable, activate it, and push it
-    boost::shared_ptr<aslam::calibration::VectorDesignVariable<3> >
-      dv_x0(new aslam::calibration::VectorDesignVariable<3>(x_odom[i]));
-    dv_x0->setActive(true);
-    designVariablesNew.push_back(dv_x0);
+    // create starting state variable at k-1 and activate it
+    boost::shared_ptr<VectorDesignVariable<3> > dv_xkm1(
+      new VectorDesignVariable<3>(x_odom[i]));
+    dv_xkm1->setActive(true);
+    batch->addDesignVariable(dv_xkm1, 0);
+
+    // add the calibration variable to the batch
+    batch->addDesignVariable(dv_Theta, 2);
+
+    // add the landmarks in the story
+    for (size_t k = 0; k < nl; ++k)
+      batch->addDesignVariable(dv_x_l[k], 1);
 
     // create other state variables and error terms
     for (size_t j = i + 1; j < i + batchSize && j < steps; ++j) {
-      // create state variable, activate it, and push it
-      boost::shared_ptr<aslam::calibration::VectorDesignVariable<3> >
-        dv_xk(new aslam::calibration::VectorDesignVariable<3>(x_odom[j]));
+      // create state variable at k and activate it
+      boost::shared_ptr<VectorDesignVariable<3> > dv_xk(
+        new VectorDesignVariable<3>(x_odom[j]));
       dv_xk->setActive(true);
-      designVariablesNew.push_back(dv_xk);
 
-      // previous state variable
-      const size_t km1 = designVariablesNew.size() - 2;
-      aslam::calibration::VectorDesignVariable<3>* dv_xkm1 =
-        dynamic_cast<aslam::calibration::VectorDesignVariable<3>*>(
-        designVariablesNew[km1].get());
+      // add the variables to the batch
+      batch->addDesignVariable(dv_xk, 0);
 
       // motion error term
-      boost::shared_ptr<aslam::calibration::ErrorTermMotion> e_mot(
-        new aslam::calibration::ErrorTermMotion(dv_xkm1, dv_xk.get(), T,
-        u_noise[j], Q));
-      errorTermsNew.push_back(e_mot);
+      boost::shared_ptr<ErrorTermMotion> e_mot(
+        new ErrorTermMotion(dv_xkm1.get(), dv_xk.get(), T, u_noise[j], Q));
+      batch->addErrorTerm(e_mot);
 
       // observation error terms
       for (size_t k = 0; k < nl; ++k) {
-        aslam::calibration::VectorDesignVariable<2>* dv_l =
-          dynamic_cast<aslam::calibration::VectorDesignVariable<2>*>(
-          dv_x_l[k].get());
         boost::shared_ptr<aslam::calibration::ErrorTermObservation> e_obs(
-          new aslam::calibration::ErrorTermObservation(dv_xk.get(),
-          dv_l, dv_Theta.get(), r[j][k], b[j][k], R));
-        errorTermsNew.push_back(e_obs);
+          new ErrorTermObservation(dv_xk.get(),
+          dv_x_l[k].get(), dv_Theta.get(), r[j][k], b[j][k], R));
+        batch->addErrorTerm(e_obs);
       }
+      // switch state variable
+      dv_xkm1 = dv_xk;
     }
 
     // add the measurement batch to the estimator
-    incrementalEstimator.addMeasurementBatch(errorTermsNew, designVariablesNew);
+    incrementalEstimator.addBatch(batch);
   }
+
+  std::cout << "calibration after: " << *dv_Theta << std::endl;
+
+  // fetch the problem
+  auto problem = incrementalEstimator.getProblem();
 
   // output results to file
   std::ofstream x_true_log("x_true.txt");
@@ -236,23 +243,9 @@ int main(int argc, char** argv) {
   std::ofstream x_odom_log("x_odom.txt");
   for (size_t i = 0; i < steps; ++i)
     x_odom_log << x_odom[i].transpose() << std::endl;
-  std::ofstream x_est_log("x_est.txt");
-  for (auto it = incrementalEstimator.getDVICBegin();
-      it != incrementalEstimator.getDVICEnd(); ++ it) {
-    aslam::calibration::VectorDesignVariable<3>* dv_xk =
-      dynamic_cast<aslam::calibration::VectorDesignVariable<3>*>(it->get());
-    x_est_log << *dv_xk << std::endl;
-  }
   std::ofstream l_log("l.txt");
   for (size_t i = 0; i < nl; ++i)
     l_log << x_l[i].transpose() << std::endl;
-  std::ofstream l_est_log("l_est.txt");
-  for (size_t i = 0; i < nl; ++i) {
-    aslam::calibration::VectorDesignVariable<2>* dv_l =
-      dynamic_cast<aslam::calibration::VectorDesignVariable<2>*>(
-      dv_x_l[i].get());
-    l_est_log << *(dv_l) << std::endl;
-  }
 
   // align landmarks
   Eigen::MatrixXd l = Eigen::MatrixXd::Zero(3, nl);
@@ -260,14 +253,10 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < nl; ++i) {
     l(0, i) = x_l[i](0);
     l(1, i) = x_l[i](1);
-    aslam::calibration::VectorDesignVariable<2>* dv_l =
-      dynamic_cast<aslam::calibration::VectorDesignVariable<2>*>(
-      dv_x_l[i].get());
-    l_est(0, i) = dv_l->getValue()(0);
-    l_est(1, i) = dv_l->getValue()(1);
+    l_est(0, i) = dv_x_l[i]->getValue()(0);
+    l_est(1, i) = dv_x_l[i]->getValue()(1);
   }
-  aslam::calibration::Transformation<double, 3>
-    trans(sm::kinematics::threePointSvd(l, l_est));
+  Transformation<double, 3> trans(threePointSvd(l, l_est));
   Eigen::MatrixXd l_est_trans = Eigen::MatrixXd::Zero(3, nl);
   for (size_t i = 0; i < nl; ++i)
     l_est_trans.col(i) = trans(l_est.col(i));
@@ -279,10 +268,10 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Vector3d> x_est_trans;
   x_est_trans.reserve(steps);
   std::ofstream x_est_trans_log("x_est_trans.txt");
-  for (auto it = incrementalEstimator.getDVICBegin();
-      it != incrementalEstimator.getDVICEnd(); ++ it) {
-    aslam::calibration::VectorDesignVariable<3>* dv_xk =
-      dynamic_cast<aslam::calibration::VectorDesignVariable<3>*>(it->get());
+  auto dvsx = problem->getDesignVariablesGroup(0);
+  for (auto it = dvsx.cbegin(); it != dvsx.cend(); ++ it) {
+    const VectorDesignVariable<3>* dv_xk =
+      dynamic_cast<const VectorDesignVariable<3>*>(*it);
     Eigen::Vector3d pose((Eigen::Vector3d()
       << dv_xk->getValue().head<2>(), 0).finished());
     trans.transform(pose, pose);

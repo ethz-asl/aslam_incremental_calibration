@@ -18,13 +18,12 @@
 
 #include "aslam/calibration/core/IncrementalEstimator.h"
 
-#include <aslam/backend/ErrorTerm.hpp>
-#include <aslam/backend/DesignVariable.hpp>
-#include <aslam/backend/OptimizationProblem.hpp>
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/Optimizer2.hpp>
+
+#include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 
 namespace aslam {
   namespace calibration {
@@ -40,26 +39,14 @@ const struct IncrementalEstimator::Options
 /* Constructors and Destructor                                                */
 /******************************************************************************/
 
-    IncrementalEstimator::IncrementalEstimator(const DVContainer&
-        designVariablesMarg, const DVContainer& designVariablesInv,
+    IncrementalEstimator::IncrementalEstimator(size_t groupId,
         const Options& options) :
-        _designVariablesMarg(designVariablesMarg),
-        _designVariablesInv(designVariablesInv),
-        _sumLogDiagROld(0),
+        _problem(new IncrementalOptimizationProblem()),
+        _margGroupId(groupId),
         _mi(0),
+        _sumLogDiagR(0),
         _options(options) {
     }
-
-    IncrementalEstimator::IncrementalEstimator(const DVContainer&
-        designVariablesMarg,
-        const Options& options) :
-        _designVariablesMarg(designVariablesMarg),
-        _sumLogDiagROld(0),
-        _mi(0),
-        _options(options) {
-    }
-
-
 
     IncrementalEstimator::~IncrementalEstimator() {
     }
@@ -68,88 +55,9 @@ const struct IncrementalEstimator::Options
 /* Accessors                                                                  */
 /******************************************************************************/
 
-    const IncrementalEstimator::ETContainer&
-        IncrementalEstimator::getErrorTermsInfo() const {
-      return _errorTermsInfo;
-    }
-
-    IncrementalEstimator::ETContainer&
-        IncrementalEstimator::getErrorTermsInfo() {
-      return _errorTermsInfo;
-    }
-
-    IncrementalEstimator::ETContainerIt IncrementalEstimator::getETBegin() {
-      return _errorTermsInfo.begin();
-    }
-
-    IncrementalEstimator::ETContainerConstIt
-        IncrementalEstimator::getETCBegin() const {
-      return _errorTermsInfo.cbegin();
-    }
-
-    IncrementalEstimator::ETContainerIt IncrementalEstimator::getETEnd() {
-      return _errorTermsInfo.end();
-    }
-
-    IncrementalEstimator::ETContainerConstIt
-        IncrementalEstimator::getETCEnd() const {
-      return _errorTermsInfo.cend();
-    }
-
-    const IncrementalEstimator::DVContainer&
-        IncrementalEstimator::getDesignVariablesMarg() const {
-      return _designVariablesMarg;
-    }
-
-    IncrementalEstimator::DVContainer&
-        IncrementalEstimator::getDesignVariablesMarg() {
-      return _designVariablesMarg;
-    }
-
-    IncrementalEstimator::DVContainerIt IncrementalEstimator::getDVMBegin() {
-      return _designVariablesMarg.begin();
-    }
-
-    IncrementalEstimator::DVContainerConstIt
-        IncrementalEstimator::getDVMCBegin() const {
-      return _designVariablesMarg.cbegin();
-    }
-
-    IncrementalEstimator::DVContainerIt IncrementalEstimator::getDVMEnd() {
-      return _designVariablesMarg.end();
-    }
-
-    IncrementalEstimator::DVContainerConstIt
-        IncrementalEstimator::getDVMCEnd() const {
-      return _designVariablesMarg.cend();
-    }
-
-    const IncrementalEstimator::DVContainer&
-        IncrementalEstimator::getDesignVariablesInfo() const {
-      return _designVariablesInfo;
-    }
-
-    IncrementalEstimator::DVContainer&
-        IncrementalEstimator::getDesignVariablesInfo() {
-      return _designVariablesInfo;
-    }
-
-    IncrementalEstimator::DVContainerIt IncrementalEstimator::getDVIBegin() {
-      return _designVariablesInfo.begin();
-    }
-
-    IncrementalEstimator::DVContainerConstIt
-        IncrementalEstimator::getDVICBegin() const {
-      return _designVariablesInfo.cbegin();
-    }
-
-    IncrementalEstimator::DVContainerIt IncrementalEstimator::getDVIEnd() {
-      return _designVariablesInfo.end();
-    }
-
-    IncrementalEstimator::DVContainerConstIt
-        IncrementalEstimator::getDVICEnd() const {
-      return _designVariablesInfo.cend();
+    const IncrementalOptimizationProblem*
+        IncrementalEstimator::getProblem() const {
+      return _problem.get();
     }
 
     const IncrementalEstimator::Options&
@@ -165,49 +73,15 @@ const struct IncrementalEstimator::Options
       return _mi;
     }
 
+    size_t IncrementalEstimator::getMargGroupId() const {
+      return _margGroupId;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
 
-    bool IncrementalEstimator::addMeasurementBatch(const ETContainer&
-        errorTermsNew, const DVContainer& designVariablesNew) {
-
-      // create optimization problem
-      boost::shared_ptr<aslam::backend::OptimizationProblem> problem(
-        new aslam::backend::OptimizationProblem);
-
-      // add design variables from the informative set to the problem
-      for (auto it = _designVariablesInfo.cbegin();
-          it != _designVariablesInfo.cend(); ++it)
-        problem->addDesignVariable(*it);
-
-      // add design variables from the new set to the problem
-      for (auto it = designVariablesNew.cbegin();
-          it != designVariablesNew.cend(); ++it)
-        problem->addDesignVariable(*it);
-
-      // add design variables from the time-invariant set to the problem
-      for (auto it = _designVariablesInv.cbegin();
-          it != _designVariablesInv.cend(); ++it)
-        problem->addDesignVariable(*it);
-
-      // add design variables from the marginalized set to the problem
-      size_t dim = 0;
-      for (auto it = _designVariablesMarg.cbegin();
-          it != _designVariablesMarg.cend(); ++it) {
-        problem->addDesignVariable(*it);
-        dim += (*it)->minimalDimensions();
-      }
-
-      // add error terms from the informative set
-      for (auto it = _errorTermsInfo.cbegin();
-          it != _errorTermsInfo.cend(); ++it)
-        problem->addErrorTerm(*it);
-
-      // add error terms from the new set
-      for (auto it = errorTermsNew.cbegin(); it != errorTermsNew.cend(); ++it)
-        problem->addErrorTerm(*it);
-
+    double IncrementalEstimator::optimize() {
       // optimization options
       aslam::backend::Optimizer2Options options;
       options.verbose = _options._verbose;
@@ -225,53 +99,53 @@ const struct IncrementalEstimator::Options
       // set options to the linear solver
       optimizer.getSolver<LinearSolver>()->setOptions(linearSolverOptions);
 
-      // set the constructed problem to the optimizer and optimize
-      optimizer.setProblem(problem);
+      // set the problem to the optimizer and optimize
+      optimizer.setProblem(_problem);
       optimizer.optimize();
+      return optimizer.getSolver<LinearSolver>()->computeSumLogDiagR(
+        _problem->getGroupDim(_margGroupId));
+    }
 
-      // compute sum of log of the diagonal elements of R
-      const double sumLogDiagR = optimizer.getSolver<LinearSolver>()
-        ->computeSumLogDiagR(dim);
+    void IncrementalEstimator::addBatch(const Batch& problem, bool force) {
+      // insert new batch in the problem
+      _problem->add(problem);
+
+      // optimize
+      const double sumLogDiagR = optimize();
 
       // batch is kept?
       bool keepBatch = false;
 
       // first round of estimation?
-      if (!_sumLogDiagROld) {
-        _sumLogDiagROld = sumLogDiagR;
+      if (!_sumLogDiagR) {
+        _sumLogDiagR = sumLogDiagR;
         keepBatch = true;
       }
       else {
         // compute MI
-        const double mi = sumLogDiagR - _sumLogDiagROld;
+        const double mi = sumLogDiagR - _sumLogDiagR;
 
         // MI improvement
         if (mi > _options._miTol) {
-          _sumLogDiagROld = sumLogDiagR;
+          _sumLogDiagR = sumLogDiagR;
           keepBatch = true;
           _mi = mi;
         }
       }
 
-      // keep batch if necessary
-      if (keepBatch) {
-        // add the new error terms into the informative set
-        _errorTermsInfo.reserve(_errorTermsInfo.size() + errorTermsNew.size());
-        _errorTermsInfo.insert(_errorTermsInfo.end(), errorTermsNew.begin(),
-          errorTermsNew.end());
+      // remove batch if necessary
+      if (!keepBatch && !force)
+        _problem->remove(_problem->getNumOptimizationProblems() - 1);
+    }
 
-        // add the new design variables into the informative set
-        _designVariablesInfo.reserve(_designVariablesInfo.size() +
-          designVariablesNew.size());
-        _designVariablesInfo.insert(_designVariablesInfo.end(),
-          designVariablesNew.begin(), designVariablesNew.end());
-      }
-
-      return keepBatch;
+    void IncrementalEstimator::removeBatch(size_t idx) {
+      _problem->remove(idx);
+      _sumLogDiagR = optimize();
     }
 
     Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {
-      return Eigen::MatrixXd::Zero(2, 2);
+      const size_t dim = _problem->getGroupDim(_margGroupId);
+      return Eigen::MatrixXd::Zero(dim, dim);
     }
 
   }
