@@ -29,6 +29,12 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
+if(APPLE)
+
+else()
+  add_definitions(-std=c++0x)
+endif()
+
 # Use this handy cmake function
 rosbuild_find_ros_package(numpy_eigen)
 
@@ -38,4 +44,7 @@ include(${numpy_eigen_PACKAGE_PATH}/cmake/add_python_export_library.cmake)
 add_python_export_library(${PROJECT_NAME} src/incremental_calibration
   src/module.cpp
   src/VisionDataAssociation.cpp
+  src/OptimizationProblem.cpp
+  src/IncrementalEstimator.cpp
+
 )

@@ -88,6 +88,11 @@ namespace aslam {
       IncrementalEstimator(const DVContainer& designVariablesMarg,
         const DVContainer& designVariablesInv = DVContainer(),
         const Options& options = _defaultOptions);
+
+      /// Constructs estimator with specific marginalized variables and options
+      IncrementalEstimator(const DVContainer& designVariablesMarg,
+                           const Options& options);
+
       /// Copy constructor
       IncrementalEstimator(const Self& other) = delete;
       /// Copy assignment operator

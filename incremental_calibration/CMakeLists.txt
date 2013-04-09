@@ -50,6 +50,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermOdometry.cpp
   src/vision/VisionDataAssociation.cpp
   src/core/IncrementalEstimator.cpp
+  src/core/OptimizationProblem.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${gsl_LIBRARIES})
 

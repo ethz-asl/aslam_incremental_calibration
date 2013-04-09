@@ -4,9 +4,15 @@
 
 
 void exportVisionDataAssociation();
+void exportOptimizationProblem();
+void exportIncrementalEstimator();
+
 // The title of this library must match exactly
 BOOST_PYTHON_MODULE(libincremental_calibration_python)
 {
     // fill this in with boost::python export code
     exportVisionDataAssociation();
+    exportOptimizationProblem();
+    exportIncrementalEstimator();
+
 }

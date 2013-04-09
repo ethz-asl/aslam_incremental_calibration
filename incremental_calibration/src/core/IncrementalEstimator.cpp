@@ -50,6 +50,17 @@ const struct IncrementalEstimator::Options
         _options(options) {
     }
 
+    IncrementalEstimator::IncrementalEstimator(const DVContainer&
+        designVariablesMarg,
+        const Options& options) :
+        _designVariablesMarg(designVariablesMarg),
+        _sumLogDiagROld(0),
+        _mi(0),
+        _options(options) {
+    }
+
+
+
     IncrementalEstimator::~IncrementalEstimator() {
     }
 
