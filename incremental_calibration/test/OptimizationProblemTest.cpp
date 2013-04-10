@@ -20,12 +20,30 @@
     \brief This file tests the OptimizationProblem class.
   */
 
+#include <boost/shared_ptr.hpp>
+
 #include <gtest/gtest.h>
+
+#include <aslam/backend/ErrorTerm.hpp>
 
 #include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/data-structures/VectorDesignVariable.h"
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
+
+class DummyErrorTerm :
+  public aslam::backend::ErrorTermFs<3> {
+public:
+  DummyErrorTerm() = default;
+  DummyErrorTerm(const DummyErrorTerm& other) = delete;
+  DummyErrorTerm& operator = (const DummyErrorTerm& other) = delete;
+  virtual ~DummyErrorTerm() {};
+protected:
+  virtual double evaluateErrorImplementation() {
+    return 0;
+  };
+  virtual void evaluateJacobiansImplementation() {};
+};
 
 using namespace aslam::calibration;
 
@@ -35,9 +53,16 @@ TEST(AslamCalibrationTestSuite, testOptimizationProblem) {
   OptimizationProblem::DesignVariableSP dv2(new VectorDesignVariable<3>());
   OptimizationProblem::DesignVariableSP dv3(new VectorDesignVariable<4>());
   OptimizationProblem::DesignVariableSP dv4(new VectorDesignVariable<4>());
+  boost::shared_ptr<DummyErrorTerm> et1(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et2(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et3(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et4(new DummyErrorTerm());
   problem.addDesignVariable(dv1, 0);
   problem.addDesignVariable(dv2, 1);
   problem.addDesignVariable(dv3, 1);
+  problem.addErrorTerm(et1);
+  problem.addErrorTerm(et2);
+  problem.addErrorTerm(et3);
   ASSERT_TRUE(problem.isDesignVariableInProblem(dv1.get()));
   ASSERT_TRUE(problem.isDesignVariableInProblem(dv2.get()));
   ASSERT_TRUE(problem.isDesignVariableInProblem(dv3.get()));
@@ -64,7 +89,6 @@ TEST(AslamCalibrationTestSuite, testOptimizationProblem) {
   ASSERT_EQ(problem.designVariable(1), dv3.get());
   ASSERT_EQ(problem.designVariable(2), dv1.get());
   ASSERT_THROW(problem.designVariable(3), OutOfBoundException<size_t>);
-  ASSERT_EQ(problem.numErrorTerms(), 0);
   problem.permuteDesignVariables({1, 0}, 1);
   ASSERT_EQ(problem.designVariable(0), dv3.get());
   ASSERT_THROW(problem.permuteDesignVariables({1, 0}, 2),
@@ -74,4 +98,23 @@ TEST(AslamCalibrationTestSuite, testOptimizationProblem) {
   ASSERT_TRUE(problem.isGroupInProblem(0));
   ASSERT_TRUE(problem.isGroupInProblem(1));
   ASSERT_FALSE(problem.isGroupInProblem(2));
+  ASSERT_EQ(problem.numErrorTerms(), 3);
+  ASSERT_TRUE(problem.isErrorTermInProblem(et1.get()));
+  ASSERT_TRUE(problem.isErrorTermInProblem(et2.get()));
+  ASSERT_TRUE(problem.isErrorTermInProblem(et3.get()));
+  ASSERT_FALSE(problem.isErrorTermInProblem(et4.get()));
+  auto ets = problem.getErrorTerms();
+  ASSERT_EQ(ets.size(), 3);
+  ASSERT_EQ(ets, OptimizationProblem::ErrorTermsSP({et1, et2, et3}));
+  ASSERT_EQ(problem.errorTerm(0), et1.get());
+  ASSERT_EQ(problem.errorTerm(1), et2.get());
+  ASSERT_EQ(problem.errorTerm(2), et3.get());
+  ASSERT_THROW(problem.errorTerm(3), OutOfBoundException<size_t>);
+  ASSERT_THROW(problem.addErrorTerm(et1), InvalidOperationException);
+  problem.permuteErrorTerms({2, 1, 0});
+  auto etsp = problem.getErrorTerms();
+  ASSERT_EQ(etsp, OptimizationProblem::ErrorTermsSP({et3, et2, et1}));
+  ASSERT_EQ(problem.errorTerm(0), et3.get());
+  ASSERT_EQ(problem.errorTerm(1), et2.get());
+  ASSERT_EQ(problem.errorTerm(2), et1.get());
 }

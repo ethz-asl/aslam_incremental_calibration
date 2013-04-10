@@ -18,6 +18,8 @@
 
 #include "aslam/calibration/core/OptimizationProblem.h"
 
+#include <utility>
+
 #include <aslam/backend/DesignVariable.hpp>
 #include <aslam/backend/ErrorTerm.hpp>
 

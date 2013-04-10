@@ -19,12 +19,11 @@
 #include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 
 #include <algorithm>
+#include <utility>
 #include <unordered_set>
 
 #include <aslam/backend/DesignVariable.hpp>
-#include <aslam/backend/ErrorTerm.hpp>
 
-#include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
 #include "aslam/calibration/algorithms/permute.h"
@@ -59,8 +58,7 @@ namespace aslam {
         throw OutOfBoundException<size_t>(idx,
           "IncrementalOptimizationProblem::getOptimizationProblem: "
           "index out of bound", __FILE__, __LINE__);
-      const OptimizationProblemSP& problem = _optimizationProblems.at(idx);
-      return problem.get();
+      return _optimizationProblems.at(idx).get();
     }
 
     OptimizationProblem* IncrementalOptimizationProblem::getOptimizationProblem(
@@ -71,9 +69,7 @@ namespace aslam {
         throw OutOfBoundException<size_t>(idx,
           "IncrementalOptimizationProblem::getOptimizationProblem: "
           "index out of bound", __FILE__, __LINE__);
-      OptimizationProblemSP& problem = _optimizationProblems.at(
-        std::distance(_optimizationProblems.begin(), problemIt));
-      return problem.get();
+      return _optimizationProblems.at(idx).get();
     }
 
     const OptimizationProblem* IncrementalOptimizationProblem::
@@ -98,7 +94,10 @@ namespace aslam {
 
     bool IncrementalOptimizationProblem::isErrorTermInProblem(const ErrorTerm*
         errorTerm) const {
-      // TODO: implement lookup structure
+      for (auto it = _optimizationProblems.cbegin();
+          it != _optimizationProblems.cend(); ++it)
+        if ((*it)->isErrorTermInProblem(errorTerm))
+          return true;
       return false;
     }
 
@@ -118,9 +117,13 @@ namespace aslam {
           "unknown group", __FILE__, __LINE__);
     }
 
-    const IncrementalOptimizationProblem::ErrorTermsP&
-        IncrementalOptimizationProblem::getErrorTerms() const {
-      return _errorTerms;
+    const IncrementalOptimizationProblem::ErrorTermsSP&
+        IncrementalOptimizationProblem::getErrorTerms(size_t idx) const {
+      if (idx >= _optimizationProblems.size())
+        throw OutOfBoundException<size_t>(idx,
+          "IncrementalOptimizationProblem::getErrorTerms(): "
+          "index out of bounds", __FILE__, __LINE__);
+      return _optimizationProblems.at(idx)->getErrorTerms();
     }
 
     size_t IncrementalOptimizationProblem::getNumGroups() const {
@@ -211,14 +214,12 @@ namespace aslam {
 
       // keep trace of the error terms of this problem
       const size_t numET = problem->numErrorTerms();
-      _errorTerms.reserve(_errorTerms.size() + numET);
       for (size_t i = 0; i < numET; ++i) {
         const ErrorTerm* et = problem->errorTerm(i);
         if (isErrorTermInProblem(et))
           throw InvalidOperationException(
             "IncrementalOptimizationProblem::add(): "
             "error term already in the problem");
-        _errorTerms.push_back(et);
       }
 
       // insert the problem
@@ -255,15 +256,6 @@ namespace aslam {
         }
       }
 
-      // remove the error terms pointers of this problem
-      // costly if not at the end of the container
-      const size_t numET = problem->numErrorTerms();
-      if (numET > 0) {
-        const ErrorTerm* et = problem->errorTerm(0);
-        auto it = std::find(_errorTerms.begin(), _errorTerms.end(), et);
-        _errorTerms.erase(it, it + numET);
-      }
-
       // remove problem from the container
       // costly if not at the end of the container
       _optimizationProblems.erase(problemIt);
@@ -278,7 +270,6 @@ namespace aslam {
       _designVariablesCounts.clear();
       _designVariables.clear();
       _groupsOrdering.clear();
-      _errorTerms.clear();
     }
 
     size_t IncrementalOptimizationProblem::
@@ -305,28 +296,27 @@ namespace aslam {
 
     size_t IncrementalOptimizationProblem::IncrementalOptimizationProblem::
         numErrorTermsImplementation() const {
-      return _errorTerms.size();
+      size_t numErrorTerms = 0;
+      for (auto it = _optimizationProblems.cbegin();
+          it != _optimizationProblems.cend(); ++it)
+        numErrorTerms += (*it)->numErrorTerms();
+      return numErrorTerms;
     }
 
     IncrementalOptimizationProblem::ErrorTerm*
         IncrementalOptimizationProblem::errorTermImplementation(size_t idx) {
-      if (idx >= _errorTerms.size())
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::errorTermImplementation: "
-          "index out of bound", __FILE__, __LINE__);
-      else
-        return const_cast<ErrorTerm*>(_errorTerms[idx]);
+      size_t batchIdx, idxBatch;
+      getErrorIdx(idx, batchIdx, idxBatch);
+      return const_cast<ErrorTerm*>(
+        _optimizationProblems.at(batchIdx)->errorTerm(idxBatch));
     }
 
     const IncrementalOptimizationProblem::ErrorTerm*
         IncrementalOptimizationProblem::
         errorTermImplementation(size_t idx) const {
-      if (idx >= _errorTerms.size())
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::errorTermImplementation: "
-          "index out of bound", __FILE__, __LINE__);
-      else
-        return _errorTerms[idx];
+      size_t batchIdx, idxBatch;
+      getErrorIdx(idx, batchIdx, idxBatch);
+      return _optimizationProblems.at(batchIdx)->errorTerm(idxBatch);
     }
 
     void IncrementalOptimizationProblem::
@@ -338,8 +328,8 @@ namespace aslam {
     }
 
     void IncrementalOptimizationProblem::
-        permuteErrorTerms(const std::vector<size_t>& permutation) {
-      permute(_errorTerms, permutation);
+        permuteOptimizationProblems(const std::vector<size_t>& permutation) {
+      permute(_optimizationProblems, permutation);
     }
 
     void IncrementalOptimizationProblem::permuteDesignVariables(
@@ -373,6 +363,30 @@ namespace aslam {
       }
       groupId = groupIdRunning;
       idxGroup = idx - idxRunning;
+    }
+
+    void IncrementalOptimizationProblem::getErrorIdx(size_t idx,
+        size_t& batchIdx, size_t& idxBatch) const {
+      size_t idxRunning = 0;
+      size_t batchIdxRunning = 0;
+      bool found = false;
+      for (auto it = _optimizationProblems.cbegin();
+          it != _optimizationProblems.cend(); ++it) {
+        const size_t batchSize = (*it)->numErrorTerms();
+        if ((idxRunning + batchSize) > idx) {
+          batchIdxRunning = std::distance(_optimizationProblems.cbegin(), it);
+          found = true;
+          break;
+        }
+        else
+          idxRunning += batchSize;
+      }
+      if (!found)
+        throw OutOfBoundException<size_t>(idx,
+          "IncrementalOptimizationProblem::getErrorIdx(): "
+          "index out of bounds", __FILE__, __LINE__);
+      batchIdx = batchIdxRunning;
+      idxBatch = idx - idxRunning;
     }
 
   }

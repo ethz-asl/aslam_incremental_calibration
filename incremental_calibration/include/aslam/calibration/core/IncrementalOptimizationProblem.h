@@ -32,21 +32,13 @@
 
 #include <aslam/backend/OptimizationProblemBase.hpp>
 
+#include "aslam/calibration/core/OptimizationProblem.h"
+
 namespace aslam {
-  namespace backend {
-
-    class DesignVariable;
-    class ErrorTerm;
-
-  }
   namespace calibration {
-
-    class OptimizationProblem;
 
     /** The class IncrementalOptimizationProblem implements a container for
         optimization problems.
-        TODO: * error terms lookup? for isErrorTermInProblem()
-              * optimization problems lookup?
         \brief Incremental optimization problem
       */
     class IncrementalOptimizationProblem :
@@ -55,16 +47,16 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
-      /// Optimization problem type (shared_ptr)
+      /// Optimization problem type (shared pointer)
       typedef boost::shared_ptr<OptimizationProblem> OptimizationProblemSP;
-      /// Optimization problem container (shared_ptr)
+      /// Optimization problem container (shared pointer)
       typedef std::vector<OptimizationProblemSP> OptimizationProblemsSP;
-      /// Optimization problem container iteraror (shared_ptr)
+      /// Optimization problem container iteraror (shared pointer)
       typedef OptimizationProblemsSP::iterator OptimizationProblemsSPIt;
-      /// Optimization problem container constant iteraror (shared_ptr)
+      /// Optimization problem container constant iteraror (shared pointer)
       typedef OptimizationProblemsSP::const_iterator OptimizationProblemsSPCIt;
       /// Design variable type
-      typedef aslam::backend::DesignVariable DesignVariable;
+      typedef OptimizationProblem::DesignVariable DesignVariable;
       /// Design variable (pointer) to count, group ID container
       typedef std::unordered_map<const DesignVariable*,
         std::pair<size_t, size_t> > DesignVariablesPCountId;
@@ -74,9 +66,11 @@ namespace aslam {
       typedef std::unordered_map<size_t, DesignVariablesP>
         DesignVariablePGroups;
       /// Error term type
-      typedef aslam::backend::ErrorTerm ErrorTerm;
-      /// Error term container (pointer)
-      typedef std::vector<const ErrorTerm*> ErrorTermsP;
+      typedef OptimizationProblem::ErrorTerm ErrorTerm;
+      /// Error term type (shared pointer)
+      typedef boost::shared_ptr<ErrorTerm> ErrorTermSP;
+      /// Container for error terms (shared pointer)
+      typedef std::vector<ErrorTermSP> ErrorTermsSP;
       /// Self type
       typedef IncrementalOptimizationProblem Self;
       /** @}
@@ -112,8 +106,8 @@ namespace aslam {
       /// Permutes the design variables in a group
       void permuteDesignVariables(const std::vector<size_t>& permutation,
         size_t groupId);
-      /// Permutes the error terms
-      void permuteErrorTerms(const std::vector<size_t>& permutation);
+      /// Permutes the optimization problems
+      void permuteOptimizationProblems(const std::vector<size_t>& permutation);
       /// Clears the content of the problem
       void clear();
       /** @}
@@ -145,8 +139,8 @@ namespace aslam {
       const DesignVariablePGroups& getDesignVariablesGroups() const;
       /// Returns the design variables associated with a group
       const DesignVariablesP& getDesignVariablesGroup(size_t groupId) const;
-      /// Returns the error terms
-      const ErrorTermsP& getErrorTerms() const;
+      /// Returns the error terms of an optimization problem
+      const ErrorTermsSP& getErrorTerms(size_t idx) const;
       /// Returns the number of groups
       size_t getNumGroups() const;
       /// Sets the groups ordering
@@ -184,6 +178,8 @@ namespace aslam {
         std::set<ErrorTerm*>& outErrorSet);
       /// Returns the group id an index falls in
       void getGroupId(size_t idx, size_t& groupId, size_t& idxGroup) const;
+      /// Returns the error term index in a batch from a global index
+      void getErrorIdx(size_t idx, size_t& batchIdx, size_t& idxBatch) const;
       /** @}
         */
 
@@ -198,8 +194,6 @@ namespace aslam {
       DesignVariablePGroups _designVariables;
       /// Groups ordering
       std::vector<size_t> _groupsOrdering;
-      /// Error terms pointers
-      ErrorTermsP _errorTerms;
       /** @}
         */
 

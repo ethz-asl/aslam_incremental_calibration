@@ -40,7 +40,6 @@
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
 #include "aslam/calibration/geometry/Transformation.h"
 #include "aslam/calibration/core/IncrementalEstimator.h"
-#include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 #include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/base/Timestamp.h"
 
@@ -186,7 +185,7 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < steps; i += batchSize) {
 
     // create batch
-    IncrementalEstimator::Batch batch(new OptimizationProblem);
+    IncrementalEstimator::BatchSP batch(new IncrementalEstimator::Batch());
 
     // create starting state variable at k-1 and activate it
     boost::shared_ptr<VectorDesignVariable<3> > dv_xkm1(
@@ -229,6 +228,12 @@ int main(int argc, char** argv) {
 
     // add the measurement batch to the estimator
     incrementalEstimator.addBatch(batch);
+    auto problem = incrementalEstimator.getProblem();
+    const std::vector<size_t>& groupsOrdering = problem->getGroupsOrdering();
+    std::cout << "ordering: ";
+    for (auto it = groupsOrdering.cbegin(); it != groupsOrdering.cend(); ++it)
+      std::cout << *it << " ";
+    std::cout << std::endl;
   }
 
   std::cout << "calibration after: " << *dv_Theta << std::endl;
@@ -268,7 +273,8 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Vector3d> x_est_trans;
   x_est_trans.reserve(steps);
   std::ofstream x_est_trans_log("x_est_trans.txt");
-  auto dvsx = problem->getDesignVariablesGroup(0);
+  const IncrementalOptimizationProblem::DesignVariablesP&
+    dvsx = problem->getDesignVariablesGroup(0);
   for (auto it = dvsx.cbegin(); it != dvsx.cend(); ++ it) {
     const VectorDesignVariable<3>* dv_xk =
       dynamic_cast<const VectorDesignVariable<3>*>(*it);

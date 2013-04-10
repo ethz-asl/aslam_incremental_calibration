@@ -28,6 +28,8 @@
 
 #include <Eigen/Core>
 
+#include "aslam/calibration/core/IncrementalOptimizationProblem.h"
+
 namespace aslam {
   namespace backend {
 
@@ -37,7 +39,6 @@ namespace aslam {
   namespace calibration {
 
     class OptimizationProblem;
-    class IncrementalOptimizationProblem;
 
     /** The class IncrementalEstimator implements an incremental estimator
         for robotic calibration problems.
@@ -48,8 +49,10 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
+      /// Optimization problem type
+      typedef OptimizationProblem Batch;
       /// Optimization problem type (shared pointer)
-      typedef boost::shared_ptr<OptimizationProblem> Batch;
+      typedef boost::shared_ptr<OptimizationProblem> BatchSP;
       /// Incremental optimization problem (shared pointer)
       typedef boost::shared_ptr<IncrementalOptimizationProblem>
         IncrementalOptimizationProblemSP;
@@ -94,7 +97,7 @@ namespace aslam {
         @{
         */
       /// Add a measurement batch to the estimator
-      void addBatch(const Batch& batch, bool force = false);
+      void addBatch(const BatchSP& batch, bool force = false);
       /// Remove a measurement batch from the estimator
       void removeBatch(size_t idx);
       /// Returns the covariance matrix of the marginalized variables
@@ -124,6 +127,8 @@ namespace aslam {
         */
       /// Runs an optimization with current setup
       double optimize();
+      /// Ensures the marginalized variables are well located
+      void orderMarginalizedDesignVariables();
       /** @}
         */
 

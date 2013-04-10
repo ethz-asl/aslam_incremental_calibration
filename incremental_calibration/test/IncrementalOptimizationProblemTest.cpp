@@ -24,11 +24,27 @@
 
 #include <gtest/gtest.h>
 
+#include <aslam/backend/ErrorTerm.hpp>
+
 #include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 #include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/data-structures/VectorDesignVariable.h"
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
+
+class DummyErrorTerm :
+  public aslam::backend::ErrorTermFs<3> {
+public:
+  DummyErrorTerm() = default;
+  DummyErrorTerm(const DummyErrorTerm& other) = delete;
+  DummyErrorTerm& operator = (const DummyErrorTerm& other) = delete;
+  virtual ~DummyErrorTerm() {};
+protected:
+  virtual double evaluateErrorImplementation() {
+    return 0;
+  };
+  virtual void evaluateJacobiansImplementation() {};
+};
 
 using namespace aslam::calibration;
 
@@ -37,21 +53,40 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   OptimizationProblem::DesignVariableSP dv1(new VectorDesignVariable<2>());
   OptimizationProblem::DesignVariableSP dv2(new VectorDesignVariable<3>());
   OptimizationProblem::DesignVariableSP dv3(new VectorDesignVariable<4>());
+  boost::shared_ptr<DummyErrorTerm> et1(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et2(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et3(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et4(new DummyErrorTerm());
   problem1->addDesignVariable(dv1, 0);
   problem1->addDesignVariable(dv2, 0);
   problem1->addDesignVariable(dv3, 1);
+  problem1->addErrorTerm(et1);
+  problem1->addErrorTerm(et2);
+  problem1->addErrorTerm(et3);
+  problem1->addErrorTerm(et4);
   boost::shared_ptr<OptimizationProblem> problem2(new OptimizationProblem);
   OptimizationProblem::DesignVariableSP dv4(new VectorDesignVariable<2>());
   OptimizationProblem::DesignVariableSP dv5(new VectorDesignVariable<3>());
+  boost::shared_ptr<DummyErrorTerm> et5(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et6(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et7(new DummyErrorTerm());
   problem2->addDesignVariable(dv4, 0);
   problem2->addDesignVariable(dv5, 0);
   problem2->addDesignVariable(dv3, 1);
+  problem2->addErrorTerm(et5);
+  problem2->addErrorTerm(et6);
+  problem2->addErrorTerm(et7);
   boost::shared_ptr<OptimizationProblem> problem3(new OptimizationProblem);
   OptimizationProblem::DesignVariableSP dv6(new VectorDesignVariable<6>());
   OptimizationProblem::DesignVariableSP dv7(new VectorDesignVariable<6>());
+  boost::shared_ptr<DummyErrorTerm> et8(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et9(new DummyErrorTerm());
+  boost::shared_ptr<DummyErrorTerm> et10(new DummyErrorTerm());
   problem3->addDesignVariable(dv4, 0);
   problem3->addDesignVariable(dv6, 0);
   problem3->addDesignVariable(dv3, 1);
+  problem3->addErrorTerm(et8);
+  problem3->addErrorTerm(et9);
   IncrementalOptimizationProblem incProblem;
   incProblem.add(problem1);
   incProblem.add(problem2);
@@ -62,8 +97,7 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   ASSERT_EQ(incProblem.getOptimizationProblem(2), problem3.get());
   ASSERT_THROW(incProblem.getOptimizationProblem(3),
     OutOfBoundException<size_t>);
-  const IncrementalOptimizationProblem::OptimizationProblemsSP& problems =
-    incProblem.getOptimizationProblems();
+  auto problems = incProblem.getOptimizationProblems();
   ASSERT_EQ(problems.size(), 3);
   ASSERT_TRUE(incProblem.isDesignVariableInProblem(dv1.get()));
   ASSERT_TRUE(incProblem.isDesignVariableInProblem(dv2.get()));
@@ -72,20 +106,49 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   ASSERT_TRUE(incProblem.isDesignVariableInProblem(dv5.get()));
   ASSERT_TRUE(incProblem.isDesignVariableInProblem(dv6.get()));
   ASSERT_FALSE(incProblem.isDesignVariableInProblem(dv7.get()));
-  const IncrementalOptimizationProblem::DesignVariablePGroups& groups =
-    incProblem.getDesignVariablesGroups();
+  auto groups = incProblem.getDesignVariablesGroups();
   ASSERT_EQ(groups.size(), 2);
-  const IncrementalOptimizationProblem::DesignVariablesP& dvs0 =
-    incProblem.getDesignVariablesGroup(0);
+  auto dvs0 = incProblem.getDesignVariablesGroup(0);
   ASSERT_EQ(dvs0.size(), 5);
-  const IncrementalOptimizationProblem::DesignVariablesP& dvs1 =
-    incProblem.getDesignVariablesGroup(1);
+  ASSERT_EQ(dvs0, IncrementalOptimizationProblem::DesignVariablesP(
+    {dv1.get(), dv2.get(), dv4.get(), dv5.get(), dv6.get()}));
+  auto dvs1 = incProblem.getDesignVariablesGroup(1);
   ASSERT_EQ(dvs1.size(), 1);
+  ASSERT_EQ(dvs1, IncrementalOptimizationProblem::DesignVariablesP(
+    {dv3.get()}));
   ASSERT_THROW(incProblem.getDesignVariablesGroup(2),
     OutOfBoundException<size_t>);
-  const IncrementalOptimizationProblem::ErrorTermsP& et =
-    incProblem.getErrorTerms();
-  ASSERT_EQ(et.size(), 0);
+  auto ets1 = incProblem.getErrorTerms(0);
+  ASSERT_EQ(ets1, IncrementalOptimizationProblem::ErrorTermsSP(
+    {et1, et2, et3, et4}));
+  auto ets2 = incProblem.getErrorTerms(1);
+  ASSERT_EQ(ets2, IncrementalOptimizationProblem::ErrorTermsSP(
+    {et5, et6, et7}));
+  auto ets3 = incProblem.getErrorTerms(2);
+  ASSERT_EQ(ets3, IncrementalOptimizationProblem::ErrorTermsSP(
+    {et8, et9}));
+  ASSERT_THROW(incProblem.getErrorTerms(3), OutOfBoundException<size_t>);
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et1.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et2.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et3.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et4.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et5.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et6.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et7.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et8.get()));
+  ASSERT_TRUE(incProblem.isErrorTermInProblem(et9.get()));
+  ASSERT_FALSE(incProblem.isErrorTermInProblem(et10.get()));
+  ASSERT_EQ(incProblem.numErrorTerms(), 9);
+  ASSERT_EQ(incProblem.errorTerm(0), et1.get());
+  ASSERT_EQ(incProblem.errorTerm(1), et2.get());
+  ASSERT_EQ(incProblem.errorTerm(2), et3.get());
+  ASSERT_EQ(incProblem.errorTerm(3), et4.get());
+  ASSERT_EQ(incProblem.errorTerm(4), et5.get());
+  ASSERT_EQ(incProblem.errorTerm(5), et6.get());
+  ASSERT_EQ(incProblem.errorTerm(6), et7.get());
+  ASSERT_EQ(incProblem.errorTerm(7), et8.get());
+  ASSERT_EQ(incProblem.errorTerm(8), et9.get());
+  ASSERT_THROW(incProblem.errorTerm(9), OutOfBoundException<size_t>);
   ASSERT_EQ(incProblem.getNumGroups(), 2);
   ASSERT_EQ(incProblem.getGroupId(dv1.get()), 0);
   ASSERT_EQ(incProblem.getGroupId(dv2.get()), 0);
@@ -118,8 +181,6 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
     OutOfBoundException<size_t>);
   ASSERT_THROW(incProblem.setGroupsOrdering({0, 0}),
     OutOfBoundException<size_t>);
-  ASSERT_EQ(incProblem.numErrorTerms(), 0);
-  ASSERT_THROW(incProblem.errorTerm(2), OutOfBoundException<size_t>);
   incProblem.permuteDesignVariables({1, 0, 2, 3, 4}, 0);
   ASSERT_EQ(incProblem.designVariable(1), dv2.get());
   incProblem.remove(2);
@@ -127,8 +188,20 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   ASSERT_FALSE(incProblem.isDesignVariableInProblem(dv6.get()));
   ASSERT_TRUE(incProblem.isDesignVariableInProblem(dv3.get()));
   ASSERT_TRUE(incProblem.isDesignVariableInProblem(dv4.get()));
-  const IncrementalOptimizationProblem::DesignVariablesP& dvs0update =
-    incProblem.getDesignVariablesGroup(0);
+  auto dvs0update = incProblem.getDesignVariablesGroup(0);
   ASSERT_EQ(dvs0update.size(), 4);
+  ASSERT_EQ(dvs0update, IncrementalOptimizationProblem::DesignVariablesP(
+    {dv2.get(), dv1.get(), dv4.get(), dv5.get()}));
   ASSERT_THROW(incProblem.remove(4), OutOfBoundException<size_t>);
+  ASSERT_EQ(incProblem.numErrorTerms(), 7);
+  ASSERT_FALSE(incProblem.isErrorTermInProblem(et8.get()));
+  ASSERT_FALSE(incProblem.isErrorTermInProblem(et9.get()));
+  ASSERT_EQ(incProblem.errorTerm(0), et1.get());
+  ASSERT_EQ(incProblem.errorTerm(1), et2.get());
+  ASSERT_EQ(incProblem.errorTerm(2), et3.get());
+  ASSERT_EQ(incProblem.errorTerm(3), et4.get());
+  ASSERT_EQ(incProblem.errorTerm(4), et5.get());
+  ASSERT_EQ(incProblem.errorTerm(5), et6.get());
+  ASSERT_EQ(incProblem.errorTerm(6), et7.get());
+  ASSERT_THROW(incProblem.errorTerm(7), OutOfBoundException<size_t>);
 }

@@ -18,12 +18,15 @@
 
 #include "aslam/calibration/core/IncrementalEstimator.h"
 
+#include <algorithm>
+#include <utility>
+
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 
-#include "aslam/calibration/core/IncrementalOptimizationProblem.h"
+#include "aslam/calibration/exceptions/InvalidOperationException.h"
 
 namespace aslam {
   namespace calibration {
@@ -106,9 +109,12 @@ const struct IncrementalEstimator::Options
         _problem->getGroupDim(_margGroupId));
     }
 
-    void IncrementalEstimator::addBatch(const Batch& problem, bool force) {
+    void IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
       // insert new batch in the problem
       _problem->add(problem);
+
+      // ensure marginalized design variables are well located
+      orderMarginalizedDesignVariables();
 
       // optimize
       const double sumLogDiagR = optimize();
@@ -139,13 +145,37 @@ const struct IncrementalEstimator::Options
     }
 
     void IncrementalEstimator::removeBatch(size_t idx) {
+      // remove the batch
       _problem->remove(idx);
-      _sumLogDiagR = optimize();
+
+      // ensure marginalized design variables are well located
+      orderMarginalizedDesignVariables();
+
+      // optimize back
+      const double sumLogDiagR = optimize();
+      _mi = sumLogDiagR - _sumLogDiagR;
+      _sumLogDiagR = sumLogDiagR;
     }
 
     Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {
       const size_t dim = _problem->getGroupDim(_margGroupId);
       return Eigen::MatrixXd::Zero(dim, dim);
+    }
+
+    void IncrementalEstimator::orderMarginalizedDesignVariables() {
+      auto groupsOrdering = _problem->getGroupsOrdering();
+      auto margGroupIt = std::find(groupsOrdering.begin(),
+        groupsOrdering.end(), _margGroupId);
+      if (margGroupIt == groupsOrdering.end())
+        throw InvalidOperationException(
+          "IncrementalEstimator::orderMarginalizedDesignVariables(): "
+          "marginalized group ID should appear in the problem");
+      else {
+        if (*margGroupIt != groupsOrdering.back()) {
+          std::swap(*margGroupIt, groupsOrdering.back());
+          _problem->setGroupsOrdering(groupsOrdering);
+        }
+      }
     }
 
   }

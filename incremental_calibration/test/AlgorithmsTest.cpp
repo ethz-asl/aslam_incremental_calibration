@@ -35,12 +35,11 @@ TEST(AslamCalibrationTestSuite, testAlgorithms) {
   const std::vector<double> input = {dist.getSample(), dist.getSample(),
     dist.getSample(), dist.getSample(), dist.getSample(), dist.getSample()};
   const std::vector<size_t> p = {1, 3, 0, 2, 5, 4};
-  std::vector<double> pinput = input;
+  auto pinput = input;
   permute(pinput, p);
   ASSERT_EQ(pinput, std::vector<double>({input[p[0]], input[p[1]], input[p[2]],
     input[p[3]], input[p[4]], input[p[5]]}));
-  ASSERT_THROW(permute(pinput, std::vector<size_t>({1, 3, 0})),
-    OutOfBoundException<size_t>);
-  ASSERT_THROW(permute(pinput, std::vector<size_t>({10, 3, 0, 2, 5, 4})),
+  ASSERT_THROW(permute(pinput, {1, 3, 0}), OutOfBoundException<size_t>);
+  ASSERT_THROW(permute(pinput, {10, 3, 0, 2, 5, 4}),
     OutOfBoundException<size_t>);
 }
