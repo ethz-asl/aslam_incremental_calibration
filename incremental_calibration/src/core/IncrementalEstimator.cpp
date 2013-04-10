@@ -48,7 +48,13 @@ const struct IncrementalEstimator::Options
         _margGroupId(groupId),
         _mi(0),
         _sumLogDiagR(0),
-        _options(options) {
+        _options(options),
+        _optimizer(new Optimizer()) {
+      // optimization options
+      aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
+      optOptions.verbose = _options._verbose;
+      optOptions.doLevenbergMarquardt = false;
+      optOptions.linearSolver = "sparse_qr";
     }
 
     IncrementalEstimator::~IncrementalEstimator() {
@@ -84,29 +90,21 @@ const struct IncrementalEstimator::Options
 /* Methods                                                                    */
 /******************************************************************************/
 
-    double IncrementalEstimator::optimize() {
-      // optimization options
-      aslam::backend::Optimizer2Options options;
-      options.verbose = _options._verbose;
-      options.doLevenbergMarquardt = false;
-      options.linearSolver = "sparse_qr";
-
+    void IncrementalEstimator::optimize() {
       // linear solver options
       aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
       linearSolverOptions.colNorm = _options._colNorm;
       linearSolverOptions.qrTol = _options._qrTol;
 
-      // create optimizer with given options
-      aslam::backend::Optimizer2 optimizer(options);
+      // reset the linear solver
+      _optimizer->initializeLinearSolver();
 
       // set options to the linear solver
-      optimizer.getSolver<LinearSolver>()->setOptions(linearSolverOptions);
+      _optimizer->getSolver<LinearSolver>()->setOptions(linearSolverOptions);
 
       // set the problem to the optimizer and optimize
-      optimizer.setProblem(_problem);
-      optimizer.optimize();
-      return optimizer.getSolver<LinearSolver>()->computeSumLogDiagR(
-        _problem->getGroupDim(_margGroupId));
+      _optimizer->setProblem(_problem);
+      _optimizer->optimize();
     }
 
     void IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
@@ -117,7 +115,11 @@ const struct IncrementalEstimator::Options
       orderMarginalizedDesignVariables();
 
       // optimize
-      const double sumLogDiagR = optimize();
+      optimize();
+
+      // compute the sum log diag R
+      const double sumLogDiagR = _optimizer->getSolver<LinearSolver>()->
+        computeSumLogDiagR(_problem->getGroupDim(_margGroupId));
 
       // batch is kept?
       bool keepBatch = false;
@@ -152,14 +154,21 @@ const struct IncrementalEstimator::Options
       orderMarginalizedDesignVariables();
 
       // optimize back
-      const double sumLogDiagR = optimize();
+      optimize();
+
+      // update mutual information
+      const double sumLogDiagR = _optimizer->getSolver<LinearSolver>()->
+        computeSumLogDiagR(_problem->getGroupDim(_margGroupId));
       _mi = sumLogDiagR - _sumLogDiagR;
       _sumLogDiagR = sumLogDiagR;
     }
 
     Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {
       const size_t dim = _problem->getGroupDim(_margGroupId);
-      return Eigen::MatrixXd::Zero(dim, dim);
+      Eigen::MatrixXd Sigma = Eigen::MatrixXd::Zero(dim, dim);
+      _optimizer->getSolver<LinearSolver>()->
+        computeSigma(Sigma, dim);
+      return Sigma;
     }
 
     void IncrementalEstimator::orderMarginalizedDesignVariables() {

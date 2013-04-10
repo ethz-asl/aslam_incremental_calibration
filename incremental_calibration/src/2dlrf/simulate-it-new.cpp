@@ -237,6 +237,8 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "calibration after: " << *dv_Theta << std::endl;
+  std::cout << "covariance: " << std::endl <<
+    incrementalEstimator.getMarginalizedCovariance() << std::endl;
 
   // fetch the problem
   auto problem = incrementalEstimator.getProblem();

@@ -34,6 +34,7 @@ namespace aslam {
   namespace backend {
 
     class SparseQrLinearSystemSolver;
+    class Optimizer2;
 
   }
   namespace calibration {
@@ -60,6 +61,10 @@ namespace aslam {
       typedef IncrementalEstimator Self;
       /// Solver type
       typedef aslam::backend::SparseQrLinearSystemSolver LinearSolver;
+      /// Optimizer type
+      typedef aslam::backend::Optimizer2 Optimizer;
+      /// Optimizer type (shared_ptr)
+      typedef boost::shared_ptr<Optimizer> OptimizerSP;
       /// Options for the incremental estimator
       struct Options {
         /// Mutual information threshold
@@ -126,7 +131,7 @@ namespace aslam {
         @{
         */
       /// Runs an optimization with current setup
-      double optimize();
+      void optimize();
       /// Ensures the marginalized variables are well located
       void orderMarginalizedDesignVariables();
       /** @}
@@ -147,6 +152,8 @@ namespace aslam {
       Options _options;
       /// Default options
       static const struct Options _defaultOptions;
+      /// Underlying optimizer
+      OptimizerSP _optimizer;
       /** @}
         */
 
