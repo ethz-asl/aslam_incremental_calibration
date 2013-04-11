@@ -86,6 +86,11 @@ const struct IncrementalEstimator::Options
       return _margGroupId;
     }
 
+    const aslam::backend::CompressedColumnMatrix<long>&
+        IncrementalEstimator::getJacobianTranspose() const {
+      return _optimizer->getSolver<LinearSolver>()->getJacobianTranspose();
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/

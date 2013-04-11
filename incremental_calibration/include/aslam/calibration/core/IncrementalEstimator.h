@@ -28,6 +28,8 @@
 
 #include <Eigen/Core>
 
+#include <aslam/backend/CompressedColumnMatrix.hpp>
+
 #include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 
 namespace aslam {
@@ -123,6 +125,9 @@ namespace aslam {
       double getMutualInformation() const;
       /// Return the marginalized group ID
       size_t getMargGroupId() const;
+      /// Returns the current Jacobian tranposeif available
+      const aslam::backend::CompressedColumnMatrix<long>& getJacobianTranspose()
+        const;
       /** @}
         */
 

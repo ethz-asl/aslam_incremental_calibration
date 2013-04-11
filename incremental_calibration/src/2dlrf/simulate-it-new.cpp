@@ -240,6 +240,10 @@ int main(int argc, char** argv) {
   std::cout << "covariance: " << std::endl <<
     incrementalEstimator.getMarginalizedCovariance() << std::endl;
 
+  // for debugging purpose, write the Jacobian to file
+  std::ofstream jacobianFile("J.txt");
+  incrementalEstimator.getJacobianTranspose().writeMATLAB(jacobianFile);
+
   // fetch the problem
   auto problem = incrementalEstimator.getProblem();
 
