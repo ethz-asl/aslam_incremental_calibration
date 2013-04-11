@@ -24,6 +24,8 @@
 #ifndef ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 #define ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 
+#include <vector>
+
 #include <boost/shared_ptr.hpp>
 
 #include <Eigen/Core>
@@ -125,9 +127,17 @@ namespace aslam {
       double getMutualInformation() const;
       /// Return the marginalized group ID
       size_t getMargGroupId() const;
-      /// Returns the current Jacobian tranposeif available
-      const aslam::backend::CompressedColumnMatrix<long>& getJacobianTranspose()
-        const;
+      /// Returns the current Jacobian tranpose if available
+      const aslam::backend::CompressedColumnMatrix<ssize_t>&
+        getJacobianTranspose() const;
+      /// Returns the current estimated numerical rank
+      size_t getRank() const;
+      /// Returns the current tolerance for the QR decomposition
+      double getQRTol() const;
+      /// Returns the current permutation vector used in QR decomposition
+      std::vector<ssize_t> getPermutationVector() const;
+      /// Returns the R factor from the QR decomposition
+      const aslam::backend::CompressedColumnMatrix<ssize_t>& getR() const;
       /** @}
         */
 
@@ -139,6 +149,8 @@ namespace aslam {
       void optimize();
       /// Ensures the marginalized variables are well located
       void orderMarginalizedDesignVariables();
+      /// Return the sum of the log of the diagonal elements of R
+      double getSumLogDiagR() const;
       /** @}
         */
 

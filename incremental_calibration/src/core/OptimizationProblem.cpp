@@ -110,7 +110,8 @@ namespace aslam {
       size_t dim = 0;
       for (auto it = designVariables.cbegin(); it != designVariables.cend();
           ++it)
-        dim += (*it)->minimalDimensions();
+        if ((*it)->isActive())
+          dim += (*it)->minimalDimensions();
       return dim;
     }
 

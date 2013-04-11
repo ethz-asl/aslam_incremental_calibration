@@ -50,9 +50,13 @@ using namespace aslam::calibration;
 TEST(AslamCalibrationTestSuite, testOptimizationProblem) {
   OptimizationProblem problem;
   OptimizationProblem::DesignVariableSP dv1(new VectorDesignVariable<2>());
+  dv1->setActive(true);
   OptimizationProblem::DesignVariableSP dv2(new VectorDesignVariable<3>());
+  dv2->setActive(true);
   OptimizationProblem::DesignVariableSP dv3(new VectorDesignVariable<4>());
+  dv3->setActive(true);
   OptimizationProblem::DesignVariableSP dv4(new VectorDesignVariable<4>());
+  dv4->setActive(true);
   boost::shared_ptr<DummyErrorTerm> et1(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et2(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et3(new DummyErrorTerm());

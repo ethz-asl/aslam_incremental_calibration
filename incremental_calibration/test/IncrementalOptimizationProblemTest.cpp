@@ -51,8 +51,11 @@ using namespace aslam::calibration;
 TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   boost::shared_ptr<OptimizationProblem> problem1(new OptimizationProblem);
   OptimizationProblem::DesignVariableSP dv1(new VectorDesignVariable<2>());
+  dv1->setActive(true);
   OptimizationProblem::DesignVariableSP dv2(new VectorDesignVariable<3>());
+  dv2->setActive(true);
   OptimizationProblem::DesignVariableSP dv3(new VectorDesignVariable<4>());
+  dv3->setActive(true);
   boost::shared_ptr<DummyErrorTerm> et1(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et2(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et3(new DummyErrorTerm());
@@ -66,7 +69,9 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   problem1->addErrorTerm(et4);
   boost::shared_ptr<OptimizationProblem> problem2(new OptimizationProblem);
   OptimizationProblem::DesignVariableSP dv4(new VectorDesignVariable<2>());
+  dv4->setActive(true);
   OptimizationProblem::DesignVariableSP dv5(new VectorDesignVariable<3>());
+  dv5->setActive(true);
   boost::shared_ptr<DummyErrorTerm> et5(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et6(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et7(new DummyErrorTerm());
@@ -78,7 +83,9 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   problem2->addErrorTerm(et7);
   boost::shared_ptr<OptimizationProblem> problem3(new OptimizationProblem);
   OptimizationProblem::DesignVariableSP dv6(new VectorDesignVariable<6>());
+  dv6->setActive(true);
   OptimizationProblem::DesignVariableSP dv7(new VectorDesignVariable<6>());
+  dv7->setActive(true);
   boost::shared_ptr<DummyErrorTerm> et8(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et9(new DummyErrorTerm());
   boost::shared_ptr<DummyErrorTerm> et10(new DummyErrorTerm());
