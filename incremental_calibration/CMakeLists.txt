@@ -68,6 +68,7 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/AlgorithmsTest.cpp
   test/OptimizationProblemTest.cpp
   test/IncrementalOptimizationProblemTest.cpp
+  test/OdometryTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 

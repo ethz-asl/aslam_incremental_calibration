@@ -49,7 +49,7 @@ namespace aslam {
         */
       /// Constructor
       AckermanOdometry(const Odometry::VehicleParameters& parameters,
-        const Eigen::Vector3d& initialPose);
+        const Eigen::Vector3d& initialPose = Eigen::Vector3d::Zero());
       /// Copy constructor
       AckermanOdometry(const Self& other) = delete;
       /// Copy assignment operator

@@ -53,6 +53,39 @@ namespace aslam {
         double _wheelTrack;
         /// Wheel base [m]
         double _wheelBase;
+        /// Steering transmission factor 0
+        double _a0;
+        /// Steering transmission factor 1
+        double _a1;
+        /// Steering transmission factor 2
+        double _a2;
+        /// Steering transmission factor 3
+        double _a3;
+        /// Factor for rear left wheel
+        double _fRL;
+        /// Factor for rear right wheel
+        double _fRR;
+        /// Factor for front left wheel
+        double _fFL;
+        /// Factor for front right wheel
+        double _fFR;
+        /// Equality operator for comparing parameters
+        bool operator == (const VehicleParameters &other) const {
+          return (_rearLeftWheelRadius == other._rearLeftWheelRadius) &&
+            (_rearRightWheelRadius == other._rearRightWheelRadius) &&
+            (_frontLeftWheelRadius == other._frontLeftWheelRadius) &&
+            (_frontRightWheelRadius == other._frontRightWheelRadius) &&
+            (_wheelTrack == other._wheelTrack) &&
+            (_wheelBase == other._wheelBase) &&
+            (_a0 == other._a0) &&
+            (_a1 == other._a1) &&
+            (_a2 == other._a2) &&
+            (_a3 == other._a3) &&
+            (_fRL == other._fRL) &&
+            (_fRR == other._fRR) &&
+            (_fFL == other._fFL) &&
+            (_fFR == other._fFR);
+        }
       };
       /// Self type
       typedef Odometry Self;
@@ -64,7 +97,7 @@ namespace aslam {
         */
       /// Constructor
       Odometry(const VehicleParameters& parameters, const Eigen::Vector3d&
-        initialPose);
+        initialPose = Eigen::Vector3d::Zero());
       /// Copy constructor
       Odometry(const Self& other) = delete;
       /// Copy assignment operator
@@ -90,7 +123,7 @@ namespace aslam {
       /// Returns the pose history
       const std::vector<Eigen::Vector3d>& getPoseHistory() const;
       /// Resets pose history and sets initial pose
-      void reset(const Eigen::Vector3d& initialPose);
+      void reset(const Eigen::Vector3d& initialPose = Eigen::Vector3d::Zero());
       /// Inserts a new pose
       void insertPose(const Eigen::Vector3d& pose);
       /** @}
