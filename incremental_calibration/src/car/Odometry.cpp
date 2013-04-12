@@ -18,6 +18,8 @@
 
 #include "aslam/calibration/car/Odometry.h"
 
+#include <sm/kinematics/rotations.hpp>
+
 namespace aslam {
   namespace calibration {
 
@@ -71,7 +73,7 @@ namespace aslam {
       _poses.push_back(Eigen::Vector3d(
         pose_km1(0) + dTrans * cos(pose_km1(2) + dRot * 0.5),
         pose_km1(1) + dTrans * sin(pose_km1(2) + dRot * 0.5),
-        pose_km1(2) + dRot));
+        sm::kinematics::angleMod(pose_km1(2) + dRot)));
     }
 
     void Odometry::updateCOGVelocity(double vTrans, double vRot, double dT) {

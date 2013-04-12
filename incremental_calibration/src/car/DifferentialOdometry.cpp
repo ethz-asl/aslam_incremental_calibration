@@ -35,12 +35,26 @@ namespace aslam {
     }
 
 /******************************************************************************/
-/* Accessors                                                                  */
-/******************************************************************************/
-
-/******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
+
+    void DifferentialOdometry::updateWheelTranslationalVelocities(
+        double vLeftWheel, double vRightWheel, double dT) {
+      updateWheelDisplacements(vLeftWheel * dT, vRightWheel * dT);
+    }
+
+    void DifferentialOdometry::updateWheelRotationalVelocities(
+        double wLeftWheel, double wRightWheel, double dT) {
+      updateWheelDisplacements(
+        _parameters._rearLeftWheelRadius * wLeftWheel * dT,
+        _parameters._rearLeftWheelRadius * wRightWheel * dT);
+    }
+
+    void DifferentialOdometry::updateWheelDisplacements(
+        double dLeftWheel, double dRightWheel) {
+      updateCOGDisplacement(0.5 * (dRightWheel + dLeftWheel),
+        _parameters._wheelTrack * (dRightWheel - dLeftWheel));
+    }
 
   }
 }

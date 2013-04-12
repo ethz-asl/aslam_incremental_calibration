@@ -63,30 +63,25 @@ namespace aslam {
       /** @}
         */
 
-      /** \name Accessors
-        @{
-        */
-      /** @}
-        */
-
       /** \name Methods
         @{
         */
+      /// Updates odometry with wheel translational velocities and steering
+      void updateWheelTranslationalVelocitiesSteering(double vRearLeftWheel,
+        double vRearRightWheel, double vFrontLeftWheel, double vFrontRightWheel,
+        double steering, double dT);
+      /// Update odometry with wheel rotational velocities and steering
+      void updateWheelRotationalVelocitiesSteering(double wRearLeftWheel,
+        double wRearRightWheel, double wFrontLeftWheel, double wFrontRightWheel,
+        double steering, double dT);
+      /// Update odometry with wheel displacements and steering
+      void updateWheelDisplacementsSteering(double dRearLeftWheel,
+        double dRearRightWheel, double dFrontLeftWheel, double dFrontRightWheel,
+        double steering);
       /** @}
         */
 
     protected:
-      /** \name Protected methods
-        @{
-        */
-      /** @}
-        */
-
-      /** \name Protected members
-        @{
-        */
-      /** @}
-        */
 
     };
 

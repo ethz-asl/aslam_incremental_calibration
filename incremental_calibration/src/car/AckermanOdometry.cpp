@@ -18,6 +18,10 @@
 
 #include "aslam/calibration/car/AckermanOdometry.h"
 
+#include <Eigen/Dense>
+
+#include <cmath>
+
 namespace aslam {
   namespace calibration {
 
@@ -34,12 +38,47 @@ namespace aslam {
     }
 
 /******************************************************************************/
-/* Accessors                                                                  */
-/******************************************************************************/
-
-/******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
+
+
+    void AckermanOdometry::updateWheelTranslationalVelocitiesSteering(
+        double vRearLeftWheel, double vRearRightWheel, double vFrontLeftWheel,
+        double vFrontRightWheel, double steering, double dT) {
+      updateWheelDisplacementsSteering(dT * vRearLeftWheel,
+        dT * vRearRightWheel, dT * vFrontLeftWheel, dT * vFrontRightWheel,
+        steering);
+    }
+
+    void AckermanOdometry::updateWheelRotationalVelocitiesSteering(
+        double wRearLeftWheel, double wRearRightWheel, double wFrontLeftWheel,
+        double wFrontRightWheel, double steering, double dT) {
+      const double RL = _parameters._rearLeftWheelRadius;
+      const double RR = _parameters._rearRightWheelRadius;
+      const double FL = _parameters._frontLeftWheelRadius;
+      const double FR = _parameters._frontRightWheelRadius;
+      updateWheelDisplacementsSteering(dT * RL * wRearLeftWheel,
+        dT * RR * wRearRightWheel, dT * FL * wFrontLeftWheel,
+        dT * FR * wFrontRightWheel, steering);
+    }
+
+    void AckermanOdometry::updateWheelDisplacementsSteering(
+        double dRearLeftWheel, double dRearRightWheel, double dFrontLeftWheel,
+        double dFrontRightWheel, double steering) {
+      const double L = _parameters._wheelBase;
+      const double e = _parameters._wheelTrack * 0.5;
+      const double tanPhi = tan(steering);
+      const double phiL = atan(tanPhi * L / (L - e * tanPhi));
+      const double phiR = atan(tanPhi * L / (L + e * tanPhi));
+      Eigen::Matrix<double, 4, 2> A;
+      A << 1, -e, 1, e, 1, -e, 1, e;
+      Eigen::Vector4d b;
+      b << dRearLeftWheel, dRearRightWheel, dFrontLeftWheel * cos(phiL),
+        dFrontRightWheel * cos(phiR);
+      Eigen::Vector2d x = A.jacobiSvd(Eigen::ComputeThinU |
+        Eigen::ComputeThinV).solve(b);
+      updateCOGDisplacement(x(0), x(1));
+    }
 
   }
 }
