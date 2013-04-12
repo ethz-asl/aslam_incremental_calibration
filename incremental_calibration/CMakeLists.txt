@@ -48,6 +48,9 @@ rosbuild_add_library(${PROJECT_NAME}
   src/functions/LogGammaFunction.cpp
   src/car/ErrorTermPose.cpp
   src/car/ErrorTermOdometry.cpp
+  src/car/Odometry.cpp
+  src/car/AckermanOdometry.cpp
+  src/car/DifferentialOdometry.cpp
   src/vision/VisionDataAssociation.cpp
   src/core/IncrementalEstimator.cpp
   src/core/OptimizationProblem.cpp
