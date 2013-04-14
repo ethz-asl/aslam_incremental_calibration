@@ -33,13 +33,13 @@ void exportOptimizationProblem()
       /// Remove an optimization problem
       void (IncrementalOptimizationProblem::*remove1)(size_t idx) = &IncrementalOptimizationProblem::remove;
 
-      aslam::backend::OptimizationProblemBase * (IncrementalOptimizationProblem::*getOp)(size_t) = &IncrementalOptimizationProblem::getOptimizationProblem;
+aslam::calibration::OptimizationProblem * (IncrementalOptimizationProblem::*getOp)(size_t) = &IncrementalOptimizationProblem::getOptimizationProblem;
 
     class_<aslam::calibration::IncrementalOptimizationProblem,  // the type being wrapped
            boost::shared_ptr<aslam::calibration::IncrementalOptimizationProblem>, // tell boost that we support shared pointers
            boost::noncopyable, // tell boost that we will never pass or return this by value.
            boost::python::bases<aslam::backend::OptimizationProblemBase> 
-           >("IncrementalOptimizationProblem", init<IncrementalOptimizationProblem::DesignVariablesP>())
+           >("IncrementalOptimizationProblem", init<>())
         .def("add", &IncrementalOptimizationProblem::add)
         .def("remove", remove1)
         .def("clear", &IncrementalOptimizationProblem::clear)

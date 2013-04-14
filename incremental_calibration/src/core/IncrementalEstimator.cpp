@@ -39,6 +39,7 @@ namespace aslam {
 const struct IncrementalEstimator::Options
   IncrementalEstimator::_defaultOptions = {0.5, 0.02, true, true};
 
+
 /******************************************************************************/
 /* Constructors and Destructor                                                */
 /******************************************************************************/
@@ -200,6 +201,11 @@ const struct IncrementalEstimator::Options
     void IncrementalEstimator::removeBatch(const BatchSP& batch) {
       auto it = _problem->getOptimizationProblem(batch);
       removeBatch(std::distance(_problem->getOptimizationProblemBegin(), it));
+    }
+
+    size_t IncrementalEstimator::getNumBatches() const
+    {
+      return _problem->getNumOptimizationProblems();
     }
 
     Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {

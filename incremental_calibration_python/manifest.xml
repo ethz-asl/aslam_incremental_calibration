@@ -10,6 +10,7 @@
   <url>http://ros.org/wiki/incremental_calibration_python</url>
 
   <depend package="numpy_eigen"/>
+  <depend package="sm_python"/>
   <depend package="incremental_calibration"/>
 
 <export>
