@@ -26,6 +26,7 @@
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 
+#include "aslam/calibration/base/Timestamp.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
 #include "aslam/calibration/algorithms/matrixOperations.h"
 
@@ -37,7 +38,7 @@ namespace aslam {
 /******************************************************************************/
 
 const struct IncrementalEstimator::Options
-  IncrementalEstimator::_defaultOptions = {0.5, 0.02, true, true};
+  IncrementalEstimator::_defaultOptions = {0.5, 0.02, true, true, 20};
 
 
 /******************************************************************************/
@@ -57,6 +58,7 @@ const struct IncrementalEstimator::Options
       optOptions.verbose = _options._verbose;
       optOptions.doLevenbergMarquardt = false;
       optOptions.linearSolver = "sparse_qr";
+      optOptions.maxIterations = _options._maxIterations;
     }
 
     IncrementalEstimator::~IncrementalEstimator() {
@@ -114,7 +116,7 @@ const struct IncrementalEstimator::Options
 /* Methods                                                                    */
 /******************************************************************************/
 
-    void IncrementalEstimator::optimize() {
+    aslam::backend::SolutionReturnValue IncrementalEstimator::optimize() {
       // linear solver options
       aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
       linearSolverOptions.colNorm = _options._colNorm;
@@ -128,11 +130,14 @@ const struct IncrementalEstimator::Options
 
       // set the problem to the optimizer and optimize
       _optimizer->setProblem(_problem);
-      _optimizer->optimize();
+      return _optimizer->optimize();
     }
 
     IncrementalEstimator::ReturnValue
         IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
+      // query the time
+      const double timeStart = Timestamp::now();
+
       // insert new batch in the problem
       _problem->add(problem);
 
@@ -140,7 +145,13 @@ const struct IncrementalEstimator::Options
       orderMarginalizedDesignVariables();
 
       // optimize
-      optimize();
+      aslam::backend::SolutionReturnValue srv = optimize();
+
+      // check if the solution is valid
+      bool solutionValid = true;
+      if (srv.iterations == _optimizer->options().maxIterations ||
+          srv.JFinal >= srv.JStart)
+        solutionValid = false;
 
       // compute the sum log diag R
       const double sumLogDiagR = getSumLogDiagR();
@@ -152,7 +163,7 @@ const struct IncrementalEstimator::Options
       ReturnValue ret;
 
       // first round of estimation?
-      if (!_sumLogDiagR) {
+      if (!_sumLogDiagR && solutionValid) {
         _sumLogDiagR = sumLogDiagR;
         keepBatch = true;
       }
@@ -162,7 +173,7 @@ const struct IncrementalEstimator::Options
         ret._mi = mi;
 
         // MI improvement
-        if (mi > _options._miTol) {
+        if (mi > _options._miTol && solutionValid) {
           _sumLogDiagR = sumLogDiagR;
           keepBatch = true;
           _mi = mi;
@@ -173,10 +184,21 @@ const struct IncrementalEstimator::Options
       ret._batchAccepted = keepBatch || force;
       ret._rank = getRank();
       ret._qrTol = getQRTol();
+      ret._numIterations = srv.iterations;
+      ret._JStart = srv.JStart;
+      ret._JFinal = srv.JFinal;
 
       // remove batch if necessary
-      if (!keepBatch && !force)
+      if (!keepBatch && !force) {
+        // kick out the problem from the container
         _problem->remove(problem);
+
+        // restore the linear solver such that covariance queries are coherent
+        // restore variables
+      }
+
+      // insert elapsed time
+      ret._elapsedTime = Timestamp::now() - timeStart;
 
       // output informations
       return ret;

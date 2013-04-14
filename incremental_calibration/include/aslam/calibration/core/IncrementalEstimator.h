@@ -79,6 +79,8 @@ namespace aslam {
         bool _verbose;
         /// Perform column normalization
         bool _colNorm;
+        /// maximum number of iterations for the optimizer
+        size_t _maxIterations;
       };
       /// Return value when adding a batch
       struct ReturnValue {
@@ -90,6 +92,14 @@ namespace aslam {
         size_t _rank;
         /// Tolerance used for this batch
         double _qrTol;
+        /// Number of iterations
+        size_t _numIterations;
+        /// Cost function at start
+        double _JStart;
+        /// Cost function at end
+        double _JFinal;
+        /// Elapsed time for processing this batch [s]
+        double _elapsedTime;
       };
       /** @}
         */
@@ -161,7 +171,7 @@ namespace aslam {
         @{
         */
       /// Runs an optimization with current setup
-      void optimize();
+      aslam::backend::SolutionReturnValue optimize();
       /// Ensures the marginalized variables are well located
       void orderMarginalizedDesignVariables();
       /// Return the sum of the log of the diagonal elements of R
