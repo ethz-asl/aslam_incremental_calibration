@@ -109,6 +109,8 @@ namespace aslam {
       void addBatch(const BatchSP& batch, bool force = false);
       /// Remove a measurement batch from the estimator
       void removeBatch(size_t idx);
+      /// The number of batches
+      size_t numBatches() const;
       /// Returns the covariance matrix of the marginalized variables
       Eigen::MatrixXd getMarginalizedCovariance() const;
       /** @}

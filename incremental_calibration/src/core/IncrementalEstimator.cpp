@@ -39,6 +39,7 @@ namespace aslam {
 const struct IncrementalEstimator::Options
   IncrementalEstimator::_defaultOptions = {0.5, 0.02, true, true};
 
+
 /******************************************************************************/
 /* Constructors and Destructor                                                */
 /******************************************************************************/
@@ -183,6 +184,11 @@ const struct IncrementalEstimator::Options
       _mi = sumLogDiagR - _sumLogDiagR;
       _sumLogDiagR = sumLogDiagR;
     }
+
+      size_t IncrementalEstimator::numBatches() const
+      {
+          return _problem->getNumOptimizationProblems();
+      }
 
     Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {
       const size_t dim = _problem->getGroupDim(_margGroupId);
