@@ -99,10 +99,12 @@ namespace aslam {
         */
       /// Inserts an optimization problem
       void add(const OptimizationProblemSP& problem);
-      /// Remove an optimization problem
+      /// Removes an optimization problem
       void remove(const OptimizationProblemsSPIt& problemIt);
-      /// Remove an optimization problem
+      /// Removes an optimization problem
       void remove(size_t idx);
+      /// Removes an optimization problem
+      void remove(const OptimizationProblemSP& problem);
       /// Permutes the design variables in a group
       void permuteDesignVariables(const std::vector<size_t>& permutation,
         size_t groupId);
@@ -128,6 +130,13 @@ namespace aslam {
       const OptimizationProblem* getOptimizationProblem(size_t idx) const;
       /// Returns an optimization problem from an index
       OptimizationProblem* getOptimizationProblem(size_t idx);
+      /// Returns an iterator to an optimization problem
+      OptimizationProblemsSPIt getOptimizationProblem(const
+         OptimizationProblemSP& problem);
+      /// Returns the begin iterator for problems
+      OptimizationProblemsSPIt getOptimizationProblemBegin();
+      /// Returns the end iterator for problems
+      OptimizationProblemsSPIt getOptimizationProblemEnd();
       /// Returns the optimization problems
       const OptimizationProblemsSP& getOptimizationProblems() const;
       /// Checks if a design variable is in the problem

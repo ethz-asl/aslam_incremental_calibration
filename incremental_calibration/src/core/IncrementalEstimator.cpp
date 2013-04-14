@@ -130,7 +130,8 @@ const struct IncrementalEstimator::Options
       _optimizer->optimize();
     }
 
-    void IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
+    IncrementalEstimator::ReturnValue
+        IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
       // insert new batch in the problem
       _problem->add(problem);
 
@@ -146,6 +147,9 @@ const struct IncrementalEstimator::Options
       // batch is kept?
       bool keepBatch = false;
 
+      // return value
+      ReturnValue ret;
+
       // first round of estimation?
       if (!_sumLogDiagR) {
         _sumLogDiagR = sumLogDiagR;
@@ -154,6 +158,7 @@ const struct IncrementalEstimator::Options
       else {
         // compute MI
         const double mi = sumLogDiagR - _sumLogDiagR;
+        ret._mi = mi;
 
         // MI improvement
         if (mi > _options._miTol) {
@@ -163,9 +168,17 @@ const struct IncrementalEstimator::Options
         }
       }
 
+      // update output structure
+      ret._batchAccepted = keepBatch || force;
+      ret._rank = getRank();
+      ret._qrTol = getQRTol();
+
       // remove batch if necessary
       if (!keepBatch && !force)
-        _problem->remove(_problem->getNumOptimizationProblems() - 1);
+        _problem->remove(problem);
+
+      // output informations
+      return ret;
     }
 
     void IncrementalEstimator::removeBatch(size_t idx) {
@@ -182,6 +195,11 @@ const struct IncrementalEstimator::Options
       const double sumLogDiagR = getSumLogDiagR();
       _mi = sumLogDiagR - _sumLogDiagR;
       _sumLogDiagR = sumLogDiagR;
+    }
+
+    void IncrementalEstimator::removeBatch(const BatchSP& batch) {
+      auto it = _problem->getOptimizationProblem(batch);
+      removeBatch(std::distance(_problem->getOptimizationProblemBegin(), it));
     }
 
     Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {

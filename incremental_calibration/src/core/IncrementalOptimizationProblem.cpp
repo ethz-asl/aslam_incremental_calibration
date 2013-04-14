@@ -390,5 +390,33 @@ namespace aslam {
       idxBatch = idx - idxRunning;
     }
 
+    void IncrementalOptimizationProblem::remove(const OptimizationProblemSP&
+        problem) {
+      auto it = getOptimizationProblem(problem);
+      if (it != _optimizationProblems.end())
+        remove(it);
+      else
+        throw InvalidOperationException(
+          "IncrementalOptimizationProblem::remove(): "
+          "problem not found");
+    }
+
+    IncrementalOptimizationProblem::OptimizationProblemsSPIt
+        IncrementalOptimizationProblem::getOptimizationProblem(const
+        OptimizationProblemSP& problem) {
+      return std::find(_optimizationProblems.begin(),
+        _optimizationProblems.end(), problem);
+    }
+
+    IncrementalOptimizationProblem::OptimizationProblemsSPIt
+        IncrementalOptimizationProblem::getOptimizationProblemBegin() {
+      return _optimizationProblems.begin();
+    }
+
+    IncrementalOptimizationProblem::OptimizationProblemsSPIt
+        IncrementalOptimizationProblem::getOptimizationProblemEnd() {
+      return _optimizationProblems.end();
+    }
+
   }
 }

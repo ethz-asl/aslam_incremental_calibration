@@ -80,6 +80,17 @@ namespace aslam {
         /// Perform column normalization
         bool _colNorm;
       };
+      /// Return value when adding a batch
+      struct ReturnValue {
+        /// True if the batch was accepted
+        bool _batchAccepted;
+        /// MI that the batch contributed
+        double _mi;
+        /// Rank that this batch lead
+        size_t _rank;
+        /// Tolerance used for this batch
+        double _qrTol;
+      };
       /** @}
         */
 
@@ -105,10 +116,12 @@ namespace aslam {
       /** \name Methods
         @{
         */
-      /// Add a measurement batch to the estimator
-      void addBatch(const BatchSP& batch, bool force = false);
-      /// Remove a measurement batch from the estimator
+      /// Adds a measurement batch to the estimator
+      ReturnValue addBatch(const BatchSP& batch, bool force = false);
+      /// Removes a measurement batch from the estimator
       void removeBatch(size_t idx);
+      /// Removes a measurement batch from the estimator
+      void removeBatch(const BatchSP& batch);
       /// Returns the covariance matrix of the marginalized variables
       Eigen::MatrixXd getMarginalizedCovariance() const;
       /** @}
