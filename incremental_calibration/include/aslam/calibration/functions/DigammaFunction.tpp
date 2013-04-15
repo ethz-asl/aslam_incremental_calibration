@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include <gsl/gsl_sf_psi.h>
+#include <boost/math/special_functions/digamma.hpp>
 
 namespace aslam {
   namespace calibration {
@@ -39,7 +39,7 @@ namespace aslam {
 
     template <typename X>
     double DigammaFunction<X>::getValue(const VariableType& argument) const {
-      return gsl_sf_psi(argument);
+      return boost::math::digamma<X>(argument);
     }
 
   }

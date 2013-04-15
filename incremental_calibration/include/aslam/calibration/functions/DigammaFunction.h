@@ -29,11 +29,10 @@
 namespace aslam {
   namespace calibration {
 
-    /** The DigammaFunction class represents the digamma function for real
-        numbers.
-        \brief Digamma function for real numbers
+    /** The DigammaFunction class represents the digamma function.
+        \brief Digamma function
       */
-    template <typename X = size_t> class DigammaFunction :
+    template <typename X> class DigammaFunction :
       public ContinuousFunction<double, X> {
       /** \name Private constructors
         @{
@@ -51,52 +50,6 @@ namespace aslam {
         */
       /// Variable type
       typedef typename ContinuousFunction<double, X>::Domain VariableType;
-      /** @}
-        */
-
-      /** \name Constructors/destructor
-        @{
-        */
-      /// Default constructor
-      DigammaFunction();
-      /// Destructor
-      virtual ~DigammaFunction();
-      /** @}
-        */
-
-      /** \name Accessors
-        @{
-        */
-      /// Access the function value for the given argument
-      virtual double getValue(const VariableType& argument) const;
-      /** @}
-        */
-
-    protected:
-
-    };
-
-    /** The DigammaFunction class represents the digamma function for integer.
-        \brief Digamma function for integer numbers
-      */
-    template <> class DigammaFunction<size_t> :
-      public ContinuousFunction<double, size_t> {
-      /** \name Private constructors
-        @{
-        */
-      /// Copy constructor
-      DigammaFunction(const DigammaFunction& other);
-      /// Assignment operator
-      DigammaFunction& operator = (const DigammaFunction& other);
-      /** @}
-        */
-
-    public:
-      /** \name Types
-        @{
-        */
-      /// Variable type
-      typedef ContinuousFunction<double, size_t>::Domain VariableType;
       /** @}
         */
 

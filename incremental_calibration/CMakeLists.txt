@@ -22,10 +22,6 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-# find GSL library
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(gsl REQUIRED gsl)
-
 rosbuild_add_library(${PROJECT_NAME}
   src/2dlrf/ErrorTermMotion.cpp
   src/2dlrf/ErrorTermObservation.cpp
@@ -41,7 +37,6 @@ rosbuild_add_library(${PROJECT_NAME}
   src/exceptions/SystemException.cpp
   src/statistics/NormalDistribution1v.cpp
   src/statistics/ChiSquareDistribution.cpp
-  src/functions/DigammaFunction.cpp
   src/functions/IncompleteGammaPFunction.cpp
   src/functions/IncompleteGammaQFunction.cpp
   src/functions/LogFactorialFunction.cpp

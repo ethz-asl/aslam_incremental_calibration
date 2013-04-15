@@ -18,7 +18,7 @@
 
 #include "aslam/calibration/functions/IncompleteGammaPFunction.h"
 
-#include <gsl/gsl_sf_gamma.h>
+#include <boost/math/special_functions/gamma.hpp>
 
 namespace aslam {
   namespace calibration {
@@ -70,7 +70,7 @@ namespace aslam {
 
     double IncompleteGammaPFunction::getValue(const VariableType& argument)
         const {
-      return gsl_sf_gamma_inc_P(mAlpha, argument);
+      return boost::math::gamma_p(mAlpha, argument);
     }
 
     double IncompleteGammaPFunction::getAlpha() const {

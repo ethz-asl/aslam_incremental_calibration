@@ -16,14 +16,14 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
+#include <boost/math/distributions/gamma.hpp>
+
 #include "aslam/calibration/statistics/Randomizer.h"
 #include "aslam/calibration/functions/LogGammaFunction.h"
 #include "aslam/calibration/functions/DigammaFunction.h"
 #include "aslam/calibration/functions/IncompleteGammaPFunction.h"
 #include "aslam/calibration/exceptions/BadArgumentException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
-
-#include <gsl/gsl_cdf.h>
 
 namespace aslam {
   namespace calibration {
@@ -156,7 +156,12 @@ namespace aslam {
     template <typename T>
     typename GammaDistribution<T>::RandomVariable
         GammaDistribution<T>::invcdf(double probability) const {
-      return gsl_cdf_gamma_Pinv(probability, mShape, 1.0 / mInvScale);
+      if (probability < 0 || probability > 1)
+        throw BadArgumentException<double>(probability,
+          "GammaDistribution::invcdf(): probability must lie in [0, 1]",
+          __FILE__, __LINE__);
+        return boost::math::quantile(boost::math::gamma_distribution<>(
+          mShape, 1.0 / mInvScale), probability);
     }
 
     template <typename T>

@@ -18,7 +18,7 @@
 
 #include "aslam/calibration/functions/IncompleteGammaQFunction.h"
 
-#include <gsl/gsl_sf_gamma.h>
+#include <boost/math/special_functions/gamma.hpp>
 
 namespace aslam {
   namespace calibration {
@@ -70,7 +70,7 @@ namespace aslam {
 
     double IncompleteGammaQFunction::getValue(const VariableType& argument)
         const {
-      return gsl_sf_gamma_inc_Q(mAlpha, argument);
+      return boost::math::gamma_q(mAlpha, argument);
     }
 
     double IncompleteGammaQFunction::getAlpha() const {
