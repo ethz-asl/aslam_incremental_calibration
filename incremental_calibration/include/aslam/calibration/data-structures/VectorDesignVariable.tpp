@@ -113,5 +113,18 @@ namespace aslam {
       _value = _oldValue;
     }
 
+    template<int M>
+    void VectorDesignVariable<M>::getParametersImplementation(
+        Eigen::MatrixXd& value) const {
+      value = _value;
+    }
+
+    template<int M>
+    void VectorDesignVariable<M>::setParametersImplementation(
+        const Eigen::MatrixXd& value) {
+      _oldValue = _value;
+      _value = value;
+    }
+
   }
 }
