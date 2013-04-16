@@ -84,7 +84,7 @@ namespace aslam {
       for (size_t i = colBegin; i <= colEnd; ++i) {
         const double value = R(i, i);
         if (std::fabs(value) > std::numeric_limits<double>::epsilon())
-          sumLogDiagR += std::log2(fabs(value));
+          sumLogDiagR += std::log2(std::fabs(value));
       }
       return sumLogDiagR;
     }
