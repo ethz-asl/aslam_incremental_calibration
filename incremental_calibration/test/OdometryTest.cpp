@@ -22,6 +22,8 @@
 
 #include <gtest/gtest.h>
 
+#include <sm/eigen/gtest.hpp>
+
 #include "aslam/calibration/car/Odometry.h"
 #include "aslam/calibration/car/DifferentialOdometry.h"
 #include "aslam/calibration/car/AckermanOdometry.h"
@@ -71,18 +73,16 @@ TEST(AslamCalibrationTestSuite, testOdometry) {
   ASSERT_EQ(diffOdometry.getPose(), Eigen::Vector3d(1.0, 0, 0));
   ackOdometry.updateWheelTranslationalVelocitiesSteering(1.0, 1.0, 1.0, 1.0, 0,
    1.0);
-  ASSERT_NEAR(ackOdometry.getPose()(0), 1.0, 1e-9);
-  ASSERT_NEAR(ackOdometry.getPose()(1), 0.0, 1e-9);
-  ASSERT_NEAR(ackOdometry.getPose()(2), 0.0, 1e-9);
+  sm::eigen::assertNear(ackOdometry.getPose(), Eigen::Vector3d(1.0, 0, 0),
+    1e-6, SM_SOURCE_FILE_POS, "Ackerman odometry failed");
   ackOdometry.reset();
   ackOdometry.updateWheelRotationalVelocitiesSteering(M_PI / 4, M_PI / 4,
     M_PI / 4, M_PI / 4, 0, 1.0);
-  ASSERT_NEAR(ackOdometry.getPose()(0), M_PI / 4 * 0.285, 1e-2);
-  ASSERT_NEAR(ackOdometry.getPose()(1), 0.0, 1e-2);
-  ASSERT_NEAR(ackOdometry.getPose()(2), 0.0, 1e-2);
+  sm::eigen::assertNear(ackOdometry.getPose(),
+    Eigen::Vector3d(M_PI / 4 * 0.285, 0, 0), 1e-2, SM_SOURCE_FILE_POS,
+    "Ackerman odometry failed");
   ackOdometry.reset();
   ackOdometry.updateWheelDisplacementsSteering(1.0, 1.0, 1.0, 1.0, 0);
-  ASSERT_NEAR(ackOdometry.getPose()(0), 1.0, 1e-9);
-  ASSERT_NEAR(ackOdometry.getPose()(1), 0.0, 1e-9);
-  ASSERT_NEAR(ackOdometry.getPose()(2), 0.0, 1e-9);
+  sm::eigen::assertNear(ackOdometry.getPose(), Eigen::Vector3d(1.0, 0, 0),
+    1e-6, SM_SOURCE_FILE_POS, "Ackerman odometry failed");
 }
