@@ -254,6 +254,7 @@ namespace aslam {
           _designVariables[groupId].erase(it);
           if (_designVariables[groupId].empty())
             _designVariables.erase(groupId);
+          _designVariablesBackup.erase(const_cast<DesignVariable*>(dv));
         }
       }
 
@@ -416,6 +417,19 @@ namespace aslam {
     IncrementalOptimizationProblem::OptimizationProblemsSPIt
         IncrementalOptimizationProblem::getOptimizationProblemEnd() {
       return _optimizationProblems.end();
+    }
+
+    void IncrementalOptimizationProblem::saveDesignVariables() {
+      for (auto it = _designVariablesCounts.cbegin();
+          it != _designVariablesCounts.cend(); ++it)
+        it->first->getParameters(
+          _designVariablesBackup[const_cast<DesignVariable*>(it->first)]);
+    }
+
+    void IncrementalOptimizationProblem::restoreDesignVariables() {
+      for (auto it = _designVariablesBackup.cbegin();
+          it != _designVariablesBackup.cend(); ++it)
+        it->first->setParameters(_designVariablesBackup[it->first]);
     }
 
   }

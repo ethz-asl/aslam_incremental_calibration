@@ -169,6 +169,7 @@ namespace aslam {
       _designVariables.clear();
       _errorTerms.clear();
       _groupsOrdering.clear();
+      _designVariablesBackup.clear();
     }
 
     size_t OptimizationProblem::numDesignVariablesImplementation() const {
@@ -257,6 +258,19 @@ namespace aslam {
       }
       groupId = groupIdRunning;
       idxGroup = idx - idxRunning;
+    }
+
+    void OptimizationProblem::saveDesignVariables() {
+      for (auto it = _designVariablesLookup.cbegin();
+          it != _designVariablesLookup.cend(); ++it)
+        it->first->getParameters(
+          _designVariablesBackup[const_cast<DesignVariable*>(it->first)]);
+    }
+
+    void OptimizationProblem::restoreDesignVariables() {
+      for (auto it = _designVariablesBackup.cbegin();
+          it != _designVariablesBackup.cend(); ++it)
+        it->first->setParameters(_designVariablesBackup[it->first]);
     }
 
   }

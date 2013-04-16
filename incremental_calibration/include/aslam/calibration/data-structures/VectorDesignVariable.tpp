@@ -16,9 +16,10 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
+#include "aslam/calibration/exceptions/OutOfBoundException.h"
+
 namespace aslam {
   namespace calibration {
-
 
 /******************************************************************************/
 /* Constructors and Destructor                                                */
@@ -122,6 +123,10 @@ namespace aslam {
     template<int M>
     void VectorDesignVariable<M>::setParametersImplementation(
         const Eigen::MatrixXd& value) {
+      if (value.cols() != _value.cols() || value.rows() != _value.rows())
+        throw OutOfBoundException<Eigen::MatrixXd>(value,
+          "VectorDesignVariable::setParametersImplementation(): dimensions "
+          "must match", __FILE__, __LINE__);
       _oldValue = _value;
       _value = value;
     }

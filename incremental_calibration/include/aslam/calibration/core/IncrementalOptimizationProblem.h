@@ -28,6 +28,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include <Eigen/Core>
+
 #include <boost/shared_ptr.hpp>
 
 #include <aslam/backend/OptimizationProblemBase.hpp>
@@ -71,6 +73,9 @@ namespace aslam {
       typedef boost::shared_ptr<ErrorTerm> ErrorTermSP;
       /// Container for error terms (shared pointer)
       typedef std::vector<ErrorTermSP> ErrorTermsSP;
+      /// Container for design variables saving/restoring
+      typedef std::unordered_map<DesignVariable*, Eigen::MatrixXd>
+        DesignVariablesBackup;
       /// Self type
       typedef IncrementalOptimizationProblem Self;
       /** @}
@@ -110,6 +115,10 @@ namespace aslam {
         size_t groupId);
       /// Permutes the optimization problems
       void permuteOptimizationProblems(const std::vector<size_t>& permutation);
+      /// Saves the state of the design variables
+      void saveDesignVariables();
+      /// Restores the state of the design variables
+      void restoreDesignVariables();
       /// Clears the content of the problem
       void clear();
       /** @}
@@ -203,6 +212,8 @@ namespace aslam {
       DesignVariablePGroups _designVariables;
       /// Groups ordering
       std::vector<size_t> _groupsOrdering;
+      /// Backup for design variables
+      DesignVariablesBackup _designVariablesBackup;
       /** @}
         */
 

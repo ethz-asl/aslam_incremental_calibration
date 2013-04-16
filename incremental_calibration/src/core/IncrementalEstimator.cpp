@@ -59,6 +59,9 @@ const struct IncrementalEstimator::Options
       optOptions.doLevenbergMarquardt = false;
       optOptions.linearSolver = "sparse_qr";
       optOptions.maxIterations = _options._maxIterations;
+
+      // attach the problem to the optimizer
+      _optimizer->setProblem(_problem);
     }
 
     IncrementalEstimator::~IncrementalEstimator() {
@@ -112,24 +115,19 @@ const struct IncrementalEstimator::Options
       return _optimizer->getSolver<LinearSolver>()->getR();
     }
 
+    size_t IncrementalEstimator::getCholmodMemoryUsage() const {
+      return _optimizer->getSolver<LinearSolver>()->getMemoryUsage();
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
 
     aslam::backend::SolutionReturnValue IncrementalEstimator::optimize() {
-      // linear solver options
-      aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
-      linearSolverOptions.colNorm = _options._colNorm;
-      linearSolverOptions.qrTol = _options._qrTol;
+      // init the linear solver
+      initLinearSolver();
 
-      // reset the linear solver
-      _optimizer->initializeLinearSolver();
-
-      // set options to the linear solver
-      _optimizer->getSolver<LinearSolver>()->setOptions(linearSolverOptions);
-
-      // set the problem to the optimizer and optimize
-      _optimizer->setProblem(_problem);
+      // optimize
       return _optimizer->optimize();
     }
 
@@ -143,6 +141,9 @@ const struct IncrementalEstimator::Options
 
       // ensure marginalized design variables are well located
       orderMarginalizedDesignVariables();
+
+      // save design variables in case the batch is rejected
+      _problem->saveDesignVariables();
 
       // optimize
       aslam::backend::SolutionReturnValue srv = optimize();
@@ -166,6 +167,7 @@ const struct IncrementalEstimator::Options
       if (!_sumLogDiagR && solutionValid) {
         _sumLogDiagR = sumLogDiagR;
         keepBatch = true;
+        ret._mi = 0;
       }
       else {
         // compute MI
@@ -193,12 +195,18 @@ const struct IncrementalEstimator::Options
         // kick out the problem from the container
         _problem->remove(problem);
 
-        // restore the linear solver such that covariance queries are coherent
         // restore variables
+        _problem->restoreDesignVariables();
+
+        // restore the linear solver
+        restoreLinearSolver();
       }
 
       // insert elapsed time
       ret._elapsedTime = Timestamp::now() - timeStart;
+
+      // insert memory usage
+      ret._cholmodMemoryUsage = getCholmodMemoryUsage();
 
       // output informations
       return ret;
@@ -258,6 +266,58 @@ const struct IncrementalEstimator::Options
       const aslam::backend::CompressedColumnMatrix<ssize_t>& R = getR();
       const size_t numCols = R.cols();
       return computeSumLogDiagR(R, numCols - dim, numCols - 1);
+    }
+
+    void IncrementalEstimator::initLinearSolver() {
+      // linear solver options
+      aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
+      linearSolverOptions.colNorm = _options._colNorm;
+      linearSolverOptions.qrTol = _options._qrTol;
+
+      // reset the linear solver
+      _optimizer->initializeLinearSolver();
+
+      // set options to the linear solver
+      _optimizer->getSolver<LinearSolver>()->setOptions(linearSolverOptions);
+    }
+
+    void IncrementalEstimator::restoreLinearSolver() {
+      // init the solver
+      initLinearSolver();
+
+      // init the matrix structure
+      std::vector<aslam::backend::DesignVariable*> dvs;
+      const size_t numDVS = _problem->numDesignVariables();
+      dvs.reserve(numDVS);
+      size_t columnBase = 0;
+      for (size_t i = 0; i < numDVS; ++i) {
+        aslam::backend::DesignVariable* dv = _problem->designVariable(i);
+        if (dv->isActive()) {
+          dvs.push_back(dv);
+          dv->setBlockIndex(dvs.size() - 1);
+          dv->setColumnBase(columnBase);
+          columnBase += dv->minimalDimensions();
+        }
+      }
+      std::vector<aslam::backend::ErrorTerm*> ets;
+      const size_t numETS = _problem->numErrorTerms();
+      ets.reserve(numETS);
+      size_t dim = 0;
+      for (size_t i = 0; i < numETS; ++i) {
+        aslam::backend::ErrorTerm* et = _problem->errorTerm(i);
+        et->setRowBase(dim);
+        dim += et->dimension();
+        ets.push_back(et);
+      }
+      _optimizer->getSolver<LinearSolver>()->initMatrixStructure(dvs, ets,
+        false);
+
+      // build the system
+      _optimizer->getSolver<LinearSolver>()->buildSystem(
+        _optimizer->options().nThreads, true);
+
+      // run the QR analysis
+      _optimizer->getSolver<LinearSolver>()->analyzeSystem();
     }
 
   }

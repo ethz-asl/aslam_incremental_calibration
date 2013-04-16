@@ -52,6 +52,7 @@
 #include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/car/ErrorTermOdometry.h"
 #include "aslam/calibration/data-structures/VectorDesignVariable.h"
+#include "aslam/calibration/algorithms/matrixOperations.h"
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -587,19 +588,17 @@ int main(int argc, char** argv) {
   std::cout << t_x << " " << t_y << " " << t_z << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
   std::cout << r_z << " " << r_x << " " << r_y << std::endl;
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Sigma;
-  optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
-    ->computeSigma(Sigma,
-     optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
-    ->JCols());
+  const aslam::backend::CompressedColumnMatrix<ssize_t>& RFactor =
+    optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()->getR();
+  const size_t numCols = RFactor.cols();
+  Eigen::MatrixXd Sigma =
+    aslam::calibration::computeCovariance(RFactor, 0, numCols - 1);
   std::cout << "Sigma: " << std::endl;
   std::cout << std::fixed << std::setprecision(16) <<
     Sigma.diagonal().transpose() << std::endl;
-  std::cout << "SumLogDiagR: " <<
-    optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
-    ->computeSumLogDiagR(
-    optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
-    ->JCols()) << std::endl;
+  std::cout << "SumLogDiagR: "
+    << aslam::calibration::computeSumLogDiagR(RFactor, 0, numCols - 1)
+    << std::endl;
 
   // output poses from spline
   std::cout << "Outputting to file..." << std::endl;

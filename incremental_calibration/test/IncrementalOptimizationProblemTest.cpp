@@ -211,4 +211,14 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   ASSERT_EQ(incProblem.errorTerm(5), et6.get());
   ASSERT_EQ(incProblem.errorTerm(6), et7.get());
   ASSERT_THROW(incProblem.errorTerm(7), OutOfBoundException<size_t>);
+  Eigen::MatrixXd dv1Param;
+  Eigen::MatrixXd dv6Param;
+  incProblem.saveDesignVariables();
+  dv1->setParameters(Eigen::Vector2d::Ones());
+  dv6->setParameters(Eigen::Matrix<double, 6, 1>::Ones());
+  incProblem.restoreDesignVariables();
+  dv1->getParameters(dv1Param);
+  dv6->getParameters(dv6Param);
+  ASSERT_EQ(dv1Param, Eigen::Vector2d::Zero());
+  ASSERT_EQ(dv6Param, Eigen::MatrixXd::Ones(6, 1));
 }

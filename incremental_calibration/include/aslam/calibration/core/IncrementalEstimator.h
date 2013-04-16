@@ -100,6 +100,8 @@ namespace aslam {
         double _JFinal;
         /// Elapsed time for processing this batch [s]
         double _elapsedTime;
+        /// Current memory usage in bytes for the linear solver
+        size_t _cholmodMemoryUsage;
       };
       /** @}
         */
@@ -163,6 +165,8 @@ namespace aslam {
       std::vector<ssize_t> getPermutationVector() const;
       /// Returns the R factor from the QR decomposition
       const aslam::backend::CompressedColumnMatrix<ssize_t>& getR() const;
+      /// Returns the current memory usage for the linear solver
+      size_t getCholmodMemoryUsage() const;
       /** @}
         */
 
@@ -174,8 +178,12 @@ namespace aslam {
       aslam::backend::SolutionReturnValue optimize();
       /// Ensures the marginalized variables are well located
       void orderMarginalizedDesignVariables();
-      /// Return the sum of the log of the diagonal elements of R
+      /// Returns the sum of the log of the diagonal elements of R
       double getSumLogDiagR() const;
+      /// Inits the linear solver
+      void initLinearSolver();
+      /// Restores the linear solver
+      void restoreLinearSolver();
       /** @}
         */
 

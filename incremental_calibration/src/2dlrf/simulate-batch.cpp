@@ -45,6 +45,7 @@
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
 #include "aslam/calibration/geometry/Transformation.h"
 #include "aslam/calibration/base/Timestamp.h"
+#include "aslam/calibration/algorithms/matrixOperations.h"
 
 using namespace aslam::calibration;
 using namespace aslam::backend;
@@ -222,9 +223,12 @@ int main(int argc, char** argv) {
   const double after = Timestamp::now();
   std::cout << "Elapsed time [s]: " << after - before << std::endl;
   std::cout << "Calibration after: " << *dv_Theta << std::endl;
-  Eigen::MatrixXd Sigma;
-  optimizer.getSolver<SparseQrLinearSystemSolver>()->computeSigma(Sigma, 3);
-  std::cout << "Sigma: " << std::endl << Sigma << std::endl;
+  const CompressedColumnMatrix<ssize_t>& RFactor =
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
+  const size_t numCols = RFactor.cols();
+  std::cout << "Sigma: " << std::endl
+    << computeCovariance(RFactor, numCols - dv_Theta->minimalDimensions(),
+    numCols - 1) << std::endl;
 
   // output results to file
   std::ofstream x_true_log("x_true.txt");
