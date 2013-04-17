@@ -29,6 +29,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include <boost/shared_ptr.hpp>
 
 #include <aslam/backend/OptimizationProblemBase.hpp>
@@ -72,6 +74,9 @@ namespace aslam {
       /// Container for design variable groups
       typedef std::unordered_map<size_t, DesignVariablesSP>
         DesignVariableSPGroups;
+      /// Container for design variables saving/restoring
+      typedef std::unordered_map<DesignVariable*, Eigen::MatrixXd>
+        DesignVariablesBackup;
       /// Self type
       typedef OptimizationProblem Self;
       /** @}
@@ -113,6 +118,10 @@ namespace aslam {
       /// Permutes the design variables in a group
       void permuteDesignVariables(const std::vector<size_t>& permutation,
         size_t groupId);
+      /// Saves the state of the design variables
+      void saveDesignVariables();
+      /// Restores the state of the design variables
+      void restoreDesignVariables();
       /// Clears the optimization problem
       void clear();
       /** @}
@@ -180,6 +189,8 @@ namespace aslam {
       ErrorTermsSP _errorTerms;
       /// Groups ordering
       std::vector<size_t> _groupsOrdering;
+      /// Backup for design variables
+      DesignVariablesBackup _designVariablesBackup;
       /** @}
         */
 

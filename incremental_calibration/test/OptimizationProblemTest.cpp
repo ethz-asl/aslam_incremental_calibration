@@ -121,4 +121,10 @@ TEST(AslamCalibrationTestSuite, testOptimizationProblem) {
   ASSERT_EQ(problem.errorTerm(0), et3.get());
   ASSERT_EQ(problem.errorTerm(1), et2.get());
   ASSERT_EQ(problem.errorTerm(2), et1.get());
+  Eigen::MatrixXd dv1Param;
+  problem.saveDesignVariables();
+  dv1->setParameters(Eigen::Vector2d::Ones());
+  problem.restoreDesignVariables();
+  dv1->getParameters(dv1Param);
+  ASSERT_EQ(dv1Param, Eigen::Vector2d::Zero());
 }

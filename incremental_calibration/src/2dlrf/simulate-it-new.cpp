@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_true[i - 1](2));
     B(1, 1) = cos(x_true[i - 1](2));
     Eigen::Vector3d xk = x_true[i - 1] + T * B * u_true[i];
-    xk(3) = angleMod(xk(3));
+    xk(2) = angleMod(xk(2));
     x_true.push_back(xk);
     u_noise.push_back(u_true[i] +
       NormalDistribution<3>(Eigen::Vector3d::Zero(), Q).getSample());
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_odom[i - 1](2));
     B(1, 1) = cos(x_odom[i - 1](2));
     xk = x_odom[i - 1] + T * B * u_noise[i];
-    xk(3) = angleMod(xk(3));
+    xk(2) = angleMod(xk(2));
     x_odom.push_back(xk);
     const double ct = cos(x_true[i](2));
     const double st = sin(x_true[i](2));
@@ -227,12 +227,23 @@ int main(int argc, char** argv) {
     }
 
     // add the measurement batch to the estimator
-    incrementalEstimator.addBatch(batch);
+    std::cout << "calibration before batch: " << *dv_Theta << std::endl;
+    IncrementalEstimator::ReturnValue ret =
+      incrementalEstimator.addBatch(batch);
+    std::cout << "calibration after batch: " << *dv_Theta << std::endl;
     auto problem = incrementalEstimator.getProblem();
     const std::vector<size_t>& groupsOrdering = problem->getGroupsOrdering();
     std::cout << "ordering: ";
     for (auto it = groupsOrdering.cbegin(); it != groupsOrdering.cend(); ++it)
       std::cout << *it << " ";
+    std::cout << std::endl;
+    std::cout << "rank: " << ret._rank << std::endl;
+    std::cout << "QR tol: " << ret._qrTol << std::endl;
+    std::cout << "MI: " << ret._mi << std::endl;
+    std::cout << "Time [s]: " << ret._elapsedTime << std::endl;
+    std::cout << "Cholmod memory [MB]: " <<
+      ret._cholmodMemoryUsage / 1024.0 / 1024.0 << std::endl;
+    ret._batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
     std::cout << std::endl;
   }
 
@@ -244,12 +255,6 @@ int main(int argc, char** argv) {
   std::ofstream jacobianFile("J.txt");
   incrementalEstimator.getJacobianTranspose().writeMATLAB(jacobianFile);
 
-  // for debugging purpose, output the rank
-  std::cout << "rank: " << incrementalEstimator.getRank() << std::endl;
-
-  // for debugging purpose, output the current tolerance
-  std::cout << "QR tol: " << incrementalEstimator.getQRTol() << std::endl;
-
   // for debugging purpose, output the current permutation vector
   std::ofstream PFile("P.txt");
   std::vector<ssize_t> P = incrementalEstimator.getPermutationVector();
@@ -260,8 +265,30 @@ int main(int argc, char** argv) {
   std::ofstream RFile("R.txt");
   incrementalEstimator.getR().writeMATLAB(RFile);
 
+  // for debugging purpose, output some infos
+  std::cout << "MI: " << incrementalEstimator.getMutualInformation()
+    << std::endl;
+  std::cout << "QR tol: " << incrementalEstimator.getQRTol() << std::endl;
+  std::cout << "rank: " << incrementalEstimator.getRank() << std::endl;
+  std::cout << "Cholmod memory [MB]: "
+    << incrementalEstimator.getCholmodMemoryUsage() / 1024.0 / 1024.0
+    << std::endl;
+  std::cout << "Marginalized group: " << incrementalEstimator.getMargGroupId()
+    << std::endl;
+  std::cout << "Number of batches: " << incrementalEstimator.getNumBatches()
+    << " out of " << round((double)steps / batchSize) << std::endl;
+
   // fetch the problem
   auto problem = incrementalEstimator.getProblem();
+
+  // some other output
+  std::cout << "Number of design variables: " << problem->numDesignVariables()
+    << std::endl;
+  std::cout << "Number of error terms: " << problem->numErrorTerms()
+    << std::endl;
+  std::cout << "Jacobian matrix is: "
+    << incrementalEstimator.getJacobianTranspose().cols() << "x"
+    << incrementalEstimator.getJacobianTranspose().rows() << std::endl;
 
   // output results to file
   std::ofstream x_true_log("x_true.txt");

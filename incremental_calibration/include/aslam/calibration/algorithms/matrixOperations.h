@@ -25,25 +25,20 @@
 
 #include <Eigen/Core>
 
-#include <aslam/backend/CompressedColumnMatrix.hpp>
-
 namespace aslam {
   namespace calibration {
     /// Computes a covariance block from the R matrix of QR decomposition
     template <typename T>
-    Eigen::MatrixXd computeCovariance(
-      const aslam::backend::CompressedColumnMatrix<T>& R, size_t colBegin,
+    Eigen::MatrixXd computeCovariance(const T& R, size_t colBegin,
       size_t colEnd);
 
     /// Computes the sum of the log of the diagonal elements of R from QR
     template <typename T>
-    double computeSumLogDiagR(
-      const aslam::backend::CompressedColumnMatrix<T>& R, size_t colBegin,
-      size_t colEnd);
+    double computeSumLogDiagR(const T& R, size_t colBegin, size_t colEnd);
 
     /// Checks column indices
     template <typename T>
-    void checkColumnIndices(size_t colBegin, size_t colEnd, size_t numCols);
+    void checkColumnIndices(const T& R, size_t colBegin, size_t colEnd);
 
   }
 }

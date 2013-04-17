@@ -29,13 +29,13 @@ namespace aslam {
 /******************************************************************************/
 
     template <typename T>
-    void checkColumnIndices(size_t colBegin, size_t colEnd, size_t numCols) {
+    void checkColumnIndices(const T& R, size_t colBegin, size_t colEnd) {
       if (colBegin >= colEnd)
         throw OutOfBoundException<size_t>(colBegin,
           "checkColumnIndices(): "
           "column index begin must be smaller that column end index",
           __FILE__, __LINE__);
-      if (colEnd >= numCols)
+      if (colEnd >= static_cast<size_t>(R.cols()))
         throw OutOfBoundException<size_t>(colEnd,
           "checkColumnIndices(): "
           "column end index must be smaller than the columns of R",
@@ -43,14 +43,11 @@ namespace aslam {
     }
 
     template <typename T>
-    Eigen::MatrixXd computeCovariance(
-        const aslam::backend::CompressedColumnMatrix<T>& R, size_t colBegin,
+    Eigen::MatrixXd computeCovariance(const T& R, size_t colBegin,
         size_t colEnd) {
+      checkColumnIndices(R, colBegin, colEnd);
+      // NOTE: What about checking the form of R? Upper triangular matrix
       const size_t numCols = R.cols();
-      checkColumnIndices<T>(colBegin, colEnd, numCols);
-
-      // What about checking the form of R? Upper triangular matrix
-
       const size_t dim = numCols - colBegin;
       Eigen::MatrixXd covariance = Eigen::MatrixXd::Zero(dim, dim);
       for (int l = numCols - 1, Sigma_l = dim - 1;
@@ -80,16 +77,14 @@ namespace aslam {
     }
 
     template <typename T>
-    double computeSumLogDiagR(
-        const aslam::backend::CompressedColumnMatrix<T>& R, size_t colBegin,
-        size_t colEnd) {
-      const size_t numCols = R.cols();
-      checkColumnIndices<T>(colBegin, colEnd, numCols);
+    double computeSumLogDiagR(const T& R, size_t colBegin, size_t colEnd) {
+      checkColumnIndices(R, colBegin, colEnd);
+      // NOTE: What about checking the form of R? Upper triangular matrix
       double sumLogDiagR = 0;
       for (size_t i = colBegin; i <= colEnd; ++i) {
         const double value = R(i, i);
         if (std::fabs(value) > std::numeric_limits<double>::epsilon())
-          sumLogDiagR += std::log2(fabs(value));
+          sumLogDiagR += std::log2(std::fabs(value));
       }
       return sumLogDiagR;
     }

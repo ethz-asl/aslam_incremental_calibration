@@ -45,6 +45,7 @@
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
 #include "aslam/calibration/geometry/Transformation.h"
 #include "aslam/calibration/base/Timestamp.h"
+#include "aslam/calibration/algorithms/matrixOperations.h"
 
 using namespace aslam::calibration;
 using namespace aslam::backend;
@@ -125,7 +126,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_true[i - 1](2));
     B(1, 1) = cos(x_true[i - 1](2));
     Eigen::Vector3d xk = x_true[i - 1] + T * B * u_true[i];
-    xk(3) = angleMod(xk(3));
+    xk(2) = angleMod(xk(2));
     x_true.push_back(xk);
     u_noise.push_back(u_true[i] +
       NormalDistribution<3>(Eigen::Vector3d::Zero(), Q).getSample());
@@ -134,7 +135,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_odom[i - 1](2));
     B(1, 1) = cos(x_odom[i - 1](2));
     xk = x_odom[i - 1] + T * B * u_noise[i];
-    xk(3) = angleMod(xk(3));
+    xk(2) = angleMod(xk(2));
     x_odom.push_back(xk);
     const double ct = cos(x_true[i](2));
     const double st = sin(x_true[i](2));
@@ -222,9 +223,12 @@ int main(int argc, char** argv) {
   const double after = Timestamp::now();
   std::cout << "Elapsed time [s]: " << after - before << std::endl;
   std::cout << "Calibration after: " << *dv_Theta << std::endl;
-  Eigen::MatrixXd Sigma;
-  optimizer.getSolver<SparseQrLinearSystemSolver>()->computeSigma(Sigma, 3);
-  std::cout << "Sigma: " << std::endl << Sigma << std::endl;
+  const CompressedColumnMatrix<ssize_t>& RFactor =
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
+  const size_t numCols = RFactor.cols();
+  std::cout << "Sigma: " << std::endl
+    << computeCovariance(RFactor, numCols - dv_Theta->minimalDimensions(),
+    numCols - 1) << std::endl;
 
   // output results to file
   std::ofstream x_true_log("x_true.txt");

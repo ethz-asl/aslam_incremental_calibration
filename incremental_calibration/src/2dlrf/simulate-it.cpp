@@ -41,6 +41,8 @@
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
 #include "aslam/calibration/geometry/Transformation.h"
+#include "aslam/calibration/algorithms/matrixOperations.h"
+#include "aslam/calibration/base/Timestamp.h"
 
 int main(int argc, char** argv) {
   // steps to simulate
@@ -125,7 +127,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_true[i - 1](2));
     B(1, 1) = cos(x_true[i - 1](2));
     Eigen::Matrix<double, 3, 1> xk = x_true[i - 1] + T * B * u_true[i];
-    xk(3) = sm::kinematics::angleMod(xk(3));
+    xk(2) = sm::kinematics::angleMod(xk(2));
     x_true.push_back(xk);
     u_noise.push_back(u_true[i] +
       aslam::calibration::NormalDistribution<3>(
@@ -135,7 +137,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_odom[i - 1](2));
     B(1, 1) = cos(x_odom[i - 1](2));
     xk = x_odom[i - 1] + T * B * u_noise[i];
-    xk(3) = sm::kinematics::angleMod(xk(3));
+    xk(2) = sm::kinematics::angleMod(xk(2));
     x_odom.push_back(xk);
     const double ct = cos(x_true[i](2));
     const double st = sin(x_true[i](2));
@@ -210,6 +212,8 @@ int main(int argc, char** argv) {
 
   // iterative optimization
   for (size_t i = 0; i < steps; i += batchSize) {
+    const double timeStart = aslam::calibration::Timestamp::now();
+
     // insert current batch
     batchIdx.push_back(i);
 
@@ -258,9 +262,11 @@ int main(int argc, char** argv) {
     optimizer.optimize();
 
     // Sigma computation
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Sigma;
-    optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
-      ->computeSigma(Sigma, 3);
+    const aslam::backend::CompressedColumnMatrix<ssize_t>& RFactor =
+      optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()->getR();
+    const size_t numCols = RFactor.cols();
+    Eigen::MatrixXd Sigma = aslam::calibration::computeCovariance(RFactor,
+      numCols - dv_Theta->minimalDimensions(), numCols - 1);
     const double SigmaDet = Sigma.determinant();
 
     std::cout << "Calibration after: " << *dv_Theta << std::endl;
@@ -285,6 +291,10 @@ int main(int argc, char** argv) {
       else
         batchIdx.pop_back();
     }
+
+    const double timeStop = aslam::calibration::Timestamp::now();
+    std::cout << "Batch processing time [s]: " << timeStop - timeStart
+      << std::endl;
   }
 
   std::cout << "Final calibration: " << calibParams.transpose() << std::endl;
