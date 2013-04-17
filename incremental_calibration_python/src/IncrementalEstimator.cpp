@@ -24,7 +24,22 @@ void exportIncrementalEstimator()
         .def_readwrite("colNorm",&IncrementalEstimator::Options::_colNorm)
         ;
 
+    class_<IncrementalEstimator::ReturnValue>("IncrementalEstimatorReturnValue", init<>())
+        .def_readwrite("batchAccepted",&IncrementalEstimator::ReturnValue::_batchAccepted)
+        .def_readwrite("mi",&IncrementalEstimator::ReturnValue::_mi)
+        .def_readwrite("rank",&IncrementalEstimator::ReturnValue::_rank)
+        .def_readwrite("qrTol",&IncrementalEstimator::ReturnValue::_qrTol)
+        .def_readwrite("numIterations",&IncrementalEstimator::ReturnValue::_numIterations)
+        .def_readwrite("JStart",&IncrementalEstimator::ReturnValue::_JStart)
+        .def_readwrite("JFinal",&IncrementalEstimator::ReturnValue::_JFinal)
+        .def_readwrite("elapsedTime",&IncrementalEstimator::ReturnValue::_elapsedTime)
+        ;
+
     IncrementalEstimator::Options & (IncrementalEstimator::*getOptions)() = &IncrementalEstimator::getOptions;
+
+    /// Removes a measurement batch from the estimator
+    void (IncrementalEstimator::*removeBatch1)(size_t) = &IncrementalEstimator::removeBatch;
+    void (IncrementalEstimator::*removeBatch2)(const IncrementalEstimator::BatchSP&) = &IncrementalEstimator::removeBatch;
 
 
     class_<IncrementalEstimator, 
@@ -32,18 +47,19 @@ void exportIncrementalEstimator()
            boost::noncopyable
            >("IncrementalEstimator",init<size_t,
              const IncrementalEstimator::Options &>("IncrementalEstimator(groupId, Options) -- The group id should identify the calibration parameters"))
-           .def(init<size_t>("IncrementalEstimator(groupId) -- The group id should identify the calibration parameters"))
-           .def("getOptions",getOptions,return_internal_reference<>())
-           .def("addBatch", &IncrementalEstimator::addBatch)
-           .def("getNumBatches", &IncrementalEstimator::getNumBatches)
-           .def("removeBatch", &IncrementalEstimator::removeBatch)
-           .def("getMarginalizedCovariance", &IncrementalEstimator::getMarginalizedCovariance )
-           .def("getMutualInformation", &IncrementalEstimator::getMutualInformation)
-           .def("getMargGroupId", &IncrementalEstimator::getMargGroupId)
-        .def("getJacobianTranspose", &IncrementalEstimator::getJacobianTranspose, return_internal_reference<>())
-           .def("getRank", &IncrementalEstimator::getRank)
-           .def("getQRTol", &IncrementalEstimator::getQRTol)
-        .def("getR", &IncrementalEstimator::getR,return_internal_reference<>())
-           
-           ;
+    .def(init<size_t>("IncrementalEstimator(groupId) -- The group id should identify the calibration parameters"))
+    .def("getOptions",getOptions,return_internal_reference<>())
+    .def("addBatch", &IncrementalEstimator::addBatch)
+    .def("reoptimize", &IncrementalEstimator::reoptimize)
+    .def("getNumBatches", &IncrementalEstimator::getNumBatches)
+    .def("removeBatch", removeBatch1)
+    .def("removeBatch", removeBatch2)
+    .def("getMarginalizedCovariance", &IncrementalEstimator::getMarginalizedCovariance )
+    .def("getMutualInformation", &IncrementalEstimator::getMutualInformation)
+    .def("getMargGroupId", &IncrementalEstimator::getMargGroupId)
+    .def("getJacobianTranspose", &IncrementalEstimator::getJacobianTranspose, return_internal_reference<>())
+    .def("getRank", &IncrementalEstimator::getRank)
+    .def("getQRTol", &IncrementalEstimator::getQRTol)
+    .def("getR", &IncrementalEstimator::getR,return_internal_reference<>())       
+    ;
 }

@@ -136,6 +136,8 @@ namespace aslam {
       size_t getNumBatches() const;
       /// Returns the covariance matrix of the marginalized variables
       Eigen::MatrixXd getMarginalizedCovariance() const;
+      /// re-runs the optimizer.
+      ReturnValue reoptimize();
       /** @}
         */
 

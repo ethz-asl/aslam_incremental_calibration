@@ -22,20 +22,17 @@ namespace aslam {
             
             boost::shared_ptr<FrameBuilder> sfb(new SurfFrameBuilder(100));
             
-            boost::shared_ptr< camera_system_t > cs(new camera_system_t( T_v_cl,
-                                                                         leftCamera,
-                                                                         T_v_cr,
-                                                                         rightCamera) );
-
-            _synchronizer.reset( new synchronizer_t( cs,
+            _synchronizer.reset( new synchronizer_t( T_v_cl,
+                                                     T_v_cr,
                                                      u,
                                                      sfb,
+                                                     false, // bool computeOverlaps
                                                      0.001, // double timestampTolerance,
                                                      true,  // bool doBackProjection,
                                                      false  // bool doBackProjectionUncertainty
                                      )
                 );
-            
+
             _nextFrameId = MultiFrameId(0);
             _nextLandmarkId = LandmarkId(0);
             _tracking.setParameters(descriptorDistanceThreshold, disparityTrackingThreshold);
