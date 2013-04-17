@@ -70,7 +70,7 @@ namespace aslam {
       const double tanPhi = tan(steering);
       const double phiL = atan(tanPhi * L / (L - e * tanPhi));
       const double phiR = atan(tanPhi * L / (L + e * tanPhi));
-      Eigen::Matrix<double, 4, 2> A;
+      Eigen::MatrixXd A = Eigen::MatrixXd(4, 2);
       A << 1, -e, 1, e, 1, -e, 1, e;
       Eigen::Vector4d b;
       b << dRearLeftWheel, dRearRightWheel, dFrontLeftWheel * cos(phiL),

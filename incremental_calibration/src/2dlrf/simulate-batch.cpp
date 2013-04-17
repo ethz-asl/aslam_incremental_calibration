@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_true[i - 1](2));
     B(1, 1) = cos(x_true[i - 1](2));
     Eigen::Vector3d xk = x_true[i - 1] + T * B * u_true[i];
-    xk(3) = angleMod(xk(3));
+    xk(2) = angleMod(xk(2));
     x_true.push_back(xk);
     u_noise.push_back(u_true[i] +
       NormalDistribution<3>(Eigen::Vector3d::Zero(), Q).getSample());
@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
     B(1, 0) = sin(x_odom[i - 1](2));
     B(1, 1) = cos(x_odom[i - 1](2));
     xk = x_odom[i - 1] + T * B * u_noise[i];
-    xk(3) = angleMod(xk(3));
+    xk(2) = angleMod(xk(2));
     x_odom.push_back(xk);
     const double ct = cos(x_true[i](2));
     const double st = sin(x_true[i](2));
