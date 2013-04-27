@@ -1,0 +1,12 @@
+<package>
+  <description brief="incremental_calibration_examples_PRIUS">
+
+     incremental_calibration_examples_PRIUS
+
+  </description>
+  <author>Jerome Maye</author>
+  <license>LGPL</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/incremental_calibration_examples</url>
+
+</package>
