@@ -23,24 +23,35 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 rosbuild_add_library(${PROJECT_NAME}
-  src/2dlrf/ErrorTermMotion.cpp
-  src/2dlrf/ErrorTermObservation.cpp
-  src/2dlrf/utils.cpp
+  src/car/ErrorTermPose.cpp
+  src/car/ErrorTermOdometry.cpp
+  src/car/Odometry.cpp
+  src/car/AckermanOdometry.cpp
+  src/car/DifferentialOdometry.cpp
 )
 
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
-  test/ErrorTermMotionTest.cpp
-  test/ErrorTermObservationTest.cpp
+  test/ErrorTermPoseTest.cpp
+  test/ErrorTermOdometryTest.cpp
+  test/OdometryTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
-rosbuild_add_executable(2dlrf-simulate-offline src/2dlrf/simulate-offline.cpp)
-target_link_libraries(2dlrf-simulate-offline ${PROJECT_NAME})
+rosbuild_add_executable(bsplineFromApplanix src/car/bsplineFromApplanix.cpp)
+target_link_libraries(bsplineFromApplanix ${PROJECT_NAME})
 
-rosbuild_add_executable(2dlrf-simulate-online src/2dlrf/simulate-online.cpp)
-target_link_libraries(2dlrf-simulate-online ${PROJECT_NAME})
+rosbuild_add_executable(car-calibrate-batch-morsel
+  src/car/calibrate-batch-morsel.cpp)
+target_link_libraries(car-calibrate-batch-morsel ${PROJECT_NAME})
 
-rosbuild_add_executable(2dlrf-simulate-online-new
-  src/2dlrf/simulate-online-new.cpp)
-target_link_libraries(2dlrf-simulate-online-new ${PROJECT_NAME})
+rosbuild_add_executable(applanix-optimize src/car/applanix-optimize.cpp)
+target_link_libraries(applanix-optimize ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrate-prius-odometry-offline
+  src/car/calibrate-prius-odometry-offline.cpp)
+target_link_libraries(calibrate-prius-odometry-offline ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrate-prius-odometry-online
+  src/car/calibrate-prius-odometry-online.cpp)
+target_link_libraries(calibrate-prius-odometry-online ${PROJECT_NAME})

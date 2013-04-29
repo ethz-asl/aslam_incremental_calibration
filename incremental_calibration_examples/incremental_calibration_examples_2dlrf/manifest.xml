@@ -9,4 +9,6 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/incremental_calibration_examples</url>
 
+  <depend package="incremental_calibration"/>
+
 </package>

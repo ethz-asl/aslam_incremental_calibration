@@ -1,12 +1,14 @@
 <package>
-  <description brief="incremental_calibration_examples_morsel">
+  <description brief="incremental_calibration_examples_car">
 
-     incremental_calibration_examples_morsel
+     incremental_calibration_examples_car
 
   </description>
   <author>Jerome Maye</author>
   <license>LGPL</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/incremental_calibration_examples</url>
+
+  <depend package="incremental_calibration"/>
 
 </package>

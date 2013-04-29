@@ -18,10 +18,9 @@
   <depend package="sm_eigen"/>
   <depend package="sm_logging"/>
 
-    <export>
+  <export>
     <cpp cflags="`pkg-config --cflags eigen3` `rosboost-cfg --cflags` `pkg-config opencv --cflags --libs` -I${prefix}/include"
          lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lincremental_calibration"/>
   </export>
-
 
 </package>

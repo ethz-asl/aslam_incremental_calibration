@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file simulate-it-new.cpp
+/** \file simulate-online-new.cpp
     \brief This file runs a simulation of the calibration problem in iterative
            mode.
   */
@@ -32,16 +32,17 @@
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/three_point_methods.hpp>
 
-#include "aslam/calibration/statistics/UniformDistribution.h"
-#include "aslam/calibration/statistics/NormalDistribution.h"
+#include <aslam/calibration/statistics/UniformDistribution.h>
+#include <aslam/calibration/statistics/NormalDistribution.h>
+#include <aslam/calibration/data-structures/VectorDesignVariable.h>
+#include <aslam/calibration/geometry/Transformation.h>
+#include <aslam/calibration/core/IncrementalEstimator.h>
+#include <aslam/calibration/core/OptimizationProblem.h>
+#include <aslam/calibration/base/Timestamp.h>
+
 #include "aslam/calibration/2dlrf/utils.h"
-#include "aslam/calibration/data-structures/VectorDesignVariable.h"
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
-#include "aslam/calibration/geometry/Transformation.h"
-#include "aslam/calibration/core/IncrementalEstimator.h"
-#include "aslam/calibration/core/OptimizationProblem.h"
-#include "aslam/calibration/base/Timestamp.h"
 
 using namespace aslam::calibration;
 using namespace aslam::backend;

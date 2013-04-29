@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file simulate-it.cpp
+/** \file simulate-online.cpp
     \brief This file runs a simulation of the calibration problem in iterative
            mode.
   */
@@ -34,15 +34,16 @@
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/Optimizer2.hpp>
 
-#include "aslam/calibration/statistics/UniformDistribution.h"
-#include "aslam/calibration/statistics/NormalDistribution.h"
+#include <aslam/calibration/statistics/UniformDistribution.h>
+#include <aslam/calibration/statistics/NormalDistribution.h>
+#include <aslam/calibration/data-structures/VectorDesignVariable.h>
+#include <aslam/calibration/geometry/Transformation.h>
+#include <aslam/calibration/algorithms/matrixOperations.h>
+#include <aslam/calibration/base/Timestamp.h>
+
 #include "aslam/calibration/2dlrf/utils.h"
-#include "aslam/calibration/data-structures/VectorDesignVariable.h"
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
-#include "aslam/calibration/geometry/Transformation.h"
-#include "aslam/calibration/algorithms/matrixOperations.h"
-#include "aslam/calibration/base/Timestamp.h"
 
 int main(int argc, char** argv) {
   // steps to simulate
