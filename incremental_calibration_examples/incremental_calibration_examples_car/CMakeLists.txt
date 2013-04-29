@@ -22,13 +22,34 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+# Find libposlv
+find_path(LIBPOSLV_INCLUDE_DIR sensor/BinaryLogReader.h
+  /usr/include
+  PATH_SUFFIXES
+  libposlv
+)
+message(Found ${LIBPOSLV_INCLUDE_DIR})
+include_directories(${LIBPOSLV_INCLUDE_DIR})
+find_library(LIBPOSLV_SENSOR poslv-sensor
+  /usr/lib
+)
+find_library(LIBPOSLV_BASE poslv-base
+  /usr/lib
+)
+find_library(LIBPOSLV_EXCEPTIONS poslv-exceptions
+  /usr/lib
+)
+
 rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermPose.cpp
   src/car/ErrorTermOdometry.cpp
   src/car/Odometry.cpp
   src/car/AckermanOdometry.cpp
   src/car/DifferentialOdometry.cpp
+  src/car/ApplanixBinaryParser.cpp
 )
+target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
+  ${LIBPOSLV_EXCEPTIONS})
 
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
@@ -37,6 +58,9 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/OdometryTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
+
+rosbuild_add_executable(applanixBSpline src/car/applanixBSpline.cpp)
+target_link_libraries(applanixBSpline ${PROJECT_NAME})
 
 rosbuild_add_executable(bsplineFromApplanix src/car/bsplineFromApplanix.cpp)
 target_link_libraries(bsplineFromApplanix ${PROJECT_NAME})
