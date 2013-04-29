@@ -27,9 +27,10 @@
 #include <aslam/backend/test/ErrorTermTestHarness.hpp>
 #include <aslam/backend/EuclideanPoint.hpp>
 
+#include <aslam/calibration/statistics/NormalDistribution.h>
+#include <aslam/calibration/data-structures/VectorDesignVariable.h>
+
 #include "aslam/calibration/car/ErrorTermOdometry.h"
-#include "aslam/calibration/statistics/NormalDistribution.h"
-#include "aslam/calibration/data-structures/VectorDesignVariable.h"
 
 TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
 

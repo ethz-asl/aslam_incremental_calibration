@@ -1,0 +1,25 @@
+<package>
+  <description brief="incremental_calibration_vision">
+
+     incremental_calibration_vision
+
+  </description>
+  <author>Jerome Maye</author>
+  <license>LGPL</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/incremental_calibration_vision</url>
+
+  <depend package="aslam_cameras"/>
+  <depend package="aslam_camera_system"/>
+  <depend package="aslam_matcher"/>
+  <depend package="sm_logging"/>
+  <depend package="sm_kinematics"/>
+  <depend package="sm_eigen"/>
+  <depend package="sm_property_tree"/>
+
+  <export>
+    <cpp cflags="`pkg-config --cflags eigen3` `rosboost-cfg --cflags` `pkg-config opencv --cflags --libs` -I${prefix}/include"
+         lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lincremental_calibration"/>
+  </export>
+
+</package>

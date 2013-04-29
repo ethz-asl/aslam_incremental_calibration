@@ -9,14 +9,6 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/incremental_calibration</url>
   <depend package="aslam_backend"/>
-  <depend package="aslam_backend_expressions"/>
-  <depend package="bsplines"/>
-  <depend package="aslam_splines"/>
-  <depend package="aslam_cameras"/>
-  <depend package="aslam_camera_system"/>
-  <depend package="aslam_matcher"/>
-  <depend package="sm_eigen"/>
-  <depend package="sm_logging"/>
 
   <export>
     <cpp cflags="`pkg-config --cflags eigen3` `rosboost-cfg --cflags` `pkg-config opencv --cflags --libs` -I${prefix}/include"

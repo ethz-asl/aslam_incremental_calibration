@@ -24,9 +24,10 @@
 
 #include <aslam/backend/test/ErrorTermTestHarness.hpp>
 
+#include <aslam/calibration/data-structures/VectorDesignVariable.h>
+#include <aslam/calibration/statistics/NormalDistribution.h>
+
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
-#include "aslam/calibration/data-structures/VectorDesignVariable.h"
-#include "aslam/calibration/statistics/NormalDistribution.h"
 
 TEST(AslamCalibrationTestSuite, testErrorTermMotion) {
   // state at time k-1

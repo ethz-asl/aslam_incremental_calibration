@@ -38,7 +38,6 @@ rosbuild_add_library(${PROJECT_NAME}
   src/functions/IncompleteGammaQFunction.cpp
   src/functions/LogFactorialFunction.cpp
   src/functions/LogGammaFunction.cpp
-  src/vision/VisionDataAssociation.cpp
   src/core/IncrementalEstimator.cpp
   src/core/OptimizationProblem.cpp
   src/core/IncrementalOptimizationProblem.cpp

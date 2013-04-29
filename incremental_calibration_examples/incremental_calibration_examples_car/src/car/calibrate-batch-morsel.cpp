@@ -47,12 +47,12 @@
 #include <aslam/backend/TransformationExpression.hpp>
 #include <aslam/backend/MEstimatorPolicies.hpp>
 
-#include "aslam/calibration/car/ErrorTermPose.h"
-#include "aslam/calibration/statistics/NormalDistribution.h"
+#include <aslam/calibration/statistics/NormalDistribution.h>
+#include <aslam/calibration/data-structures/VectorDesignVariable.h>
+#include <aslam/calibration/algorithms/matrixOperations.h>
+
 #include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/car/ErrorTermOdometry.h"
-#include "aslam/calibration/data-structures/VectorDesignVariable.h"
-#include "aslam/calibration/algorithms/matrixOperations.h"
 
 int main(int argc, char** argv) {
   if (argc != 2) {

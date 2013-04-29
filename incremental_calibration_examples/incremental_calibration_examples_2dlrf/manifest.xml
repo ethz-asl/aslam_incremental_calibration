@@ -10,5 +10,7 @@
   <url>http://ros.org/wiki/incremental_calibration_examples</url>
 
   <depend package="incremental_calibration"/>
+  <depend package="aslam_backend"/>
+  <depend package="sm_kinematics"/>
 
 </package>
