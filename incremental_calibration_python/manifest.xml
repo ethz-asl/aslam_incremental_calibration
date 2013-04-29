@@ -5,7 +5,7 @@
 
   </description>
   <author>Paul Furgale</author>
-  <license>BSD</license>
+  <license>LGPL</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/incremental_calibration_python</url>
 
