@@ -66,12 +66,13 @@ target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 rosbuild_add_executable(applanixBSpline src/car/applanixBSpline.cpp)
 target_link_libraries(applanixBSpline ${PROJECT_NAME})
 
+rosbuild_add_executable(applanixBSplineOptimize
+  src/car/applanixBSplineOptimize.cpp)
+target_link_libraries(applanixBSplineOptimize ${PROJECT_NAME})
+
 rosbuild_add_executable(car-calibrate-batch-morsel
   src/car/calibrate-batch-morsel.cpp)
 target_link_libraries(car-calibrate-batch-morsel ${PROJECT_NAME})
-
-rosbuild_add_executable(applanix-optimize src/car/applanix-optimize.cpp)
-target_link_libraries(applanix-optimize ${PROJECT_NAME})
 
 rosbuild_add_executable(calibrate-prius-odometry-offline
   src/car/calibrate-prius-odometry-offline.cpp)

@@ -109,12 +109,12 @@ namespace aslam {
                   perfMsg.mNorthPositionRMSError;
                 navMsg.z_sigma2 = perfMsg.mDownPositionRMSError *
                   perfMsg.mDownPositionRMSError;
-                navMsg.roll_sigma2 = perfMsg.mRollRMSError *
-                  perfMsg.mRollRMSError;
-                navMsg.pitch_sigma2 = perfMsg.mPitchRMSError *
-                  perfMsg.mPitchRMSError;
-                navMsg.yaw_sigma2 = perfMsg.mHeadingRMSError *
-                  perfMsg.mHeadingRMSError;
+                navMsg.roll_sigma2 = Utils::deg2rad(perfMsg.mRollRMSError) *
+                  Utils::deg2rad(perfMsg.mRollRMSError);
+                navMsg.pitch_sigma2 = Utils::deg2rad(perfMsg.mPitchRMSError) *
+                  Utils::deg2rad(perfMsg.mPitchRMSError);
+                navMsg.yaw_sigma2 = Utils::deg2rad(perfMsg.mHeadingRMSError) *
+                  Utils::deg2rad(perfMsg.mHeadingRMSError);
                 navMsg.v_x_sigma2 = perfMsg.mEastPositionRMSError *
                   perfMsg.mEastPositionRMSError;
                 navMsg.v_y_sigma2 = perfMsg.mNorthVelocityRMSError *
