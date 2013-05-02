@@ -17,13 +17,11 @@
  ******************************************************************************/
 
 /** \file utils.h
-    \brief This file contains a bunch of utilities for the 2D-LRF problem.
+    \brief This file contains a bunch of utilities for the car problem.
   */
 
-#ifndef ASLAM_CALIBRATION_2DLRF_UTILS_H
-#define ASLAM_CALIBRATION_2DLRF_UTILS_H
-
-#include <vector>
+#ifndef ASLAM_CALIBRATION_CAR_UTILS_H
+#define ASLAM_CALIBRATION_CAR_UTILS_H
 
 #include <Eigen/Core>
 
@@ -33,19 +31,13 @@ namespace aslam {
     /** \name Methods
       @{
       */
-    /// Generate a sine wave path
-    void genSineWavePath(std::vector<Eigen::Matrix<double, 3, 1> >& u,
-      size_t steps, double amplitude, double frequency, double T);
-    /// Inits landmarks positions from noisy data
-    void initLandmarks(std::vector<Eigen::Matrix<double, 2, 1> >& x_l_hat,
-      const std::vector<Eigen::Matrix<double, 3, 1> >& x_odom,
-      const Eigen::Matrix<double, 3, 1>& Theta_hat,
-      const std::vector<std::vector<double> >& r,
-      const std::vector<std::vector<double> >& b);
+    /// Ensures rotation vector does not flip
+    Eigen::Vector3d rotVectorNoFlipping(const Eigen::Vector3d& prv,
+      const Eigen::Vector3d& crv);
     /** @}
       */
 
   }
 }
 
-#endif // ASLAM_CALIBRATION_2DLRF_UTILS_H
+#endif // ASLAM_CALIBRATION_CAR_UTILS_H

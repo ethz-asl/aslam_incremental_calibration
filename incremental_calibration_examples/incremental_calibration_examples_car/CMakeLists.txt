@@ -39,6 +39,9 @@ find_library(LIBPOSLV_BASE poslv-base
 find_library(LIBPOSLV_EXCEPTIONS poslv-exceptions
   /usr/lib
 )
+find_library(LIBPOSLV_GEO_TOOLS poslv-geo-tools
+  /usr/lib
+)
 
 rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermPose.cpp
@@ -47,9 +50,10 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/AckermanOdometry.cpp
   src/car/DifferentialOdometry.cpp
   src/car/ApplanixBinaryParser.cpp
+  src/car/utils.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
-  ${LIBPOSLV_EXCEPTIONS})
+  ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS})
 
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
@@ -61,9 +65,6 @@ target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
 rosbuild_add_executable(applanixBSpline src/car/applanixBSpline.cpp)
 target_link_libraries(applanixBSpline ${PROJECT_NAME})
-
-rosbuild_add_executable(bsplineFromApplanix src/car/bsplineFromApplanix.cpp)
-target_link_libraries(bsplineFromApplanix ${PROJECT_NAME})
 
 rosbuild_add_executable(car-calibrate-batch-morsel
   src/car/calibrate-batch-morsel.cpp)

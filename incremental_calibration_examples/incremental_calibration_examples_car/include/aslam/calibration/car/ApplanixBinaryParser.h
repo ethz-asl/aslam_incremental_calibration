@@ -27,6 +27,8 @@
 #include <string>
 #include <map>
 
+#include <Eigen/Core>
+
 namespace aslam {
   namespace calibration {
 
@@ -39,39 +41,39 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
-      /// Vehicle navigation solution in ENU Swissgrid system
+      /// Vehicle navigation solution in local ENU system
       struct NavigationSolution {
-        /// x pose
+        /// x pose [m]
         double x;
-        /// y pose
+        /// y pose [m]
         double y;
-        /// z pose
+        /// z pose [m]
         double z;
-        /// roll
+        /// roll [rad]
         double roll;
-        /// pitch
+        /// pitch [rad]
         double pitch;
-        /// yaw
+        /// yaw [rad]
         double yaw;
-        /// linear velocity in x
+        /// body linear velocity in x in world frame [m/s]
         double v_x;
-        /// linear velocity in y
+        /// body linear velocity in y in world frame [m/s]
         double v_y;
-        /// linear velocity in z
+        /// body linear velocity in z in world frame [m/s]
         double v_z;
-        /// angular velocity in x
+        /// body angular velocity in x in body frame [rad/s]
         double om_x;
-        /// angular velocity in y
+        /// body angular velocity in y in body frame [rad/s]
         double om_y;
-        /// angular velocity in z
+        /// body angular velocity in z in body frame [rad/s]
         double om_z;
-        /// linear acceleration in x
+        /// body linear acceleration in x in body frame [m/s^2]
         double a_x;
-        /// linear acceleration in y
+        /// body linear acceleration in y in body frame [m/s^2]
         double a_y;
-        /// linear acceleration in z
+        /// body linear acceleration in z in body frame [m/s^2]
         double a_z;
-        /// linear velocity
+        /// linear velocity [m/s]
         double v;
         /// x pose sigma^2
         double x_sigma2;
@@ -92,6 +94,12 @@ namespace aslam {
         /// linear velocity in z sigma^2
         double v_z_sigma2;
       };
+      /// Message container
+      typedef std::map<double, NavigationSolution> Container;
+      /// Message container iterator
+      typedef Container::iterator ContainerIt;
+      /// Message container constant iterator
+      typedef Container::const_iterator ContainerCIt;
       /// Self type
       typedef ApplanixBinaryParser Self;
       /** @}
@@ -124,6 +132,10 @@ namespace aslam {
       void setFilename(const std::string& filename);
       /// Returns the number of navigation solution messages
       size_t getNumNavigationSolution() const;
+      /// Returns iterator to start
+      ContainerCIt cbegin() const;
+      /// Returns iterator to end
+      ContainerCIt cend() const;
       /** @}
         */
 
@@ -144,7 +156,7 @@ namespace aslam {
       /// File name of the log file
       std::string _filename;
       /// Vehicle navigation solution messages
-      std::map<double, NavigationSolution> _navigationSolution;
+      Container _navigationSolution;
       /** @}
         */
 

@@ -20,8 +20,7 @@
 
 #include <fstream>
 #include <memory>
-
-#include <Eigen/Core>
+#include <iomanip>
 
 #include <libposlv/sensor/BinaryLogReader.h>
 #include <libposlv/types/Packet.h>
@@ -29,6 +28,8 @@
 #include <libposlv/types/VehicleNavigationSolution.h>
 #include <libposlv/types/VehicleNavigationPerformance.h>
 #include <libposlv/sensor/Utils.h>
+#include <libposlv/geo-tools/Geo.h>
+#include <libposlv/exceptions/IOException.h>
 
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 
@@ -62,6 +63,14 @@ namespace aslam {
       return _navigationSolution.size();
     }
 
+    ApplanixBinaryParser::ContainerCIt ApplanixBinaryParser::cbegin() const {
+      return _navigationSolution.cbegin();
+    }
+
+    ApplanixBinaryParser::ContainerCIt ApplanixBinaryParser::cend() const {
+      return _navigationSolution.cend();
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -69,11 +78,17 @@ namespace aslam {
     void ApplanixBinaryParser::parse() {
       _navigationSolution.clear();
       std::ifstream binaryLogFile(_filename);
+      if (!binaryLogFile.is_open())
+        throw IOException("ApplanixBinaryParser::parse(): file opening failed");
       BinaryLogReader logReader(binaryLogFile);
       binaryLogFile.seekg (0, std::ios::end);
       const int length = binaryLogFile.tellg();
       binaryLogFile.seekg (0, std::ios::beg);
       std::shared_ptr<Packet> lastPerformance;
+      double latRef = 0;
+      double longRef = 0;
+      double altRef = 0;
+      bool firstLLA = true;
       while (binaryLogFile.tellg() != length) {
         double timestamp;
         logReader >> timestamp;
@@ -81,20 +96,9 @@ namespace aslam {
         if (packet->instanceOfGroup()) {
           const Group& group = packet->groupCast();
           if (group.instanceOf<VehicleNavigationSolution>()) {
-            const VehicleNavigationSolution& msg =
-              group.typeCast<VehicleNavigationSolution>();
             NavigationSolution navMsg;
-            if (lastPerformance == NULL) {
-              navMsg.x_sigma2 = 1e-3;
-              navMsg.y_sigma2 = 1e-3;
-              navMsg.z_sigma2 = 1e-3;
-              navMsg.roll_sigma2 = 1e-3;
-              navMsg.pitch_sigma2 = 1e-3;
-              navMsg.yaw_sigma2 = 1e-3;
-              navMsg.v_x_sigma2 = 1e-3;
-              navMsg.v_y_sigma2 = 1e-3;
-              navMsg.v_z_sigma2 = 1e-3;
-            }
+            if (lastPerformance == NULL)
+              continue;
             else {
               const Group& perfGroup = lastPerformance->groupCast();
               const VehicleNavigationPerformance& perfMsg =
@@ -118,42 +122,65 @@ namespace aslam {
                 navMsg.v_z_sigma2 = perfMsg.mDownVelocityRMSError *
                   perfMsg.mDownVelocityRMSError;
             }
-            double east, north, height;
-            Utils::WGS84ToLV03(msg.mLatitude, msg.mLongitude, msg.mAltitude,
-              east, north, height);
-            navMsg.x = east;
-            navMsg.y = north;
-            navMsg.z = height;
-            Eigen::Matrix3d R_ENU_NED;
-            R_ENU_NED << 0, 1, 0, 1, 0, 0, 0, 0, -1;
+            const VehicleNavigationSolution& msg =
+              group.typeCast<VehicleNavigationSolution>();
+            if (firstLLA) {
+              latRef = msg.mLatitude;
+              longRef = msg.mLongitude;
+              altRef = msg.mAltitude;
+              firstLLA = false;
+            }
+            double x_ecef, y_ecef, z_ecef;
+            Geo::wgs84ToEcef(msg.mLatitude, msg.mLongitude, msg.mAltitude,
+              x_ecef, y_ecef, z_ecef);
+            Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef,
+              navMsg.x, navMsg.y, navMsg.z);
+            // Rotation matrix transforming ENU vectors into NED vectors
+            Eigen::Matrix3d C_ENU_NED =
+              Geo::R_ENU_NED::getInstance().getMatrix();
             const sm::kinematics::EulerAnglesYawPitchRoll ypr;
-            const Eigen::Matrix3d R_NED = ypr.parametersToRotationMatrix(
+            // Rotation matrix transforming body NED to world NED
+            const Eigen::Matrix3d C_w_NED_i_NED =
+              ypr.parametersToRotationMatrix(
               Eigen::Vector3d(Utils::deg2rad(msg.mHeading),
               Utils::deg2rad(msg.mPitch), Utils::deg2rad(msg.mRoll)));
-            const Eigen::Matrix3d R_ENU = R_ENU_NED * R_NED;
-            const Eigen::Vector3d R_ENU_params =
-              ypr.rotationMatrixToParameters(R_ENU);
-            navMsg.yaw = R_ENU_params(0);
-            navMsg.pitch = R_ENU_params(1);
-            navMsg.roll = M_PI + R_ENU_params(2);
-            const Eigen::Vector3d v_NED(msg.mNorthVelocity, msg.mEastVelocity,
-              msg.mDownVelocity);
-            Eigen::Vector3d v_ENU = R_ENU_NED * v_NED;
-            navMsg.v_x = v_ENU(0);
-            navMsg.v_y = v_ENU(1);
-            navMsg.v_z = v_ENU(2);
-            const Eigen::Vector3d om_NED(msg.mAngularRateLong,
-              msg.mAngularRateTrans, msg.mAngularRateDown);
-            Eigen::Vector3d om_ENU = R_ENU_NED * om_NED;
-            navMsg.om_x = om_ENU(0);
-            navMsg.om_y = om_ENU(1);
-            navMsg.om_z = om_ENU(2);
-            const Eigen::Vector3d a_NED(msg.mAccLong, msg.mAccTrans,
+            // Rotation matrix transforming body ENU to world ENU
+            Eigen::Matrix3d signMatrix = Eigen::Matrix3d::Identity();
+            signMatrix(1, 1) = -1;
+            signMatrix(2, 2) = -1;
+            const Eigen::Matrix3d C_w_ENU_i_ENU = C_ENU_NED * C_w_NED_i_NED *
+              signMatrix;
+            const Eigen::Vector3d C_w_ENU_i_ENU_params =
+              ypr.rotationMatrixToParameters(C_w_ENU_i_ENU);
+            navMsg.yaw = C_w_ENU_i_ENU_params(0);
+            navMsg.pitch = C_w_ENU_i_ENU_params(1);
+            navMsg.roll = C_w_ENU_i_ENU_params(2);
+            // linear velocity of the body in the world NED frame
+            const Eigen::Vector3d v_iw_NED(msg.mNorthVelocity,
+              msg.mEastVelocity, msg.mDownVelocity);
+            // linear velocity of the body in the world ENU frame
+            Eigen::Vector3d v_iw_ENU = C_ENU_NED * v_iw_NED;
+            navMsg.v_x = v_iw_ENU(0);
+            navMsg.v_y = v_iw_ENU(1);
+            navMsg.v_z = v_iw_ENU(2);
+            // angular velocity of the body in the body NED frame
+            const Eigen::Vector3d om_ii_NED(
+              Utils::deg2rad(msg.mAngularRateLong),
+              Utils::deg2rad(msg.mAngularRateTrans),
+              Utils::deg2rad(msg.mAngularRateDown));
+            // angular velocity of the body in the body ENU frame
+            Eigen::Vector3d om_ii_ENU = signMatrix * om_ii_NED;
+            navMsg.om_x = om_ii_ENU(0);
+            navMsg.om_y = om_ii_ENU(1);
+            navMsg.om_z = om_ii_ENU(2);
+            // linear acceleration of the body in the body NED frame
+            const Eigen::Vector3d a_ii_NED(msg.mAccLong, msg.mAccTrans,
               msg.mAccDown);
-            Eigen::Vector3d a_ENU = R_ENU_NED * a_NED;
-            navMsg.a_x = a_ENU(0);
-            navMsg.a_y = a_ENU(1);
-            navMsg.a_z = a_ENU(2);
+            // linear acceleration of the body in the body ENU frame
+            Eigen::Vector3d a_ii_ENU = signMatrix * a_ii_NED;
+            navMsg.a_x = a_ii_ENU(0);
+            navMsg.a_y = a_ii_ENU(1);
+            navMsg.a_z = a_ii_ENU(2);
             navMsg.v = msg.mSpeed;
             _navigationSolution[timestamp] = navMsg;
           }
@@ -161,12 +188,18 @@ namespace aslam {
             lastPerformance = packet;
         }
       }
+      // kick out the last measurement, problem with parsing!
+      if (_navigationSolution.size() > 0) {
+        auto it = _navigationSolution.end();
+        --it;
+        _navigationSolution.erase(it);
+      }
     }
 
     void ApplanixBinaryParser::writeMATLAB(std::ostream& stream) const {
       for (auto it = _navigationSolution.cbegin();
           it != _navigationSolution.cend(); ++it)
-        stream
+        stream << std::fixed << std::setprecision(16)
           << it->first << " "
           << it->second.x << " "
           << it->second.y << " "

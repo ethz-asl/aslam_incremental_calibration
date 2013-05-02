@@ -16,36 +16,36 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file utils.h
-    \brief This file contains a bunch of utilities for the 2D-LRF problem.
-  */
-
-#ifndef ASLAM_CALIBRATION_2DLRF_UTILS_H
-#define ASLAM_CALIBRATION_2DLRF_UTILS_H
-
-#include <vector>
-
-#include <Eigen/Core>
+#include "aslam/calibration/car/utils.h"
 
 namespace aslam {
   namespace calibration {
 
-    /** \name Methods
-      @{
-      */
-    /// Generate a sine wave path
-    void genSineWavePath(std::vector<Eigen::Matrix<double, 3, 1> >& u,
-      size_t steps, double amplitude, double frequency, double T);
-    /// Inits landmarks positions from noisy data
-    void initLandmarks(std::vector<Eigen::Matrix<double, 2, 1> >& x_l_hat,
-      const std::vector<Eigen::Matrix<double, 3, 1> >& x_odom,
-      const Eigen::Matrix<double, 3, 1>& Theta_hat,
-      const std::vector<std::vector<double> >& r,
-      const std::vector<std::vector<double> >& b);
-    /** @}
-      */
+/******************************************************************************/
+/* Methods                                                                    */
+/******************************************************************************/
+
+    Eigen::Vector3d rotVectorNoFlipping(const Eigen::Vector3d& prv,
+        const Eigen::Vector3d& crv) {
+      // current angle
+      const double angle = crv.norm();
+      // current axis
+      const Eigen::Vector3d axis = crv / angle;
+      // best rotation vector
+      Eigen::Vector3d best_rv = crv;
+      // best distance
+      double best_dist = (best_rv - prv).norm();
+      // find best vector
+      for (int s = -3; s <= 4; ++s) {
+        const Eigen::Vector3d aa = axis * (angle + M_PI * 2.0 * s);
+        const double dist = (aa - prv).norm();
+        if (dist < best_dist) {
+          best_rv = aa;
+          best_dist = dist;
+        }
+      }
+      return best_rv;
+    }
 
   }
 }
-
-#endif // ASLAM_CALIBRATION_2DLRF_UTILS_H
