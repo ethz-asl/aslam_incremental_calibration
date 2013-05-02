@@ -22,6 +22,8 @@
 #include <memory>
 #include <iomanip>
 
+#include <Eigen/Core>
+
 #include <libposlv/sensor/BinaryLogReader.h>
 #include <libposlv/types/Packet.h>
 #include <libposlv/types/Group.h>

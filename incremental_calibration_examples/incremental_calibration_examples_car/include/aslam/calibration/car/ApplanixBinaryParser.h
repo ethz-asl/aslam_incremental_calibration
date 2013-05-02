@@ -27,8 +27,6 @@
 #include <string>
 #include <map>
 
-#include <Eigen/Core>
-
 namespace aslam {
   namespace calibration {
 

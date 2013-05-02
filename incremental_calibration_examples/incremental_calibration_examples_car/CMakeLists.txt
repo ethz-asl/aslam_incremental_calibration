@@ -43,6 +43,23 @@ find_library(LIBPOSLV_GEO_TOOLS poslv-geo-tools
   /usr/lib
 )
 
+# libcan-prius
+find_path(LIBCAN_PRIUS_INCLUDE_DIR sensor/PRIUSReader.h
+  /usr/include
+  PATH_SUFFIXES
+  libcan-prius
+)
+message(Found ${LIBCAN_PRIUS_INCLUDE_DIR})
+find_library(LIBCAN_PRIUS_SENSOR_LIBRARY can-prius-sensor
+  /usr/lib
+)
+find_library(LIBCAN_PRIUS_TYPES_LIBRARY can-prius-types
+  /usr/lib
+)
+include_directories(
+  ${LIBCAN_PRIUS_INCLUDE_DIR}
+)
+
 rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermPose.cpp
   src/car/ErrorTermOdometry.cpp
@@ -50,10 +67,12 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/AckermanOdometry.cpp
   src/car/DifferentialOdometry.cpp
   src/car/ApplanixBinaryParser.cpp
+  src/car/CANBinaryParser.cpp
   src/car/utils.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
-  ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS})
+  ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS} ${LIBCAN_PRIUS_SENSOR_LIBRARY}
+  ${LIBCAN_PRIUS_TYPES_LIBRARY})
 
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
@@ -69,6 +88,9 @@ target_link_libraries(applanixBSpline ${PROJECT_NAME})
 rosbuild_add_executable(applanixBSplineOptimize
   src/car/applanixBSplineOptimize.cpp)
 target_link_libraries(applanixBSplineOptimize ${PROJECT_NAME})
+
+rosbuild_add_executable(odometryBSpline src/car/odometryBSpline.cpp)
+target_link_libraries(odometryBSpline ${PROJECT_NAME})
 
 rosbuild_add_executable(car-calibrate-batch-morsel
   src/car/calibrate-batch-morsel.cpp)
