@@ -89,6 +89,10 @@ rosbuild_add_executable(applanixBSplineOptimize
   src/car/applanixBSplineOptimize.cpp)
 target_link_libraries(applanixBSplineOptimize ${PROJECT_NAME})
 
+rosbuild_add_executable(applanixPredOdometry
+  src/car/applanixPredOdometry.cpp)
+target_link_libraries(applanixPredOdometry ${PROJECT_NAME})
+
 rosbuild_add_executable(odometryBSpline src/car/odometryBSpline.cpp)
 target_link_libraries(odometryBSpline ${PROJECT_NAME})
 

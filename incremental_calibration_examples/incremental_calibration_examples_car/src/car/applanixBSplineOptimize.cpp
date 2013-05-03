@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
   // output data from spline
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
   std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
-  for (size_t i = 0; i < numMeasurements; ++i) {
+  for (size_t i = 0; i < numMeasurements; ++i)
     applanixSplineMATLABFile << std::fixed << std::setprecision(16)
       << timestamps(i) << " "
       << bspline.position(timestamps(i)).transpose() << " "
@@ -127,7 +127,6 @@ int main(int argc, char** argv) {
       << bspline.angularVelocityBodyFrame(timestamps(i)).transpose() << " "
       << bspline.linearAccelerationBodyFrame(timestamps(i)).transpose()
       << std::endl;
-  }
 
   // create optimization problem
   boost::shared_ptr<aslam::backend::OptimizationProblem> problem(
