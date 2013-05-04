@@ -47,8 +47,8 @@ int main(int argc, char** argv) {
   canParser.writeFwMATLAB(canRawFwMATLABFile);
   std::ofstream canRawRwMATLABFile("can-raw-rws.txt");
   canParser.writeRwMATLAB(canRawRwMATLABFile);
-  std::ofstream canRawStMATLABFile("can-raw-st.txt");
-  canParser.writeStMATLAB(canRawStMATLABFile);
+  std::ofstream canRawSt1MATLABFile("can-raw-st1.txt");
+  canParser.writeSt1MATLAB(canRawSt1MATLABFile);
 
   // create B-Spline for front wheel speeds
   std::cout << "Creating B-spline for front wheel speeds..." << std::endl;
@@ -108,31 +108,31 @@ int main(int argc, char** argv) {
 
   // create B-Spline for steering
   std::cout << "Creating B-spline for steering..." << std::endl;
-  const int orderSt = 4;
-  BSpline bsplineSt(orderSt);
-  const size_t numStMeasurements = canParser.getNumSteering();
-  Eigen::VectorXd timestampsSt(numStMeasurements);
-  Eigen::MatrixXd pointsSt(1, numStMeasurements);
+  const int orderSt1 = 4;
+  BSpline bsplineSt1(orderSt1);
+  const size_t numSt1Measurements = canParser.getNumSteering1();
+  Eigen::VectorXd timestampsSt1(numSt1Measurements);
+  Eigen::MatrixXd pointsSt1(1, numSt1Measurements);
   i = 0;
-  for (auto it = canParser.cbeginSt(); it != canParser.cendSt(); ++it) {
-    timestampsSt(i) = it->first;
-    pointsSt(0, i) = it->second;
+  for (auto it = canParser.cbeginSt1(); it != canParser.cendSt1(); ++it) {
+    timestampsSt1(i) = it->first;
+    pointsSt1(0, i) = it->second;
     ++i;
   }
-  const double elapsedTimeSt = timestampsSt(numStMeasurements - 1) -
-    timestampsSt(0);
-  const int measPerSecSt = numStMeasurements / elapsedTimeSt;
-  const int measPerSecDesiredSt = 5;
-  int numSegmentsSt;
-  if (measPerSecSt > measPerSecDesiredSt)
-    numSegmentsSt = measPerSecDesiredSt * elapsedTimeSt;
+  const double elapsedTimeSt1 = timestampsSt1(numSt1Measurements - 1) -
+    timestampsSt1(0);
+  const int measPerSecSt1 = numSt1Measurements / elapsedTimeSt1;
+  const int measPerSecDesiredSt1 = 5;
+  int numSegmentsSt1;
+  if (measPerSecSt1 > measPerSecDesiredSt1)
+    numSegmentsSt1 = measPerSecDesiredSt1 * elapsedTimeSt1;
   else
-    numSegmentsSt = numStMeasurements;
-  std::cout << "elapsedTimeSt: " << elapsedTimeSt << std::endl;
-  std::cout << "measPerSecSt: " << measPerSecSt << std::endl;
-  std::cout << "numStMeasurements: " << numStMeasurements << std::endl;
-  std::cout << "numSegmentsSt: " << numSegmentsSt << std::endl;
-  bsplineSt.initSplineSparse(timestampsSt, pointsSt, numSegmentsSt, 1e-6);
+    numSegmentsSt1 = numSt1Measurements;
+  std::cout << "elapsedTimeSt1: " << elapsedTimeSt1 << std::endl;
+  std::cout << "measPerSecSt1: " << measPerSecSt1 << std::endl;
+  std::cout << "numSt1Measurements: " << numSt1Measurements << std::endl;
+  std::cout << "numSegmentsSt1: " << numSegmentsSt1 << std::endl;
+  bsplineSt1.initSplineSparse(timestampsSt1, pointsSt1, numSegmentsSt1, 1e-6);
 
   // output B-spline data
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
@@ -146,10 +146,10 @@ int main(int argc, char** argv) {
     canSplineRwMATLABFile << std::fixed << std::setprecision(16)
       << timestampsRws(i) << " "
       << bsplineRws.eval(timestampsRws(i)).transpose() << std::endl;
-  std::ofstream canSplineStMATLABFile("can-spline-st.txt");
-  for (size_t i = 0; i < numStMeasurements; ++i)
-    canSplineStMATLABFile << std::fixed << std::setprecision(16)
-      << timestampsSt(i) << " "
-      << bsplineSt.eval(timestampsSt(i)).transpose() << std::endl;
+  std::ofstream canSplineSt1MATLABFile("can-spline-st.txt");
+  for (size_t i = 0; i < numSt1Measurements; ++i)
+    canSplineSt1MATLABFile << std::fixed << std::setprecision(16)
+      << timestampsSt1(i) << " "
+      << bsplineSt1.eval(timestampsSt1(i)).transpose() << std::endl;
   return 0;
 }

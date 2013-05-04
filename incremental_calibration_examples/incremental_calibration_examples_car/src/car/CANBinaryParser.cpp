@@ -28,6 +28,12 @@
 #include <libcan-prius/types/FrontWheelsSpeed.h>
 #include <libcan-prius/types/RearWheelsSpeed.h>
 #include <libcan-prius/types/Steering1.h>
+#include <libcan-prius/types/Steering2.h>
+#include <libcan-prius/types/Acceleration1.h>
+#include <libcan-prius/types/Acceleration2.h>
+#include <libcan-prius/types/Speed1.h>
+#include <libcan-prius/types/Speed2.h>
+#include <libcan-prius/types/Speed3.h>
 #include <libcan-prius/base/Factory.h>
 
 namespace aslam {
@@ -64,32 +70,68 @@ namespace aslam {
       return _rws.size();
     }
 
-    size_t CANBinaryParser::getNumSteering() const {
-      return _st.size();
+    size_t CANBinaryParser::getNumSteering1() const {
+      return _st1.size();
     }
 
-    CANBinaryParser::SpeedContainerCIt CANBinaryParser::cbeginFw() const {
+    size_t CANBinaryParser::getNumSteering2() const {
+      return _st2.size();
+    }
+
+    size_t CANBinaryParser::getNumAcceleration1() const {
+      return _acc1.size();
+    }
+
+    size_t CANBinaryParser::getNumAcceleration2() const {
+      return _acc2.size();
+    }
+
+    CANBinaryParser::WSpeedContainerCIt CANBinaryParser::cbeginFw() const {
       return _fws.cbegin();
     }
 
-    CANBinaryParser::SpeedContainerCIt CANBinaryParser::cendFw() const {
+    CANBinaryParser::WSpeedContainerCIt CANBinaryParser::cendFw() const {
       return _fws.cend();
     }
 
-    CANBinaryParser::SpeedContainerCIt CANBinaryParser::cbeginRw() const {
+    CANBinaryParser::WSpeedContainerCIt CANBinaryParser::cbeginRw() const {
       return _rws.cbegin();
     }
 
-    CANBinaryParser::SpeedContainerCIt CANBinaryParser::cendRw() const {
+    CANBinaryParser::WSpeedContainerCIt CANBinaryParser::cendRw() const {
       return _rws.cend();
     }
 
-    CANBinaryParser::SteeringContainerCIt CANBinaryParser::cbeginSt() const {
-      return _st.cbegin();
+    CANBinaryParser::SteeringContainerCIt CANBinaryParser::cbeginSt1() const {
+      return _st1.cbegin();
     }
 
-    CANBinaryParser::SteeringContainerCIt CANBinaryParser::cendSt() const {
-      return _st.cend();
+    CANBinaryParser::SteeringContainerCIt CANBinaryParser::cendSt1() const {
+      return _st1.cend();
+    }
+
+    CANBinaryParser::SteeringContainerCIt CANBinaryParser::cbeginSt2() const {
+      return _st2.cbegin();
+    }
+
+    CANBinaryParser::SteeringContainerCIt CANBinaryParser::cendSt2() const {
+      return _st2.cend();
+    }
+
+    CANBinaryParser::AccContainerCIt CANBinaryParser::cbeginAcc1() const {
+      return _acc1.cbegin();
+    }
+
+    CANBinaryParser::AccContainerCIt CANBinaryParser::cendAcc1() const {
+      return _acc1.cend();
+    }
+
+    CANBinaryParser::AccContainerCIt CANBinaryParser::cbeginAcc2() const {
+      return _acc2.cbegin();
+    }
+
+    CANBinaryParser::AccContainerCIt CANBinaryParser::cendAcc2() const {
+      return _acc2.cend();
     }
 
 /******************************************************************************/
@@ -99,7 +141,13 @@ namespace aslam {
     void CANBinaryParser::parse() {
       _fws.clear();
       _rws.clear();
-      _st.clear();
+      _st1.clear();
+      _st2.clear();
+      _acc1.clear();
+      _acc2.clear();
+      _sp1.clear();
+      _sp2.clear();
+      _sp3.clear();
       std::ifstream binaryLogFile(_filename);
       if (!binaryLogFile.is_open())
         throw IOException("CANBinaryParser::parse(): file opening failed");
@@ -128,7 +176,31 @@ namespace aslam {
         }
         else if (priusMessage->instanceOf<Steering1>()) {
           const Steering1& st = priusMessage->typeCast<Steering1>();
-          _st[timestamp] = st.mValue;
+          _st1[timestamp] = st.mValue;
+        }
+        else if (priusMessage->instanceOf<Steering2>()) {
+          const Steering2& st = priusMessage->typeCast<Steering2>();
+          _st2[timestamp] = st.mValue;
+        }
+        else if (priusMessage->instanceOf<Acceleration1>()) {
+          const Acceleration1& acc = priusMessage->typeCast<Acceleration1>();
+          _acc1[timestamp] = std::make_pair(acc.mValue1, acc.mValue2);
+        }
+        else if (priusMessage->instanceOf<Acceleration2>()) {
+          const Acceleration2& acc = priusMessage->typeCast<Acceleration2>();
+          _acc2[timestamp] = std::make_pair(acc.mValue1, acc.mValue2);
+        }
+        else if (priusMessage->instanceOf<Speed1>()) {
+          const Speed1& sp = priusMessage->typeCast<Speed1>();
+          _sp1[timestamp] = sp.mValue;
+        }
+        else if (priusMessage->instanceOf<Speed2>()) {
+          const Speed2& sp = priusMessage->typeCast<Speed2>();
+          _sp2[timestamp] = sp.mValue;
+        }
+        else if (priusMessage->instanceOf<Speed3>()) {
+          const Speed3& sp = priusMessage->typeCast<Speed3>();
+          _sp3[timestamp] = sp.mSpeed;
         }
       }
       // kick out the last measurement, problem with parsing!
@@ -142,10 +214,40 @@ namespace aslam {
         --it;
         _rws.erase(it);
       }
-      if (_st.size() > 0) {
-        auto it = _st.end();
+      if (_st1.size() > 0) {
+        auto it = _st1.end();
         --it;
-        _st.erase(it);
+        _st1.erase(it);
+      }
+      if (_st2.size() > 0) {
+        auto it = _st2.end();
+        --it;
+        _st2.erase(it);
+      }
+      if (_acc1.size() > 0) {
+        auto it = _acc1.end();
+        --it;
+        _acc1.erase(it);
+      }
+      if (_acc2.size() > 0) {
+        auto it = _acc2.end();
+        --it;
+        _acc2.erase(it);
+      }
+      if (_sp1.size() > 0) {
+        auto it = _sp1.end();
+        --it;
+        _sp1.erase(it);
+      }
+      if (_sp2.size() > 0) {
+        auto it = _sp2.end();
+        --it;
+        _sp2.erase(it);
+      }
+      if (_sp3.size() > 0) {
+        auto it = _sp3.end();
+        --it;
+        _sp3.erase(it);
       }
     }
 
@@ -165,8 +267,52 @@ namespace aslam {
           << it->second.second << std::endl;
     }
 
-    void CANBinaryParser::writeStMATLAB(std::ostream& stream) const {
-      for (auto it = _st.cbegin(); it != _st.cend(); ++it)
+    void CANBinaryParser::writeSt1MATLAB(std::ostream& stream) const {
+      for (auto it = _st1.cbegin(); it != _st1.cend(); ++it)
+        stream << std::fixed << std::setprecision(16)
+          << it->first << " "
+          << it->second << std::endl;
+    }
+
+    void CANBinaryParser::writeSt2MATLAB(std::ostream& stream) const {
+      for (auto it = _st2.cbegin(); it != _st2.cend(); ++it)
+        stream << std::fixed << std::setprecision(16)
+          << it->first << " "
+          << it->second << std::endl;
+    }
+
+    void CANBinaryParser::writeAcc1MATLAB(std::ostream& stream) const {
+      for (auto it = _acc1.cbegin(); it != _acc1.cend(); ++it)
+        stream << std::fixed << std::setprecision(16)
+          << it->first << " "
+          << it->second.first << " "
+          << it->second.second << std::endl;
+    }
+
+    void CANBinaryParser::writeAcc2MATLAB(std::ostream& stream) const {
+      for (auto it = _acc2.cbegin(); it != _acc2.cend(); ++it)
+        stream << std::fixed << std::setprecision(16)
+          << it->first << " "
+          << it->second.first << " "
+          << it->second.second << std::endl;
+    }
+
+    void CANBinaryParser::writeSp1MATLAB(std::ostream& stream) const {
+      for (auto it = _sp1.cbegin(); it != _sp1.cend(); ++it)
+        stream << std::fixed << std::setprecision(16)
+          << it->first << " "
+          << it->second << std::endl;
+    }
+
+    void CANBinaryParser::writeSp2MATLAB(std::ostream& stream) const {
+      for (auto it = _sp2.cbegin(); it != _sp2.cend(); ++it)
+        stream << std::fixed << std::setprecision(16)
+          << it->first << " "
+          << it->second << std::endl;
+    }
+
+    void CANBinaryParser::writeSp3MATLAB(std::ostream& stream) const {
+      for (auto it = _sp3.cbegin(); it != _sp3.cend(); ++it)
         stream << std::fixed << std::setprecision(16)
           << it->first << " "
           << it->second << std::endl;
