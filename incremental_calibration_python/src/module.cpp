@@ -11,7 +11,7 @@ void exportIncrementalEstimator();
 BOOST_PYTHON_MODULE(libincremental_calibration_python)
 {
     // fill this in with boost::python export code
-    exportVisionDataAssociation();
+    //exportVisionDataAssociation();
     exportOptimizationProblem();
     exportIncrementalEstimator();
 

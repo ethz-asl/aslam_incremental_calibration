@@ -43,7 +43,7 @@ include(${numpy_eigen_PACKAGE_PATH}/cmake/add_python_export_library.cmake)
 # This functions take TARGET_NAME PYTHON_MODULE_DIRECTORY sourceFile1 [sourceFile2 ...]
 add_python_export_library(${PROJECT_NAME} src/incremental_calibration
   src/module.cpp
-  src/VisionDataAssociation.cpp
+  #src/VisionDataAssociation.cpp
   src/OptimizationProblem.cpp
   src/IncrementalEstimator.cpp
 
