@@ -19,7 +19,7 @@
 
   <export>
     <cpp cflags="`pkg-config --cflags eigen3` `rosboost-cfg --cflags` `pkg-config opencv --cflags --libs` -I${prefix}/include"
-         lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lincremental_calibration"/>
+         lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lincremental_calibration_vision"/>
   </export>
 
 </package>
