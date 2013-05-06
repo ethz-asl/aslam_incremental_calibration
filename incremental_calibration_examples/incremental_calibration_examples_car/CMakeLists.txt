@@ -69,6 +69,9 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ApplanixBinaryParser.cpp
   src/car/CANBinaryParser.cpp
   src/car/utils.cpp
+  src/car/ErrorTermFws.cpp
+  src/car/ErrorTermRws.cpp
+  src/car/ErrorTermSteering.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
   ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS} ${LIBCAN_PRIUS_SENSOR_LIBRARY}

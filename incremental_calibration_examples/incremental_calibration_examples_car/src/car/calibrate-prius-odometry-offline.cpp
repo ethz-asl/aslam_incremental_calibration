@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 
 #include <Eigen/Core>
 
@@ -36,15 +37,23 @@
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/Optimizer2.hpp>
+#include <aslam/backend/EuclideanPoint.hpp>
+#include <aslam/backend/RotationQuaternion.hpp>
+#include <aslam/backend/MEstimatorPolicies.hpp>
 
 #include <bsplines/BSplinePose.hpp>
 
 #include <aslam/splines/BSplinePoseDesignVariable.hpp>
 
+#include <aslam/calibration/data-structures/VectorDesignVariable.h>
+
 #include "aslam/calibration/car/CANBinaryParser.h"
 #include "aslam/calibration/car/ApplanixBinaryParser.h"
 #include "aslam/calibration/car/utils.h"
 #include "aslam/calibration/car/ErrorTermPose.h"
+#include "aslam/calibration/car/ErrorTermFws.h"
+#include "aslam/calibration/car/ErrorTermRws.h"
+#include "aslam/calibration/car/ErrorTermSteering.h"
 
 using namespace aslam::calibration;
 using namespace sm::kinematics;
@@ -105,7 +114,7 @@ int main(int argc, char** argv) {
   std::cout << "Sequence length [s]: " << elapsedTime << std::endl;
 
   // fill the B-Spline with measurements
-  const double lambda = 1e-6;
+  const double lambda = 1e-1;
   const int measPerSec = numMeasurements / elapsedTime;
   const int measPerSecDesired = 5;
   int numSegments;
@@ -152,19 +161,136 @@ int main(int argc, char** argv) {
     ++i;
   }
 
+  // transformation between IMU and odometry design variable
+  boost::shared_ptr<EuclideanPoint> t_io_dv(
+    new EuclideanPoint(Eigen::Vector3d(0, 0, -0.785)));
+  t_io_dv->setActive(true);
+  boost::shared_ptr<RotationQuaternion> C_io_dv(
+    new RotationQuaternion(
+    ypr.parametersToRotationMatrix(Eigen::Vector3d(0, 0, 0))));
+  C_io_dv->setActive(true);
+  RotationExpression C_io(C_io_dv);
+  EuclideanExpression t_io(t_io_dv);
+  problem->addDesignVariable(t_io_dv);
+  problem->addDesignVariable(C_io_dv);
+
+  // intrisic odometry parameters
+  const double L = 2.7; // wheelbase [m]
+  const double e_r = 0.7575; // half-track rear [m]
+  const double e_f = 0.7625; // half-track front [m]
+  const double a0 = 0; // steering coefficient
+  const double a1 = 1.0 / (M_PI / 180 / 10); // steering coefficient
+  const double a2 = 0; // steering coefficient
+  const double a3 = 0; // steering coefficient
+  const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
+  const double k_rr = 1.0 / 3.6 / 100.0; // wheel coefficient
+  const double k_fl = 1.0 / 3.6 / 100.0; // wheel coefficient
+  const double k_fr = 1.0 / 3.6 / 100.0; // wheel coefficient
+  boost::shared_ptr<VectorDesignVariable<11> > cpdv(
+    new VectorDesignVariable<11>(
+    (VectorDesignVariable<11>::Container() <<
+    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr).finished()));
+  cpdv->setActive(true);
+  problem->addDesignVariable(cpdv);
+
+  std::cout << "Creating error terms for rear wheel speed measurements..."
+    << std::endl;
+  Eigen::Matrix2d R_rws;
+  R_rws << 2000, 0, 0, 2000;
+  std::ofstream errorsRws("errors-rws.txt");
+  for (auto it = canParser.cbeginRw(); it != canParser.cendRw(); ++it) {
+    if (it->second.first == 0 || it->second.second == 0)
+      continue;
+    EuclideanExpression v_iw = bspdv->linearVelocity(it->first);
+    EuclideanExpression om_ii = bspdv->angularVelocityBodyFrame(it->first);
+    RotationExpression C_wi = bspdv->orientation(it->first);
+    EuclideanExpression v_ii = C_wi.inverse() * v_iw;
+    EuclideanExpression v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+    EuclideanExpression om_oo = C_io.inverse() * om_ii;
+    boost::shared_ptr<ErrorTermRws> e_rws(new ErrorTermRws(v_oo, om_oo,
+      cpdv.get(), Eigen::Vector2d(it->second.second, it->second.first), R_rws));
+    problem->addErrorTerm(e_rws);
+//    e_rws->setMEstimatorPolicy(
+//      boost::shared_ptr<BlakeZissermanMEstimator>(
+//      new BlakeZissermanMEstimator(e_rws->dimension(), 0.999, 0.1)));
+    errorsRws << e_rws->evaluateError() << std::endl;
+  }
+
+  std::cout << "Creating error terms for front wheel speed measurements..."
+    << std::endl;
+  Eigen::Matrix2d R_fws;
+  R_fws << 2000, 0, 0, 2000;
+  std::ofstream errorsFws("errors-fws.txt");
+  for (auto it = canParser.cbeginFw(); it != canParser.cendFw(); ++it) {
+    if (it->second.first == 0 || it->second.second == 0)
+      continue;
+    EuclideanExpression v_iw = bspdv->linearVelocity(it->first);
+    EuclideanExpression om_ii = bspdv->angularVelocityBodyFrame(it->first);
+    RotationExpression C_wi = bspdv->orientation(it->first);
+    EuclideanExpression v_ii = C_wi.inverse() * v_iw;
+    EuclideanExpression v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+    EuclideanExpression om_oo = C_io.inverse() * om_ii;
+    boost::shared_ptr<ErrorTermFws> e_fws(new ErrorTermFws(v_oo, om_oo,
+      cpdv.get(), Eigen::Vector2d(it->second.second, it->second.first), R_fws));
+    problem->addErrorTerm(e_fws);
+//    e_fws->setMEstimatorPolicy(
+//      boost::shared_ptr<BlakeZissermanMEstimator>(
+//      new BlakeZissermanMEstimator(e_fws->dimension(), 0.999, 0.1)));
+    errorsFws << e_fws->evaluateError() << std::endl;
+  }
+
+  std::cout << "Creating error terms for steering measurements..."
+    << std::endl;
+  Eigen::Matrix<double, 1, 1> R_st;
+  R_st << 2;
+  std::ofstream errorsSt("errors-st.txt");
+  for (auto it = canParser.cbeginSt1(); it != canParser.cendSt1(); ++it) {
+    EuclideanExpression v_iw = bspdv->linearVelocity(it->first);
+    EuclideanExpression om_ii = bspdv->angularVelocityBodyFrame(it->first);
+    RotationExpression C_wi = bspdv->orientation(it->first);
+    EuclideanExpression v_ii = C_wi.inverse() * v_iw;
+    EuclideanExpression v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+    EuclideanExpression om_oo = C_io.inverse() * om_ii;
+    Eigen::Matrix<double, 1, 1> meas;
+    meas << it->second;
+    boost::shared_ptr<ErrorTermSteering> e_st(new ErrorTermSteering(v_oo, om_oo,
+      cpdv.get(), meas, R_st));
+    problem->addErrorTerm(e_st);
+    errorsSt << e_st->evaluateError() << std::endl;
+  }
+
   // optimize
   std::cout << "Optimizing..." << std::endl;
+  std::cout << "Initial guess: " << std::endl;
+  std::cout << "Odometry parameters: " << std::endl;
+  std::cout << std::fixed << std::setprecision(16) << *cpdv << std::endl;
+  std::cout << "Translation IMU-ODO: " << std::endl;
+  std::cout << t_io.toValue().transpose() << std::endl;
+  std::cout << "Rotation IMU-ODO: " << std::endl;
+  std::cout <<
+    ypr.rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
+    << std::endl;
   aslam::backend::Optimizer2Options options;
   options.verbose = true;
   options.doLevenbergMarquardt = false;
   options.linearSolver = "sparse_qr";
   SparseQRLinearSolverOptions linearSolverOptions;
   linearSolverOptions.colNorm = true;
+  linearSolverOptions.qrTol = 0.02;
   Optimizer2 optimizer(options);
   optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
     linearSolverOptions);
   optimizer.setProblem(problem);
   optimizer.optimize();
+  std::cout << "Estimated parameters: " << std::endl;
+  std::cout << "Odometry parameters: " << std::endl;
+  std::cout << *cpdv << std::endl;
+  std::cout << "Translation IMU-ODO: " << std::endl;
+  std::cout << t_io.toValue().transpose() << std::endl;
+  std::cout << "Rotation IMU-ODO: " << std::endl;
+  std::cout <<
+    ypr.rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
+    << std::endl;
 
   return 0;
 }
