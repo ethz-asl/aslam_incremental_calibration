@@ -31,8 +31,7 @@
 using namespace aslam::calibration;
 
 TEST(AslamCalibrationTestSuite, testOdometry) {
-  Odometry::VehicleParameters params = {0.285, 0.285, 0.28, 0.28, 1.285, 1.81,
-    0, 1, 0, 0, 1, 1, 1, 1};
+  Odometry::VehicleParameters params = {0.285, 0.285, 0.28, 0.28, 1.285, 1.81};
   Odometry odometry(params);
   DifferentialOdometry diffOdometry(params);
   AckermanOdometry ackOdometry(params);

@@ -41,7 +41,6 @@ namespace aslam {
 /* Methods                                                                    */
 /******************************************************************************/
 
-
     void AckermanOdometry::updateWheelTranslationalVelocitiesSteering(
         double vRearLeftWheel, double vRearRightWheel, double vFrontLeftWheel,
         double vFrontRightWheel, double steering, double dT) {

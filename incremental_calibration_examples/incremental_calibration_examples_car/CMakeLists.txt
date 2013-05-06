@@ -106,6 +106,9 @@ target_link_libraries(odometryDump ${PROJECT_NAME})
 rosbuild_add_executable(odometryBSpline src/car/odometryBSpline.cpp)
 target_link_libraries(odometryBSpline ${PROJECT_NAME})
 
+rosbuild_add_executable(integrateOdometry src/car/integrateOdometry.cpp)
+target_link_libraries(integrateOdometry ${PROJECT_NAME})
+
 rosbuild_add_executable(car-calibrate-batch-morsel
   src/car/calibrate-batch-morsel.cpp)
 target_link_libraries(car-calibrate-batch-morsel ${PROJECT_NAME})

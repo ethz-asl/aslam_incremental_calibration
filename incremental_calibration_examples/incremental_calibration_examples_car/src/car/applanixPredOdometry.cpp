@@ -49,20 +49,18 @@ int main(int argc, char** argv) {
   applanixParser.parse();
 
   // car parameters
-  const double L = 2.7; // wheelbase [m]
-  const double e_r = 0.7575; // half-track rear [m]
-  const double e_f = 0.7625; // half-track front [m]
-  const double a0 = 0; // steering coefficient
-  const double a1 = 1.0 / (M_PI / 180 / 10); // steering coefficient
-  const double a2 = 0; // steering coefficient
-  const double a3 = 0; // steering coefficient
-  const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
-  const double k_rr = 1.0 / 3.6 / 100.0; // wheel coefficient
-  const double k_fl = 1.0 / 3.6 / 100.0; // wheel coefficient
-  const double k_fr = 1.0 / 3.6 / 100.0; // wheel coefficient
+  const double L = 2.698437452967974; // wheelbase [m]
+  const double e_r = 0.744551686997985; // half-track rear [m]
+  const double e_f = 0.7459111250452891; // half-track front [m]
+  const double a0 = -0.8808883000114152; // steering coefficient
+  const double a1 = 573.4542090947304587; // steering coefficient
+  const double k_rl = 0.0028199619977176; // wheel coefficient
+  const double k_rr = 0.0028260666435294; // wheel coefficient
+  const double k_fl = 0.0028214039506398; // wheel coefficient
+  const double k_fr = 0.0028223604206524; // wheel coefficient
 
   // translation from odometry to IMU center
-  Eigen::Vector3d t_io(0, 0, -0.785);
+  Eigen::Vector3d t_io(0, 0.0059385689655167, -0.785);
 
   // rotation from odometry to IMU center
   Eigen::Matrix3d C_io = Eigen::Matrix3d::Identity();
