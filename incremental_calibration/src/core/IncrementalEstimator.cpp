@@ -51,14 +51,15 @@ const struct IncrementalEstimator::Options
         _margGroupId(groupId),
         _mi(0),
         _sumLogDiagR(0),
-        _options(options),
-        _optimizer(new Optimizer()) {
+        _options(options)
+         {
       // optimization options
-      aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
+      aslam::backend::Optimizer2Options optOptions;
       optOptions.verbose = _options._verbose;
-      optOptions.doLevenbergMarquardt = false;
       optOptions.linearSolver = "sparse_qr";
       optOptions.maxIterations = _options._maxIterations;
+      optOptions.trustRegionPolicy = "GaussNewton";
+      _optimizer.reset(new Optimizer(optOptions));
 
       // attach the problem to the optimizer
       _optimizer->setProblem(_problem);
