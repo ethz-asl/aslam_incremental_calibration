@@ -38,7 +38,7 @@ namespace aslam {
 /******************************************************************************/
 
 const struct IncrementalEstimator::Options
-  IncrementalEstimator::_defaultOptions = {0.5, 0.02, true, true, 20};
+IncrementalEstimator::_defaultOptions;//(0.5, 0.02, true, true, 20);
 
 
 /******************************************************************************/
