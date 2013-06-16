@@ -58,7 +58,7 @@ IncrementalEstimator::_defaultOptions;//(0.5, 0.02, true, true, 20);
       optOptions.verbose = _options._verbose;
       optOptions.linearSolver = "sparse_qr";
       optOptions.maxIterations = _options._maxIterations;
-      optOptions.trustRegionPolicy = "GaussNewton";
+      optOptions.trustRegionPolicy = "DogLeg";
       _optimizer.reset(new Optimizer(optOptions));
 
       // attach the problem to the optimizer
