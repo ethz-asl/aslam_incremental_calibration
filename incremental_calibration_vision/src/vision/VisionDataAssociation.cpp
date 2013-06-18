@@ -5,47 +5,21 @@
 namespace aslam {
     namespace calibration {
         
-        VisionDataAssociation::VisionDataAssociation(const sm::kinematics::Transformation & T_v_cl,
-                                                     boost::shared_ptr<camera_t> leftCamera,
-                                                     const sm::kinematics::Transformation & T_v_cr,
-                                                     boost::shared_ptr<camera_t> rightCamera,
-                                                     double descriptorDistanceThreshold,
-                                                     double disparityTrackingThreshold,
-                                                     double disparityKeyframeThreshold,
-                                                     int numTracksThreshold) :
-            _disparityKeyframeThreshold(disparityKeyframeThreshold),
-            _numTracksThreshold(numTracksThreshold)
-        {
-            boost::shared_ptr<single_undistorter_t> u1(new single_undistorter_t(leftCamera, aslam::cameras::interpolation::Linear, 1.0, false));
-            boost::shared_ptr<single_undistorter_t> u2(new single_undistorter_t(rightCamera, aslam::cameras::interpolation::Linear, 1.0, false));
-            boost::shared_ptr<undistorter_t> u( new undistorter_t(u1,u2) );
-            
-            boost::shared_ptr<FrameBuilder> sfb(new SurfFrameBuilder(100));
-            
-            _synchronizer.reset( new synchronizer_t( T_v_cl,
-                                                     T_v_cr,
-                                                     u,
-                                                     sfb,
-                                                     false, // bool computeOverlaps
-                                                     0.001, // double timestampTolerance,
-                                                     true,  // bool doBackProjection,
-                                                     false  // bool doBackProjectionUncertainty
-                                     )
-                );
-
-            _nextFrameId = MultiFrameId(0);
-            _nextLandmarkId = LandmarkId(0);
-            _tracking.setParameters(descriptorDistanceThreshold, disparityTrackingThreshold);
-
-        }
-
 
         VisionDataAssociation::VisionDataAssociation(const sm::PropertyTree & config) :
-            _tracking( sm::PropertyTree( config, "descriptorTracking" ) )
+            _tracking( sm::PropertyTree( config, "descriptorTracking" ) ),
+            _ofovMatching( sm::PropertyTree( config, "ofovMatching" ) )
         {
-            _synchronizer.reset( new synchronizer_t( sm::PropertyTree( config, "synchronizer" ) ) );
+            std::string pname = config.getString("pipelineName");
+            SM_INFO_STREAM("Using the pipeline named " << pname);
+            _pipeline.reset( new NCameraPipeline( sm::PropertyTree( config, pname) ) );
+
             _nextFrameId = MultiFrameId(0);
             _nextLandmarkId = LandmarkId(0);
+
+            // \todo create the calibration design variables.
+            
+            
         }
 
 
@@ -60,8 +34,8 @@ namespace aslam {
                                              int cameraIndex,
                                              const cv::Mat & image)
         {
-            boost::shared_ptr<MultiFrame> frame = _synchronizer->addImage(stamp,cameraIndex,image);
-            
+            boost::shared_ptr<MultiFrame> frame = _pipeline->addImage(stamp,cameraIndex,image);
+
             std::vector< KeypointIdentifierMatch > f2fMatches;
             if(frame && _previousFrame)
             {
@@ -110,34 +84,35 @@ namespace aslam {
                         _frames[frame->id()] = frame;
                         _previousFrame = frame;
                         _matches.insert(_matches.end(), f2fMatches.begin(), f2fMatches.end());
+                        
+                        doOfovMatching( frame );
+                        
                     }
                     
                 }
                 else
                 {
+                    // This is a failure recovery. We weren't able to track
+                    // enough features so throw out the previous frame
+                    // and start again.
                     _previousFrame = frame;
                 }
             }
+            
+            // This happens only once after a reset...
+            if( frame && !_previousFrame ) {
+                _previousFrame = frame;
+            }
+
         }
             
         double VisionDataAssociation::computeDisparity( const boost::shared_ptr<MultiFrame> & F0,
                                                         const boost::shared_ptr<MultiFrame> & F1,
                                                         const KeypointIdentifierMatch & match)
         {
-
             KeypointBase & K0 = F0->keypoint(match.index[0]);
             KeypointBase & K1 = F1->keypoint(match.index[1]);
 
-            if(K0.landmarkId().isSet())
-            {
-                K1.setLandmarkId(K0.landmarkId());
-            }
-            else
-            {
-                LandmarkId id = _nextLandmarkId++;
-                K0.setLandmarkId(id);
-                K1.setLandmarkId(id);
-            }
             return ( K0.vsMeasurement() - K1.vsMeasurement() ).norm();
             
         }
@@ -148,14 +123,95 @@ namespace aslam {
             _frames.clear();
             // std::vector< KeypointIdentifierMatch > _matches;
             _matches.clear();
-            // std::map< LandmarkId, std::vector< KeypointIdentifier > > _observations;
-            //_observations.clear();
-            // sm::eigen::MapTraits< LandmarkId, Eigen::Vector4d >::map_t _landmarks;
-            //_landmarks.clear();
+            
+            _previousFrame.reset();
+
+        }
+
+
+        /// \brief Add the contents of the internal state to the optimization problem
+        ///        using the bspline pose representation passed in.
+        void VisionDataAssociation::addToProblem( aslam::splines::BSplinePoseDesignVariable & T_w_vk, OptimizationProblemSP problem ) {
+
+            // This is where the magic happens.
+            
+            // \todo: initialize a list of landmark design variables.
+            
+
+            // For each match..
+            for(size_t i = 0; i < _matches.size(); ++i) {
+                //KeypointIdentifierMatch & match = _matches[i];
+                
+                // Check the MF0 keypoint for a landmark id
+                // if it does not have one
+                //    triangulate the point
+                //    Check the reprojection error for bad triangulation
+                //    if the triangulation was good
+                //       Create a new landmark
+                //       Add the new landmark to the problem
+                //       Set the landmark id in MF 0
+                //       Create a reprojection error for MF0
+                //       Add the new RE it to the problem
+                // endif
+                
+                // if the last step was successful
+                //    Set the landmark id in MF 1
+                //    Create a reprojection error for MF1
+                //    Add it to the problem
+                // endif
+                
+                
+            }
 
         }
         
+        /// \brief how many calibration design variables does this class have?
+        size_t VisionDataAssociation::numCalibrationDesignVariables() {
+            return _designVariables.size();
+        }
+            
+            /// \brief get calibration design variable i
+        boost::shared_ptr< aslam::backend::DesignVariable > VisionDataAssociation::getCalibrationDesignVariable( size_t i ) {
+            SM_ASSERT_LT( std::runtime_error, i, _designVariables.size(), "Index out of bounds");
+            return _designVariables[i];
+        }
         
+
+        void VisionDataAssociation::doOfovMatching( boost::shared_ptr<MultiFrame> mf ) {
+
+            for(size_t i = 0; i < mf->numFrames(); ++i) {
+                for( size_t j = i + 1; j < mf->numFrames(); ++j ) {
+                    
+                    // void setMatchData(MultiFrameId fidA,
+                    //                   int cameraIndexA,
+                    //                   FrameBase * cameraA,
+                    //                   MultiFrameId fidB,
+                    //                   int cameraIndexB,
+                    //                   FrameBase * cameraB,
+                    //                   const cameras::ImageMask * overlapAB,
+                    //                   const cameras::ImageMask * overlapBA,
+                    //                   const sm::kinematics::Transformation & T_A_B);
+
+                    _ofovMatching.setMatchData(mf->id(),
+                                           i,
+                                           mf->getFrame(i).get(), 
+                                           mf->id(),
+                                           j,
+                                           mf->getFrame(j).get(),
+                                           NULL,
+                                           NULL,
+                                           mf->T_ci_cj(i,j)
+                        );
+                    
+                    _matcher.match(_ofovMatching);
+                    std::vector< KeypointIdentifierMatch > ofovMatches;
+                    _ofovMatching.swapMatches(ofovMatches);
+                    _matches.insert(_matches.end(), ofovMatches.begin(), ofovMatches.end());                    
+
+                }
+            }
+
+        }
         
     } // namespace calibration
 } // namespace aslam
