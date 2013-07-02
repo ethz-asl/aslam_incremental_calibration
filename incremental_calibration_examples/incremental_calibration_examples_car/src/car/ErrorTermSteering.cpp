@@ -114,18 +114,10 @@ namespace aslam {
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
       const double L = _params->getValue()(0);
-      const double e_r = _params->getValue()(1);
-      const double e_f = _params->getValue()(2);
       const double a0 = _params->getValue()(3);
       const double a1 = _params->getValue()(4);
       const double a2 = _params->getValue()(5);
       const double a3 = _params->getValue()(6);
-      const double k_rl = _params->getValue()(7);
-      const double k_rr = _params->getValue()(8);
-      const double k_fl = _params->getValue()(9);
-      const double k_fr = _params->getValue()(10);
-      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
       const double phi = atan(L * om_oo_z / v_oo_x);
 
       // build the error term
@@ -144,19 +136,6 @@ namespace aslam {
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
       const double L = _params->getValue()(0);
-      const double e_r = _params->getValue()(1);
-      const double e_f = _params->getValue()(2);
-      const double a0 = _params->getValue()(3);
-      const double a1 = _params->getValue()(4);
-      const double a2 = _params->getValue()(5);
-      const double a3 = _params->getValue()(6);
-      const double k_rl = _params->getValue()(7);
-      const double k_rr = _params->getValue()(8);
-      const double k_fl = _params->getValue()(9);
-      const double k_fr = _params->getValue()(10);
-      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-      const double phi = atan(L * om_oo_z / v_oo_x);
 
       // Jacobian with respect to odometry parameters
       Eigen::Matrix<double, 1, 11> Ht = Eigen::Matrix<double, 1, 11>::Zero();

@@ -34,14 +34,6 @@ namespace aslam {
   namespace calibration {
 
 /******************************************************************************/
-/* Static Members Initialization                                              */
-/******************************************************************************/
-
-const struct IncrementalEstimator::Options
-IncrementalEstimator::_defaultOptions;//(0.5, 0.02, true, true, 20);
-
-
-/******************************************************************************/
 /* Constructors and Destructor                                                */
 /******************************************************************************/
 
@@ -131,37 +123,27 @@ IncrementalEstimator::_defaultOptions;//(0.5, 0.02, true, true, 20);
       return _optimizer->optimize();
     }
 
-      /// re-runs the optimizer.
-      IncrementalEstimator::ReturnValue 
-      IncrementalEstimator::reoptimize()
-      {
-          // ensure marginalized design variables are well located
-          orderMarginalizedDesignVariables();
-          
-          // optimize
-          aslam::backend::SolutionReturnValue srv = optimize();
-          
-          // // check if the solution is valid
-          // bool solutionValid = true;
-          // if (srv.iterations == _optimizer->options().maxIterations ||
-          //     srv.JFinal >= srv.JStart)
-          //     solutionValid = false;
+    IncrementalEstimator::ReturnValue IncrementalEstimator::reoptimize() {
+      // ensure marginalized design variables are well located
+      orderMarginalizedDesignVariables();
 
-          // return value
-          ReturnValue ret;
-          
-          // update output structure
-          ret._batchAccepted = false;
-          ret._mi = 0.0;
-          ret._rank = getRank();
-          ret._qrTol = getQRTol();
-          ret._numIterations = srv.iterations;
-          ret._JStart = srv.JStart;
-          ret._JFinal = srv.JFinal;
+      // optimize
+      aslam::backend::SolutionReturnValue srv = optimize();
 
-          return ret;
-      }
+      // return value
+      ReturnValue ret;
 
+      // update output structure
+      ret._batchAccepted = false;
+      ret._mi = 0.0;
+      ret._rank = getRank();
+      ret._qrTol = getQRTol();
+      ret._numIterations = srv.iterations;
+      ret._JStart = srv.JStart;
+      ret._JFinal = srv.JFinal;
+
+      return ret;
+    }
 
     IncrementalEstimator::ReturnValue
         IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
