@@ -34,6 +34,7 @@
 #include "aslam/calibration/car/ErrorTermFws.h"
 #include "aslam/calibration/car/ErrorTermRws.h"
 #include "aslam/calibration/car/ErrorTermSteering.h"
+#include "aslam/calibration/car/ErrorTermDMI.h"
 
 TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
 
@@ -141,6 +142,21 @@ TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
     meas << odo_n(0);
     aslam::calibration::ErrorTermSteering eSt(v_e, om_e, &Theta, meas, R_st);
     aslam::backend::ErrorTermTestHarness<1> harness(&eSt);
+    harness.testAll();
+  }
+  catch (const std::exception& e) {
+    FAIL() << e.what();
+  }
+  try {
+    Eigen::Matrix<double, 1, 1> R_dmi;
+    R_dmi << 1e-4;
+    Eigen::Matrix<double, 1, 1> meas;
+    meas << odo_n(1);
+    aslam::calibration::VectorDesignVariable<1> ThetaDmi(
+      (aslam::calibration::VectorDesignVariable<1>::Container() <<
+      e_r).finished());
+    aslam::calibration::ErrorTermDMI eDmi(v_e, om_e, &ThetaDmi, meas, R_dmi);
+    aslam::backend::ErrorTermTestHarness<1> harness(&eDmi);
     harness.testAll();
   }
   catch (const std::exception& e) {

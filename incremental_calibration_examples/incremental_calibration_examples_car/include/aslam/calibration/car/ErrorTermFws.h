@@ -32,9 +32,9 @@ namespace aslam {
 
     template <int M> class VectorDesignVariable;
 
-    /** The class ErrorTermFws implements an error term for the car
-        odometry
-        \brief Odometry error term
+    /** The class ErrorTermFws implements an error term for the front wheels
+        speed.
+        \brief Front wheel speed error term
       */
     class ErrorTermFws :
       public aslam::backend::ErrorTermFs<2> {

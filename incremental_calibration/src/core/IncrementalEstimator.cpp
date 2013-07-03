@@ -244,7 +244,8 @@ namespace aslam {
 
     void IncrementalEstimator::removeBatch(const BatchSP& batch) {
       auto it = _problem->getOptimizationProblem(batch);
-      removeBatch(std::distance(_problem->getOptimizationProblemBegin(), it));
+      if (it != _problem->getOptimizationProblemEnd())
+        removeBatch(std::distance(_problem->getOptimizationProblemBegin(), it));
     }
 
     size_t IncrementalEstimator::getNumBatches() const

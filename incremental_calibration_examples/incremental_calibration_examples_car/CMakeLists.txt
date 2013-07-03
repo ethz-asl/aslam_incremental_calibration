@@ -72,6 +72,8 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermFws.cpp
   src/car/ErrorTermRws.cpp
   src/car/ErrorTermSteering.cpp
+  src/car/ErrorTermDMI.cpp
+  src/car/CarCalibrator.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
   ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS} ${LIBCAN_PRIUS_SENSOR_LIBRARY}
@@ -82,6 +84,7 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/ErrorTermPoseTest.cpp
   test/ErrorTermOdometryTest.cpp
   test/OdometryTest.cpp
+  test/CarCalibratorTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
@@ -116,7 +119,3 @@ target_link_libraries(car-calibrate-batch-morsel ${PROJECT_NAME})
 rosbuild_add_executable(calibrate-prius-odometry-offline
   src/car/calibrate-prius-odometry-offline.cpp)
 target_link_libraries(calibrate-prius-odometry-offline ${PROJECT_NAME})
-
-rosbuild_add_executable(calibrate-prius-odometry-online
-  src/car/calibrate-prius-odometry-online.cpp)
-target_link_libraries(calibrate-prius-odometry-online ${PROJECT_NAME})

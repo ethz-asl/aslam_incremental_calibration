@@ -191,7 +191,9 @@ namespace aslam {
 
     void IncrementalOptimizationProblem::add(
         const OptimizationProblemSP& problem) {
-
+      if (!problem)
+        throw InvalidOperationException(
+          "IncrementalOptimizationProblem::add(): problem is a null pointer");
       // update design variable counts, grouping, and storing
       const size_t numDV = problem->numDesignVariables();
       _designVariablesCounts.reserve(_designVariablesCounts.size() + numDV);

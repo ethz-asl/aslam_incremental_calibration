@@ -24,10 +24,30 @@
 #ifndef ASLAM_CALIBRATION_CAR_CALIBRATOR_H
 #define ASLAM_CALIBRATION_CAR_CALIBRATOR_H
 
+#include <utility>
+#include <vector>
+
 #include <boost/shared_ptr.hpp>
 
+#include <aslam/calibration/core/IncrementalEstimator.h>
+
 namespace aslam {
+  namespace backend {
+
+    class EuclideanPoint;
+    class RotationQuaternion;
+    class EuclideanExpression;
+
+  }
+  namespace splines {
+
+    class BSplinePoseDesignVariable;
+
+  }
   namespace calibration {
+
+    template <int M> class VectorDesignVariable;
+    class IncrementalEstimator;
 
     /** The class CarCalibrator implements the car calibration algorithm.
         \brief Car calibration algorithm.
@@ -40,10 +60,19 @@ namespace aslam {
       /// Options for the car calibrator
       struct Options {
         Options() :
-            _windowDuration(10.0) {
+            windowDuration(10.0),
+            poseSplineOrder(4),
+            poseSplineLambda(1e-1),
+            poseMeasPerSecDesired(5) {
         }
-        /// Window duration in seconds (-1 for standard batch mode)
-        double _windowDuration;
+        /// Window duration in seconds
+        double windowDuration;
+        /// Pose spline order
+        int poseSplineOrder;
+        /// Pose spline lambda
+        double poseSplineLambda;
+        /// Pose measurements per second desired
+        int poseMeasPerSecDesired;
       };
       /// Applanix vehicle navigation measurement in local ENU system
       struct ApplanixNavigationMeasurement {
@@ -120,10 +149,51 @@ namespace aslam {
         uint16_t right;
       };
       /// CAN steering measurement
-      struct CANRearWheelsSpeedMeasurement {
+      struct CANSteeringMeasurement {
         /// Measurement
         int16_t value;
       };
+      /// Shared pointer to incremental estimator
+      typedef boost::shared_ptr<IncrementalEstimator> IncrementalEstimatorSP;
+      /// Shared pointer to euclidean point
+      typedef boost::shared_ptr<aslam::backend::EuclideanPoint>
+        EuclideanPointSP;
+      /// Shared pointer to rotation quaternion
+      typedef boost::shared_ptr<aslam::backend::RotationQuaternion>
+        RotationQuaternionSP;
+      /// Shared pointer to CAN intrinsic design variable
+      typedef boost::shared_ptr<VectorDesignVariable<11> > CANDesignVariableSP;
+      /// Shared pointer to Applanix DMI intrinsic design variable
+      typedef boost::shared_ptr<VectorDesignVariable<1> > DMIDesignVariableSP;
+      /// Calibration design variables
+      struct CalibrationDesignVariables {
+        /// Intrinsic CAN odometry design variable
+        CANDesignVariableSP intrinsicCANDesignVariable;
+        /// Intrinsic Applanix DMI odometry design variable
+        DMIDesignVariableSP intrinsicDMIDesignVariable;
+        /// Extrinsic odometry center translation design variable
+        EuclideanPointSP extrinsicOdometryTranslationDesignVariable;
+        /// Extrinsic odometry center rotation design variable
+        RotationQuaternionSP extrinsicOdometryRotationDesignVariable;
+      };
+      /// Applanix vehicle navigation measurement container
+      typedef std::vector<std::pair<double, ApplanixNavigationMeasurement> >
+        ApplanixNavigationMeasurements;
+      /// Applanix encoder measurement container
+      typedef std::vector<std::pair<double, ApplanixEncoderMeasurement> >
+        ApplanixEncoderMeasurements;
+      /// CAN front wheels speed measurement container
+      typedef std::vector<std::pair<double, CANFrontWheelsSpeedMeasurement> >
+        CANFrontWheelsSpeedMeasurements;
+      /// CAN rear wheels speed measurement container
+      typedef std::vector<std::pair<double, CANRearWheelsSpeedMeasurement> >
+        CANRearWheelsSpeedMeasurements;
+      /// CAN steering measurement container
+      typedef std::vector<std::pair<double, CANSteeringMeasurement> >
+        CANSteeringMeasurements;
+      /// Shared pointer to B-spline pose design variable
+      typedef boost::shared_ptr<aslam::splines::BSplinePoseDesignVariable>
+        BSplinePoseDesignVariableSP;
       /// Self type
       typedef CarCalibrator Self;
       /** @}
@@ -133,7 +203,9 @@ namespace aslam {
         @{
         */
       /// Constructor
-      CarCalibrator(Options = Options());
+      CarCalibrator(const IncrementalEstimatorSP& estimator, const
+        CalibrationDesignVariables& calibrationDesignVariables, const Options&
+        options = Options());
       /// Copy constructor
       CarCalibrator(const Self& other) = delete;
       /// Copy assignment operator
@@ -150,6 +222,18 @@ namespace aslam {
       /** \name Accessors
         @{
         */
+      /// Returns the current options
+      const Options& getOptions() const;
+      /// Returns the current options
+      Options& getOptions();
+      /// Returns the calibration design variables
+      const CalibrationDesignVariables& getCalibrationDesignVariables() const;
+      /// Returns the calibration design variables
+      CalibrationDesignVariables& getCalibrationDesignVariables();
+      /// Returns the incremental estimator
+      const IncrementalEstimatorSP getEstimator() const;
+      /// Returns the incremental estimator
+      IncrementalEstimatorSP getEstimator();
       /** @}
         */
 
@@ -170,27 +254,62 @@ namespace aslam {
         double timestamp);
       /// Adds a CAN steering measurement
       void addMeasurement(const CANSteeringMeasurement& data, double timestamp);
+      /// Adds the currently stored measurements to the estimator
+      void addMeasurements();
       /** @}
         */
 
     protected:
+      /** \name Protected methods
+        @{
+        */
+      /// Adds a new measurement
+      void addMeasurement(double timestamp);
+      /// Adds Applanix navigation error terms
+      void addErrorTerms(const ApplanixNavigationMeasurements& measurements,
+        IncrementalEstimator::BatchSP batch);
+      /// Adds Applanix encoders error terms
+      void addErrorTerms(const ApplanixEncoderMeasurements& measurements,
+        IncrementalEstimator::BatchSP batch);
+      /// Adds CAN front wheels speed error terms
+      void addErrorTerms(const CANFrontWheelsSpeedMeasurements& measurements,
+        IncrementalEstimator::BatchSP batch);
+      /// Adds CAN rear wheels speed error terms
+      void addErrorTerms(const CANRearWheelsSpeedMeasurements& measurements,
+        IncrementalEstimator::BatchSP batch);
+      /// Adds CAN steering error terms
+      void addErrorTerms(const CANSteeringMeasurements& measurements,
+        IncrementalEstimator::BatchSP batch);
+      /// Returns linear and angular velocity in odometry frame
+      std::pair<aslam::backend::EuclideanExpression,
+        aslam::backend::EuclideanExpression> getOdometryVelocities(double
+        timestamp, const BSplinePoseDesignVariableSP& bspdv) const;
+      /** @}
+        */
+
       /** \name Protected members
         @{
         */
       /// Options
       Options _options;
-      /// Intrinsic CAN odometry design variables
-      boost::shared_ptr<aslam::calibration::VectorDesignVariable<11> >
-        _intrinsicCANOdometryDesignVariables;
-      /// Intrinsic Applanix odometry design variables
-      boost::shared_ptr<aslam::calibration::VectorDesignVariable<1> >
-        _intrinsicApplanixOdometryDesignVariables;
-      /// Extrinsic odometry center translation design variable
-      boost::shared_ptr<aslam::backend::EuclideanPoint>
-        _extrinsicOdometryTranslationDesignVariable;
-      /// Extrinsic odometry center rotation design variable
-      boost::shared_ptr<aslam::backend::RotationQuaternion>
-        _extrinsicOdometryRotationDesignVariable;
+      /// Calibration design variables
+      CalibrationDesignVariables _calibrationDesignVariables;
+      /// Incremental estimator
+      IncrementalEstimatorSP _estimator;
+      /// Current batch starting timestamp
+      double _currentBatchStartTimestamp;
+      /// Last timestamp
+      double _lastTimestamp;
+      /// Stored Applanix navigation measurements
+      ApplanixNavigationMeasurements _applanixNavigationMeasurements;
+      /// Stored Applanix encoder measurements
+      ApplanixEncoderMeasurements _applanixEncoderMeasurements;
+      /// Stored CAN front wheels speed measurements
+      CANFrontWheelsSpeedMeasurements _canFrontWheelsSpeedMeasurements;
+      /// Stored CAN rear wheels speed measurements
+      CANRearWheelsSpeedMeasurements _canRearWheelsSpeedMeasurements;
+      /// Stored CAN steering measurements
+      CANSteeringMeasurements _canSteeringMeasurements;
       /** @}
         */
 
