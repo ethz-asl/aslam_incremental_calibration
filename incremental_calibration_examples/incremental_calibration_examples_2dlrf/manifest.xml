@@ -7,10 +7,9 @@
   <author>Jerome Maye</author>
   <license>LGPL</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/incremental_calibration_examples</url>
+  <url>https://github.com/ethz-asl/aslam_incremental_calibration</url>
 
   <depend package="incremental_calibration"/>
-  <depend package="aslam_backend"/>
   <depend package="sm_kinematics"/>
 
 </package>

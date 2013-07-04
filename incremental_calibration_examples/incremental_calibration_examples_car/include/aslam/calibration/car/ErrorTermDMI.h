@@ -16,13 +16,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file ErrorTermSteering.h
-    \brief This file defines the ErrorTermSteering class, which implements
-           an error term for the steering.
+/** \file ErrorTermDMI.h
+    \brief This file defines the ErrorTermDMI class, which implements
+           an error term for the Applanix DMI.
   */
 
-#ifndef ASLAM_CALIBRATION_CAR_ERROR_TERM_STEERING_H
-#define ASLAM_CALIBRATION_CAR_ERROR_TERM_STEERING_H
+#ifndef ASLAM_CALIBRATION_CAR_ERROR_TERM_DMI_H
+#define ASLAM_CALIBRATION_CAR_ERROR_TERM_DMI_H
 
 #include <aslam/backend/ErrorTerm.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
@@ -32,10 +32,10 @@ namespace aslam {
 
     template <int M> class VectorDesignVariable;
 
-    /** The class ErrorTermSteering implements an error term for the steering.
-        \brief Steering error term
+    /** The class ErrorTermDMI implements an error term for the Applanix DMI.
+        \brief Applanix DMI error term.
       */
-    class ErrorTermSteering :
+    class ErrorTermDMI :
       public aslam::backend::ErrorTermFs<1> {
     public:
       // Required by Eigen for fixed-size matrices members
@@ -61,22 +61,21 @@ namespace aslam {
        * @param v_oo \f$\mathbf{v}_{oo}\f$ linear velocity in odometry frame
        * @param om_oo \f$\boldsymbol{\omega}_{oo}\f$ angular velocity in
        *              odometry frame
-       * @param params odometry parameters (\f$[L,e_r,e_f,a_0,a_1,a_2,a_3,
-       *        \kappa_{rl},\kappa_{rr},\kappa_{fl},\kappa_{fr}]\f$)
+       * @param params odometry parameters (\f$[e_r]\f$)
        * @param odo odometry measurement
-       *        (\f$[\theta]\f$)
+       *        (\f$[v_{rl}]\f$)
        * @param Q Covariance matrix of the odometry measurement
        */
-      ErrorTermSteering(const aslam::backend::EuclideanExpression& v_oo,
+      ErrorTermDMI(const aslam::backend::EuclideanExpression& v_oo,
         const aslam::backend::EuclideanExpression& om_oo,
-        VectorDesignVariable<11>* params,
+        VectorDesignVariable<1>* params,
         const Input& odo, const Covariance& Q);
       /// Copy constructor
-      ErrorTermSteering(const ErrorTermSteering& other);
+      ErrorTermDMI(const ErrorTermDMI& other);
       /// Assignment operator
-      ErrorTermSteering& operator = (const ErrorTermSteering& other);
+      ErrorTermDMI& operator = (const ErrorTermDMI& other);
       /// Destructor
-      virtual ~ErrorTermSteering();
+      virtual ~ErrorTermDMI();
       /** @}
         */
 
@@ -117,7 +116,7 @@ namespace aslam {
       /// Estimated vehicle angular velocity in odometry frame
       aslam::backend::EuclideanExpression _om_oo;
       /// Estimated odometry parameters
-      VectorDesignVariable<11>* _params;
+      VectorDesignVariable<1>* _params;
       /// Measured odometry
       Input _odo;
       /// Covariance matrix of the odometry measurement
@@ -130,4 +129,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_CAR_ERROR_TERM_STEERING_H
+#endif // ASLAM_CALIBRATION_CAR_ERROR_TERM_DMI_H

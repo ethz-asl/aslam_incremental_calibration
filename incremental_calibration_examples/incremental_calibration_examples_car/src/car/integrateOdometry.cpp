@@ -136,15 +136,15 @@ int main(int argc, char** argv) {
   bsplineSt1.initSplineSparse(timestampsSt1, pointsSt1, numSegmentsSt1, 1e-6);
 
   // intrisic odometry parameters found by optimization
-  const double L = 2.698437452967974; // wheelbase [m]
-  const double e_r = 0.744551686997985; // half-track rear [m]
-  const double e_f = 0.7459111250452891; // half-track front [m]
-  const double a0 = -0.8808883000114152; // steering coefficient
-  const double a1 = 573.4542090947304587; // steering coefficient
+  const double L = 2.6996375777616732; // wheelbase [m]
+  const double e_r = 0.7436708774642238; // half-track rear [m]
+  const double e_f = 0.7459102571151770; // half-track front [m]
+  const double a0 = -1.0299260649650348; // steering coefficient
+  const double a1 = 573.4849757786521423; // steering coefficient
   const double k_rl = 0.0028199619977176; // wheel coefficient
-  const double k_rr = 0.0028260666435294; // wheel coefficient
-  const double k_fl = 0.0028214039506398; // wheel coefficient
-  const double k_fr = 0.0028223604206524; // wheel coefficient
+  const double k_rr = 0.0028260752402780; // wheel coefficient
+  const double k_fl = 0.0028214050366831; // wheel coefficient
+  const double k_fr = 0.0028223774598849; // wheel coefficient
   Odometry::VehicleParameters params = {0.285, 0.285, 0.28, 0.28, L,
     (e_r + e_f)};
   AckermanOdometry ackOdometry(params, Eigen::Vector3d(0, 0, yaw0));

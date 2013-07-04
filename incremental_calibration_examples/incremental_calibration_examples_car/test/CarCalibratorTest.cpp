@@ -16,18 +16,24 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrate-prius-odometry-online.cpp
-    \brief This file calibrates the odometry parameters of a Toyota PRIUS
-           online.
+/** \file CarCalibratorTest.cpp
+    \brief This file tests the CarCalibrator class.
   */
 
-#include <iostream>
-#include <fstream>
+#include <gtest/gtest.h>
 
-int main(int argc, char** argv) {
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " <LogFilename>" << std::endl;
-    return -1;
-  }
-  return 0;
+#include <aslam/calibration/exceptions/InvalidOperationException.h>
+
+#include "aslam/calibration/car/CarCalibrator.h"
+
+using namespace aslam::calibration;
+
+TEST(AslamCalibrationTestSuite, testCarCalibrator) {
+  CarCalibrator::CalibrationDesignVariables dv;
+  CarCalibrator::IncrementalEstimatorSP estimator;
+  CarCalibrator calibrator(estimator, dv);
+  calibrator.addMeasurement(CarCalibrator::ApplanixNavigationMeasurement(), 10);
+  ASSERT_THROW(calibrator.addMeasurement(
+    CarCalibrator::ApplanixNavigationMeasurement(), 5),
+    InvalidOperationException);
 }

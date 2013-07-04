@@ -196,8 +196,10 @@ int main(int argc, char** argv) {
   std::cout << "Creating error terms for rear wheel speed measurements..."
     << std::endl;
   Eigen::Matrix2d R_rws;
-  R_rws << 2000, 0, 0, 2000;
+  R_rws << 828.2516524610561, 814.5506263601094, 814.5506263601094,
+    990.2353478304882;
   std::ofstream errorsRws("errors-rws.txt");
+  std::ofstream errorsRwsRaw("errors-rws-raw.txt");
   for (auto it = canParser.cbeginRw(); it != canParser.cendRw(); ++it) {
     if (it->second.first == 0 || it->second.second == 0)
       continue;
@@ -214,13 +216,16 @@ int main(int argc, char** argv) {
 //      boost::shared_ptr<BlakeZissermanMEstimator>(
 //      new BlakeZissermanMEstimator(e_rws->dimension(), 0.999, 0.1)));
     errorsRws << e_rws->evaluateError() << std::endl;
+    errorsRwsRaw << e_rws->error().transpose() << std::endl;
   }
 
   std::cout << "Creating error terms for front wheel speed measurements..."
     << std::endl;
   Eigen::Matrix2d R_fws;
-  R_fws << 2000, 0, 0, 2000;
+  R_fws << 1225.545759661739, 1185.490847789361, 1185.490847789361,
+    1271.17379804095;
   std::ofstream errorsFws("errors-fws.txt");
+  std::ofstream errorsFwsRaw("errors-fws-raw.txt");
   for (auto it = canParser.cbeginFw(); it != canParser.cendFw(); ++it) {
     if (it->second.first == 0 || it->second.second == 0)
       continue;
@@ -237,13 +242,15 @@ int main(int argc, char** argv) {
 //      boost::shared_ptr<BlakeZissermanMEstimator>(
 //      new BlakeZissermanMEstimator(e_fws->dimension(), 0.999, 0.1)));
     errorsFws << e_fws->evaluateError() << std::endl;
+    errorsFwsRaw << e_fws->error().transpose() << std::endl;
   }
 
   std::cout << "Creating error terms for steering measurements..."
     << std::endl;
   Eigen::Matrix<double, 1, 1> R_st;
-  R_st << 2;
+  R_st << 3.369624218217728;
   std::ofstream errorsSt("errors-st.txt");
+  std::ofstream errorsStRaw("errors-st-raw.txt");
   for (auto it = canParser.cbeginSt1(); it != canParser.cendSt1(); ++it) {
     EuclideanExpression v_iw = bspdv->linearVelocity(it->first);
     EuclideanExpression om_ii = bspdv->angularVelocityBodyFrame(it->first);
@@ -257,6 +264,7 @@ int main(int argc, char** argv) {
       cpdv.get(), meas, R_st));
     problem->addErrorTerm(e_st);
     errorsSt << e_st->evaluateError() << std::endl;
+    errorsStRaw << e_st->error().transpose() << std::endl;
   }
 
   // optimize

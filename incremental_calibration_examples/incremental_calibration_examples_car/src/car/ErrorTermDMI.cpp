@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/car/ErrorTermFws.h"
+#include "aslam/calibration/car/ErrorTermDMI.h"
 
 #include <Eigen/Dense>
 
@@ -29,9 +29,10 @@ namespace aslam {
 /* Constructors and Destructor                                                */
 /******************************************************************************/
 
-    ErrorTermFws::ErrorTermFws(const aslam::backend::EuclideanExpression& v_oo,
+    ErrorTermDMI::ErrorTermDMI(
+        const aslam::backend::EuclideanExpression& v_oo,
         const aslam::backend::EuclideanExpression& om_oo,
-        VectorDesignVariable<11>* params,
+        VectorDesignVariable<1>* params,
         const Input& odo, const Covariance& Q) :
         _v_oo(v_oo),
         _om_oo(om_oo),
@@ -46,8 +47,8 @@ namespace aslam {
       setDesignVariablesIterator(dv.begin(), dv.end());
     }
 
-    ErrorTermFws::ErrorTermFws(const ErrorTermFws& other) :
-        ErrorTermFs<2>(other),
+    ErrorTermDMI::ErrorTermDMI(const ErrorTermDMI& other) :
+        ErrorTermFs<1>(other),
         _v_oo(other._v_oo),
         _om_oo(other._om_oo),
         _params(other._params),
@@ -55,9 +56,9 @@ namespace aslam {
         _Q(other._Q) {
     }
 
-    ErrorTermFws& ErrorTermFws::operator = (const ErrorTermFws& other) {
+    ErrorTermDMI& ErrorTermDMI::operator = (const ErrorTermDMI& other) {
       if (this != &other) {
-        ErrorTermFs<2>::operator=(other);
+        ErrorTermFs<1>::operator=(other);
        _v_oo = other._v_oo;
        _om_oo = other._om_oo;
        _params = other._params;
@@ -67,34 +68,34 @@ namespace aslam {
       return *this;
     }
 
-    ErrorTermFws::~ErrorTermFws() {
+    ErrorTermDMI::~ErrorTermDMI() {
     }
 
 /******************************************************************************/
 /* Accessors                                                                  */
 /******************************************************************************/
 
-    const ErrorTermFws::Input& ErrorTermFws::getInput() const {
+    const ErrorTermDMI::Input& ErrorTermDMI::getInput() const {
       return _odo;
     }
 
-    ErrorTermFws::Input& ErrorTermFws::getInput() {
+    ErrorTermDMI::Input& ErrorTermDMI::getInput() {
       return _odo;
     }
 
-    void ErrorTermFws::setInput(const Input& odo) {
+    void ErrorTermDMI::setInput(const Input& odo) {
       _odo = odo;
     }
 
-    const ErrorTermFws::Covariance& ErrorTermFws::getCovariance() const {
+    const ErrorTermDMI::Covariance& ErrorTermDMI::getCovariance() const {
       return _Q;
     }
 
-    ErrorTermFws::Covariance& ErrorTermFws::getCovariance() {
+    ErrorTermDMI::Covariance& ErrorTermDMI::getCovariance() {
       return _Q;
     }
 
-    void ErrorTermFws::setCovariance(const Covariance& Q) {
+    void ErrorTermDMI::setCovariance(const Covariance& Q) {
       _Q = Q;
     }
 
@@ -102,72 +103,42 @@ namespace aslam {
 /* Methods                                                                    */
 /******************************************************************************/
 
-    double ErrorTermFws::evaluateErrorImplementation() {
+    double ErrorTermDMI::evaluateErrorImplementation() {
       // useful pre-computations
       const Eigen::Vector3d v_oo = _v_oo.toValue();
       const Eigen::Vector3d om_oo = _om_oo.toValue();
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      const double L = _params->getValue()(0);
-      const double e_f = _params->getValue()(2);
-      const double k_fl = _params->getValue()(9);
-      const double k_fr = _params->getValue()(10);
-      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
+      const double e_r = _params->getValue()(0);
 
       // build the error term
       error_t error;
-      error(0) = _odo(0) - (v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl;
-      error(1) = _odo(1) - (v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr;
+      error(0) = _odo(0) - (v_oo_x - e_r * om_oo_z);
       setError(error);
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermFws::evaluateJacobiansImplementation() {
+    void ErrorTermDMI::evaluateJacobiansImplementation() {
       // useful pre-computations
       const Eigen::Vector3d v_oo = _v_oo.toValue();
       const Eigen::Vector3d om_oo = _om_oo.toValue();
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      const double L = _params->getValue()(0);
-      const double e_f = _params->getValue()(2);
-      const double k_fl = _params->getValue()(9);
-      const double k_fr = _params->getValue()(10);
-      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
+      const double e_r = _params->getValue()(1);
 
       // Jacobian with respect to odometry parameters
-      Eigen::Matrix<double, 2, 11> Ht = Eigen::Matrix<double, 2, 11>::Zero();
+      Eigen::Matrix<double, 1, 1> Ht = Eigen::Matrix<double, 1, 1>::Zero();
 
       // Jacobian with respect to v_oo
-      Eigen::Matrix<double, 2, 3> Hv = Eigen::Matrix<double, 2, 3>::Zero();
+      Eigen::Matrix<double, 1, 3> Hv = Eigen::Matrix<double, 1, 3>::Zero();
 
       // Jacobian with respect to om_oo
-      Eigen::Matrix<double, 2, 3> Ho = Eigen::Matrix<double, 2, 3>::Zero();
+      Eigen::Matrix<double, 1, 3> Ho = Eigen::Matrix<double, 1, 3>::Zero();
 
-      // v_fl measurement
-      const double vflDenom = k_fl * cos(phi_L) *
-        ((v_oo_x - e_f * om_oo_z) * (v_oo_x - e_f * om_oo_z) +
-        (L * om_oo_z) * (L * om_oo_z));
-      Ht(0, 0) = L * om_oo_z * om_oo_z * (v_oo_x - e_f * om_oo_z) / vflDenom;
-      Ht(0, 2) = -om_oo_z * (v_oo_x - e_f * om_oo_z) *
-        (v_oo_x - e_f * om_oo_z) / vflDenom;
-      Ht(0, 9) = -(v_oo_x - e_f * om_oo_z) / k_fl / k_fl / cos(phi_L);
-      Hv(0, 0) = (v_oo_x - e_f * om_oo_z) * (v_oo_x - e_f * om_oo_z) / vflDenom;
-      Ho(0, 2) = (L * L * v_oo_x * om_oo_z - e_f * ((v_oo_x - e_f * om_oo_z) *
-        (v_oo_x - e_f * om_oo_z) + (L * om_oo_z) * (L * om_oo_z))) / vflDenom;
-
-      // v_fr measurement
-      const double vfrDenom = k_fl * cos(phi_R) *
-        ((v_oo_x + e_f * om_oo_z) * (v_oo_x + e_f * om_oo_z) +
-        (L * om_oo_z) * (L * om_oo_z));
-      Ht(1, 0) = L * om_oo_z * om_oo_z * (v_oo_x + e_f * om_oo_z) / vfrDenom;
-      Ht(1, 2) = om_oo_z * (v_oo_x + e_f * om_oo_z) * (v_oo_x + e_f * om_oo_z) /
-        vfrDenom;
-      Ht(1, 10) = -(v_oo_x + e_f * om_oo_z) / k_fr / k_fr / cos(phi_R);
-      Hv(1, 0) = (v_oo_x + e_f * om_oo_z) * (v_oo_x + e_f * om_oo_z) / vfrDenom;
-      Ho(1, 2) = (L * L * v_oo_x * om_oo_z + e_f * ((v_oo_x + e_f * om_oo_z) *
-        (v_oo_x + e_f * om_oo_z) + (L * om_oo_z) * (L * om_oo_z))) / vfrDenom;
+      // v_rl measurement
+      Ht(0, 0) = -om_oo_z;
+      Hv(0, 0) = 1.0;
+      Ho(0, 2) = -e_r;
 
       // pass the Jacobians with the chain rule
       _v_oo.evaluateJacobians(_jacobians, -Hv);
