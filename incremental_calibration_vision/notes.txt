@@ -1,0 +1,7 @@
+NEXT STEP:
+Creat the calibration design variables.
+Needed:
+ * Intrinsic calibration parameters of the camera
+ * Extrinsics of the camera system.
+Interface:
+void createDesignVariables( NCameraSystem & system, bool doIntrinsics, bool doExtrinsics );
