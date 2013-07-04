@@ -22,6 +22,8 @@
 
 #include <cmath>
 
+#include <boost/make_shared.hpp>
+
 #include <gtest/gtest.h>
 
 #include <aslam/backend/test/ErrorTermTestHarness.hpp>
@@ -56,14 +58,12 @@ TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
 
   // linear velocity
   const Eigen::Matrix<double, 3, 1> v(1.5, 0, 0);
-  boost::shared_ptr<aslam::backend::EuclideanPoint> v_en(
-    new aslam::backend::EuclideanPoint(v));
+  auto v_en = boost::make_shared<aslam::backend::EuclideanPoint>(v);
   aslam::backend::EuclideanExpression v_e(v_en);
 
   // angular velocity
   const Eigen::Matrix<double, 3, 1> om(0, 0, M_PI / 8.0);
-  boost::shared_ptr<aslam::backend::EuclideanPoint> om_en(
-    new aslam::backend::EuclideanPoint(om));
+  auto om_en = boost::make_shared<aslam::backend::EuclideanPoint>(om);
   aslam::backend::EuclideanExpression om_e(om_en);
 
   // odometry sensor measurement without noise

@@ -21,6 +21,7 @@
   */
 
 #include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
 
 #include <gtest/gtest.h>
 
@@ -49,17 +50,17 @@ protected:
 using namespace aslam::calibration;
 
 TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
-  boost::shared_ptr<OptimizationProblem> problem1(new OptimizationProblem);
-  OptimizationProblem::DesignVariableSP dv1(new VectorDesignVariable<2>());
+  auto problem1 = boost::make_shared<OptimizationProblem>();
+  auto dv1 = boost::make_shared<VectorDesignVariable<2> >();
   dv1->setActive(true);
-  OptimizationProblem::DesignVariableSP dv2(new VectorDesignVariable<3>());
+  auto dv2 = boost::make_shared<VectorDesignVariable<3> >();
   dv2->setActive(true);
-  OptimizationProblem::DesignVariableSP dv3(new VectorDesignVariable<4>());
+  auto dv3 = boost::make_shared<VectorDesignVariable<4> >();
   dv3->setActive(true);
-  boost::shared_ptr<DummyErrorTerm> et1(new DummyErrorTerm());
-  boost::shared_ptr<DummyErrorTerm> et2(new DummyErrorTerm());
-  boost::shared_ptr<DummyErrorTerm> et3(new DummyErrorTerm());
-  boost::shared_ptr<DummyErrorTerm> et4(new DummyErrorTerm());
+  auto et1 = boost::make_shared<DummyErrorTerm>();
+  auto et2 = boost::make_shared<DummyErrorTerm>();
+  auto et3 = boost::make_shared<DummyErrorTerm>();
+  auto et4 = boost::make_shared<DummyErrorTerm>();
   problem1->addDesignVariable(dv1, 0);
   problem1->addDesignVariable(dv2, 0);
   problem1->addDesignVariable(dv3, 1);
@@ -67,28 +68,28 @@ TEST(AslamCalibrationTestSuite, testIncrementalOptimizationProblem) {
   problem1->addErrorTerm(et2);
   problem1->addErrorTerm(et3);
   problem1->addErrorTerm(et4);
-  boost::shared_ptr<OptimizationProblem> problem2(new OptimizationProblem);
-  OptimizationProblem::DesignVariableSP dv4(new VectorDesignVariable<2>());
+  auto problem2 = boost::make_shared<OptimizationProblem>();
+  auto dv4 = boost::make_shared<VectorDesignVariable<2> >();
   dv4->setActive(true);
-  OptimizationProblem::DesignVariableSP dv5(new VectorDesignVariable<3>());
+  auto dv5 = boost::make_shared<VectorDesignVariable<3> >();
   dv5->setActive(true);
-  boost::shared_ptr<DummyErrorTerm> et5(new DummyErrorTerm());
-  boost::shared_ptr<DummyErrorTerm> et6(new DummyErrorTerm());
-  boost::shared_ptr<DummyErrorTerm> et7(new DummyErrorTerm());
+  auto et5 = boost::make_shared<DummyErrorTerm>();
+  auto et6 = boost::make_shared<DummyErrorTerm>();
+  auto et7 = boost::make_shared<DummyErrorTerm>();
   problem2->addDesignVariable(dv4, 0);
   problem2->addDesignVariable(dv5, 0);
   problem2->addDesignVariable(dv3, 1);
   problem2->addErrorTerm(et5);
   problem2->addErrorTerm(et6);
   problem2->addErrorTerm(et7);
-  boost::shared_ptr<OptimizationProblem> problem3(new OptimizationProblem);
-  OptimizationProblem::DesignVariableSP dv6(new VectorDesignVariable<6>());
+  auto problem3 = boost::make_shared<OptimizationProblem>();
+  auto dv6 = boost::make_shared<VectorDesignVariable<6> >();
   dv6->setActive(true);
-  OptimizationProblem::DesignVariableSP dv7(new VectorDesignVariable<6>());
+  auto dv7 = boost::make_shared<VectorDesignVariable<6> >();
   dv7->setActive(true);
-  boost::shared_ptr<DummyErrorTerm> et8(new DummyErrorTerm());
-  boost::shared_ptr<DummyErrorTerm> et9(new DummyErrorTerm());
-  boost::shared_ptr<DummyErrorTerm> et10(new DummyErrorTerm());
+  auto et8 = boost::make_shared<DummyErrorTerm>();
+  auto et9 = boost::make_shared<DummyErrorTerm>();
+  auto et10 = boost::make_shared<DummyErrorTerm>();
   problem3->addDesignVariable(dv4, 0);
   problem3->addDesignVariable(dv6, 0);
   problem3->addDesignVariable(dv3, 1);

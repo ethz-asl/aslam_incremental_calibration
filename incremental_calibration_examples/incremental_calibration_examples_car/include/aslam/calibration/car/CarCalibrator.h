@@ -27,6 +27,8 @@
 #include <utility>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include <boost/shared_ptr.hpp>
 
 #include <aslam/calibration/core/IncrementalEstimator.h>
@@ -47,7 +49,6 @@ namespace aslam {
   namespace calibration {
 
     template <int M> class VectorDesignVariable;
-    class IncrementalEstimator;
 
     /** The class CarCalibrator implements the car calibration algorithm.
         \brief Car calibration algorithm.
@@ -63,7 +64,16 @@ namespace aslam {
             windowDuration(10.0),
             poseSplineOrder(4),
             poseSplineLambda(1e-1),
-            poseMeasPerSecDesired(5) {
+            poseMeasPerSecDesired(5),
+            linearVelocityTolerance(1e-6),
+            dmiVariance(1e-6), // guess for now
+            fwsCovariance((Eigen::Matrix2d() <<
+              1225.545759661739, 0,
+              0, 1271.17379804095).finished()),
+            rwsCovariance((Eigen::Matrix2d() <<
+              828.2516524610561, 0,
+              0, 990.2353478304882).finished()),
+            steeringVariance(3.369624218217728) {
         }
         /// Window duration in seconds
         double windowDuration;
@@ -73,6 +83,16 @@ namespace aslam {
         double poseSplineLambda;
         /// Pose measurements per second desired
         int poseMeasPerSecDesired;
+        /// Tolerance for rejecting low speed measurements
+        double linearVelocityTolerance;
+        /// Variance for DMI measurements
+        double dmiVariance;
+        /// Covariance for front wheels speed measurements
+        Eigen::Matrix2d fwsCovariance;
+        /// Covariance for rear wheels speed measurements
+        Eigen::Matrix2d rwsCovariance;
+        /// Variance for steering measurements
+        double steeringVariance;
       };
       /// Applanix vehicle navigation measurement in local ENU system
       struct ApplanixNavigationMeasurement {
@@ -256,6 +276,8 @@ namespace aslam {
       void addMeasurement(const CANSteeringMeasurement& data, double timestamp);
       /// Adds the currently stored measurements to the estimator
       void addMeasurements();
+      /// Clears the stored measurements
+      void clearMeasurements();
       /** @}
         */
 
@@ -280,7 +302,7 @@ namespace aslam {
       /// Adds CAN steering error terms
       void addErrorTerms(const CANSteeringMeasurements& measurements,
         IncrementalEstimator::BatchSP batch);
-      /// Returns linear and angular velocity in odometry frame
+      /// Returns linear and angular velocity in odometry frame from B-spline
       std::pair<aslam::backend::EuclideanExpression,
         aslam::backend::EuclideanExpression> getOdometryVelocities(double
         timestamp, const BSplinePoseDesignVariableSP& bspdv) const;
@@ -310,6 +332,8 @@ namespace aslam {
       CANRearWheelsSpeedMeasurements _canRearWheelsSpeedMeasurements;
       /// Stored CAN steering measurements
       CANSteeringMeasurements _canSteeringMeasurements;
+      /// Current B-spline pose design variable
+      BSplinePoseDesignVariableSP _bspdv;
       /** @}
         */
 

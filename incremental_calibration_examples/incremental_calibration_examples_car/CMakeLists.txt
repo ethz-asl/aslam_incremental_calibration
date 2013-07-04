@@ -74,6 +74,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermSteering.cpp
   src/car/ErrorTermDMI.cpp
   src/car/CarCalibrator.cpp
+  src/car/OptimizationProblemSpline.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
   ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS} ${LIBCAN_PRIUS_SENSOR_LIBRARY}

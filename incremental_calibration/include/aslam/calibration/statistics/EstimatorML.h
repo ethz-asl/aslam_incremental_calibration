@@ -16,43 +16,23 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file SsizeTSupport.h
-    \brief This file defines the Eigen support for ssize_t type
+/** \file EstimatorML.h
+    \brief This file defines the EstimatorML class, which implements
+           maximum likelihood estimators for various distributions.
   */
 
-#ifndef ASLAM_CALIBRATION_TPL_SSIZETSUPPORT_H
-#define ASLAM_CALIBRATION_TPL_SSIZETSUPPORT_H
+#ifndef ASLAM_CALIBRATION_STATISTICS_ESTIMATORML_H
+#define ASLAM_CALIBRATION_STATISTICS_ESTIMATORML_H
 
-#include <cstdlib>
+namespace aslam {
+  namespace calibration {
 
-#include <Eigen/Core>
+template <typename D> class EstimatorML;
 
-namespace Eigen {
-
-  /** The NumTraits<ssize_t> structure defines support for ssize_t type in
-      Eigen.
-      \brief Eigen support for ssize_t
-    */
-  template<> struct NumTraits<ssize_t> {
-    /// Real definition
-    typedef ssize_t Real;
-    /// Floating point definition
-    typedef double FloatingPoint;
-    /// Enum for Eigen
-    enum {
-      /// Is complex
-      IsComplex = 0,
-      /// Has floating point
-      HasFloatingPoint = 0,
-      /// Read cost
-      ReadCost = 1,
-      /// Add cost
-      AddCost = 1,
-      /// Multiplicative cost
-      MulCost = 1,
-    };
-  };
-
+  }
 }
 
-#endif // ASLAM_CALIBRATION_TPL_SSIZETSUPPORT_H
+#include "aslam/calibration/statistics/EstimatorMLNormal1v.h"
+#include "aslam/calibration/statistics/EstimatorMLNormalMv.h"
+
+#endif // ASLAM_CALIBRATION_STATISTICS_ESIMATORML_H

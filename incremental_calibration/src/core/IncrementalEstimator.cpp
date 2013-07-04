@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <utility>
 
+#include <boost/make_shared.hpp>
+
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
@@ -39,12 +41,12 @@ namespace aslam {
 
     IncrementalEstimator::IncrementalEstimator(size_t groupId,
         const Options& options) :
-        _problem(new IncrementalOptimizationProblem()),
+        _problem(boost::make_shared<IncrementalOptimizationProblem>()),
         _margGroupId(groupId),
         _mi(0),
         _sumLogDiagR(0),
         _options(options),
-        _optimizer(new Optimizer()) {
+        _optimizer(boost::make_shared<Optimizer>()) {
       // optimization options
       aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
       optOptions.verbose = _options._verbose;

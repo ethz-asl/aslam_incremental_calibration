@@ -16,22 +16,42 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file NormalDistribution.h
-    \brief This file is an interface to the normal distributions
+/** \file SizeTSupport.h
+    \brief This file defines the Eigen support for size_t type.
   */
 
-#ifndef ASLAM_CALIBRATION_STATISTICS_NORMALDISTRIBUTION_H
-#define ASLAM_CALIBRATION_STATISTICS_NORMALDISTRIBUTION_H
+#ifndef ASLAM_CALIBRATION_UTILS_SIZETSUPPORT_H
+#define ASLAM_CALIBRATION_UTILS_SIZETSUPPORT_H
 
-namespace aslam {
-  namespace calibration {
+#include <cstdlib>
 
-    template <int M = 1> class NormalDistribution;
+#include <Eigen/Core>
 
-  }
+namespace Eigen {
+
+  /** The NumTraits<size_t> structure defines support for size_t type in Eigen.
+      \brief Eigen support for size_t
+    */
+  template<> struct NumTraits<size_t> {
+    /// Real definition
+    typedef size_t Real;
+    /// Floating point definition
+    typedef double FloatingPoint;
+    /// Enum for Eigen
+    enum {
+      /// Is complex
+      IsComplex = 0,
+      /// Has floating point
+      HasFloatingPoint = 0,
+      /// Read cost
+      ReadCost = 1,
+      /// Add cost
+      AddCost = 1,
+      /// Multiplicative cost
+      MulCost = 1,
+    };
+  };
+
 }
 
-#include "aslam/calibration/statistics/NormalDistribution1v.h"
-#include "aslam/calibration/statistics/NormalDistributionMv.h"
-
-#endif // ASLAM_CALIBRATION_STATISTICS_NORMALDISTRIBUTION_H
+#endif // ASLAM_CALIBRATION_UTILS_SIZETSUPPORT_H

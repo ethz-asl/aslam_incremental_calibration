@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2011 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,42 +16,28 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file SizeTSupport.h
-    \brief This file defines the Eigen support for size_t type
-  */
+namespace OuterProduct {
 
-#ifndef ASLAM_CALIBRATION_TPL_SIZETSUPPORT_H
-#define ASLAM_CALIBRATION_TPL_SIZETSUPPORT_H
+/******************************************************************************/
+/* Methods                                                                    */
+/******************************************************************************/
 
-#include <cstdlib>
+  template <typename X, size_t M, size_t N>
+  Eigen::Matrix<X, M, N> compute(const Eigen::Matrix<X, M, 1>& v1,
+      const Eigen::Matrix<X, N, 1>& v2) {
+    return v1 * v2.transpose();
+  };
 
-#include <Eigen/Core>
-
-namespace Eigen {
-
-  /** The NumTraits<size_t> structure defines support for size_t type in Eigen.
-      \brief Eigen support for size_t
-    */
-  template<> struct NumTraits<size_t> {
-    /// Real definition
-    typedef size_t Real;
-    /// Floating point definition
-    typedef double FloatingPoint;
-    /// Enum for Eigen
-    enum {
-      /// Is complex
-      IsComplex = 0,
-      /// Has floating point
-      HasFloatingPoint = 0,
-      /// Read cost
-      ReadCost = 1,
-      /// Add cost
-      AddCost = 1,
-      /// Multiplicative cost
-      MulCost = 1,
-    };
+  template <typename X, size_t M>
+  Eigen::Matrix<X, M, M> compute(const Eigen::Matrix<X, M, 1>& v) {
+    Eigen::Matrix<X, M, M> result = Eigen::Matrix<X, M, M>::Zero(v.size(),
+      v.size());
+    for (size_t i = 0; i < (size_t)v.size(); ++i)
+      for (size_t j = i; j < (size_t)v.size(); ++j) {
+        result(i, j) = v(i) * v(j);
+        result(j, i) = result(i, j);
+      }
+    return result;
   };
 
 }
-
-#endif // ASLAM_CALIBRATION_TPL_SIZETSUPPORT_H

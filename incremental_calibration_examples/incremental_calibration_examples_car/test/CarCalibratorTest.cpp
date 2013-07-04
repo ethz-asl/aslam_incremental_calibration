@@ -20,17 +20,33 @@
     \brief This file tests the CarCalibrator class.
   */
 
+#include <boost/make_shared.hpp>
+
 #include <gtest/gtest.h>
 
+#include <aslam/backend/EuclideanPoint.hpp>
+#include <aslam/backend/RotationQuaternion.hpp>
+
+#include <aslam/calibration/core/IncrementalEstimator.h>
+#include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/exceptions/InvalidOperationException.h>
 
 #include "aslam/calibration/car/CarCalibrator.h"
 
+using namespace aslam::backend;
 using namespace aslam::calibration;
 
 TEST(AslamCalibrationTestSuite, testCarCalibrator) {
   CarCalibrator::CalibrationDesignVariables dv;
-  CarCalibrator::IncrementalEstimatorSP estimator;
+  dv.intrinsicCANDesignVariable =
+    boost::make_shared<VectorDesignVariable<11> >();
+  dv.intrinsicDMIDesignVariable =
+    boost::make_shared<VectorDesignVariable<1> >();
+  dv.extrinsicOdometryTranslationDesignVariable =
+    boost::make_shared<EuclideanPoint>(Eigen::Vector3d(0, 0, -0.785));
+  dv.extrinsicOdometryRotationDesignVariable =
+    boost::make_shared<RotationQuaternion>(Eigen::Matrix3d());
+  auto estimator = boost::make_shared<IncrementalEstimator>(1);
   CarCalibrator calibrator(estimator, dv);
   calibrator.addMeasurement(CarCalibrator::ApplanixNavigationMeasurement(), 10);
   ASSERT_THROW(calibrator.addMeasurement(

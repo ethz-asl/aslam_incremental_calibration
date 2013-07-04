@@ -25,6 +25,7 @@
 #include <vector>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
 
 #include <Eigen/Core>
 
@@ -162,11 +163,10 @@ int main(int argc, char** argv) {
   initLandmarks(x_l_hat, x_odom, Theta_hat, r, b);
 
   // create optimization problem
-  boost::shared_ptr<OptimizationProblem> problem(new OptimizationProblem);
+  auto problem = boost::make_shared<OptimizationProblem>();
 
   // create calibration parameters design variable
-  boost::shared_ptr<VectorDesignVariable<3> >
-    dv_Theta(new VectorDesignVariable<3>(Theta_hat));
+  auto dv_Theta = boost::make_shared<VectorDesignVariable<3> >(Theta_hat);
   dv_Theta->setActive(true);
   problem->addDesignVariable(dv_Theta, 2);
 
@@ -174,8 +174,7 @@ int main(int argc, char** argv) {
   std::vector<boost::shared_ptr<VectorDesignVariable<3> > > dv_x;
   dv_x.reserve(steps);
   for (size_t i = 0; i < steps; ++i) {
-    dv_x.push_back(boost::shared_ptr<VectorDesignVariable<3> >
-      (new VectorDesignVariable<3>(x_odom[i])));
+    dv_x.push_back(boost::make_shared<VectorDesignVariable<3> >(x_odom[i]));
     dv_x[i]->setActive(true);
     problem->addDesignVariable(dv_x[i], 0);
   }
@@ -184,8 +183,7 @@ int main(int argc, char** argv) {
   std::vector<boost::shared_ptr<VectorDesignVariable<2> > > dv_x_l;
   dv_x_l.reserve(nl);
   for (size_t i = 0; i < nl; ++i) {
-    dv_x_l.push_back(boost::shared_ptr<VectorDesignVariable<2> >
-      (new VectorDesignVariable<2>(x_l_hat[i])));
+    dv_x_l.push_back(boost::make_shared<VectorDesignVariable<2> >(x_l_hat[i]));
     dv_x_l[i]->setActive(true);
     problem->addDesignVariable(dv_x_l[i], 1);
   }
@@ -195,13 +193,12 @@ int main(int argc, char** argv) {
 
   // add motion and observation error terms
   for (size_t i = 1; i < steps; ++i) {
-    boost::shared_ptr<ErrorTermMotion> e_mot(
-      new ErrorTermMotion(dv_x[i - 1].get(), dv_x[i].get(), T, u_noise[i], Q));
+    auto e_mot = boost::make_shared<ErrorTermMotion>(dv_x[i - 1].get(),
+      dv_x[i].get(), T, u_noise[i], Q);
     problem->addErrorTerm(e_mot);
     for (size_t j = 0; j < nl; ++j) {
-      boost::shared_ptr<ErrorTermObservation> e_obs(
-        new ErrorTermObservation(dv_x[i].get(), dv_x_l[j].get(), dv_Theta.get(),
-        r[i][j], b[i][j], R));
+      auto e_obs = boost::make_shared<ErrorTermObservation>(dv_x[i].get(),
+        dv_x_l[j].get(), dv_Theta.get(), r[i][j], b[i][j], R);
       problem->addErrorTerm(e_obs);
     }
   }
