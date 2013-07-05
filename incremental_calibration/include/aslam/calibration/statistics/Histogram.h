@@ -16,23 +16,22 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file EstimatorML.h
-    \brief This file defines the EstimatorML class, which implements
-           maximum likelihood estimators for various distributions.
+/** \file Histogram.h
+    \brief This file is an interface to histograms.
   */
 
-#ifndef ASLAM_CALIBRATION_STATISTICS_ESTIMATORML_H
-#define ASLAM_CALIBRATION_STATISTICS_ESTIMATORML_H
+#ifndef ASLAM_CALIBRATION_STATISTICS_HISTOGRAM_H
+#define ASLAM_CALIBRATION_STATISTICS_HISTOGRAM_H
 
 namespace aslam {
   namespace calibration {
 
-    template <typename D> class EstimatorML;
+    template <typename T, int M = 1> class Histogram;
 
   }
 }
 
-#include "aslam/calibration/statistics/EstimatorMLNormal1v.h"
-#include "aslam/calibration/statistics/EstimatorMLNormalMv.h"
+#include "aslam/calibration/statistics/Histogram1v.h"
+#include "aslam/calibration/statistics/HistogramMv.h"
 
-#endif // ASLAM_CALIBRATION_STATISTICS_ESIMATORML_H
+#endif // ASLAM_CALIBRATION_STATISTICS_HISTOGRAM_H

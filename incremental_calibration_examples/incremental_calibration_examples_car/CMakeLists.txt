@@ -75,6 +75,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermDMI.cpp
   src/car/CarCalibrator.cpp
   src/car/OptimizationProblemSpline.cpp
+  src/car/CovarianceEstimator1v.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
   ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS} ${LIBCAN_PRIUS_SENSOR_LIBRARY}
@@ -86,6 +87,7 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/ErrorTermOdometryTest.cpp
   test/OdometryTest.cpp
   test/CarCalibratorTest.cpp
+  test/CovarianceEstimatorTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
