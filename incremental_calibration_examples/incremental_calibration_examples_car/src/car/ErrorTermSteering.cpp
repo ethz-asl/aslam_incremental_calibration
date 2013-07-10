@@ -109,10 +109,8 @@ namespace aslam {
 
     double ErrorTermSteering::evaluateErrorImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double L = _params->getValue()(0);
       const double a0 = _params->getValue()(3);
       const double a1 = _params->getValue()(4);
@@ -131,10 +129,8 @@ namespace aslam {
 
     void ErrorTermSteering::evaluateJacobiansImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double L = _params->getValue()(0);
 
       // Jacobian with respect to odometry parameters

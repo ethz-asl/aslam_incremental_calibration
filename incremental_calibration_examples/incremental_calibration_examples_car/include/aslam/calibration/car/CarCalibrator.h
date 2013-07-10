@@ -66,14 +66,16 @@ namespace aslam {
             poseSplineLambda(1e-1),
             poseMeasPerSecDesired(5),
             linearVelocityTolerance(1e-6),
-            dmiVariance(1e-6), // guess for now
+            dmiCovariance((Eigen::Matrix<double, 1, 1>()
+              << 1e-6).finished()), // guess for now
             fwsCovariance((Eigen::Matrix2d() <<
               1225.545759661739, 0,
               0, 1271.17379804095).finished()),
             rwsCovariance((Eigen::Matrix2d() <<
               828.2516524610561, 0,
               0, 990.2353478304882).finished()),
-            steeringVariance(3.369624218217728) {
+            steeringCovariance((Eigen::Matrix<double, 1, 1>()
+              << 3.369624218217728).finished()) {
         }
         /// Window duration in seconds
         double windowDuration;
@@ -85,14 +87,14 @@ namespace aslam {
         int poseMeasPerSecDesired;
         /// Tolerance for rejecting low speed measurements
         double linearVelocityTolerance;
-        /// Variance for DMI measurements
-        double dmiVariance;
+        /// Covariance for DMI measurements
+        Eigen::Matrix<double, 1, 1> dmiCovariance;
         /// Covariance for front wheels speed measurements
         Eigen::Matrix2d fwsCovariance;
         /// Covariance for rear wheels speed measurements
         Eigen::Matrix2d rwsCovariance;
-        /// Variance for steering measurements
-        double steeringVariance;
+        /// Covariance for steering measurements
+        Eigen::Matrix<double, 1, 1> steeringCovariance;
       };
       /// Applanix vehicle navigation measurement in local ENU system
       struct ApplanixNavigationMeasurement {

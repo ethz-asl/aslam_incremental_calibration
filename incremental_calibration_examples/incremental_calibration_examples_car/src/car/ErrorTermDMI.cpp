@@ -105,10 +105,8 @@ namespace aslam {
 
     double ErrorTermDMI::evaluateErrorImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double e_r = _params->getValue()(0);
 
       // build the error term
@@ -120,10 +118,7 @@ namespace aslam {
 
     void ErrorTermDMI::evaluateJacobiansImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double e_r = _params->getValue()(1);
 
       // Jacobian with respect to odometry parameters

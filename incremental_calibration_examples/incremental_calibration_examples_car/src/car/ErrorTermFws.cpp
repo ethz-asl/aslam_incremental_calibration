@@ -104,10 +104,8 @@ namespace aslam {
 
     double ErrorTermFws::evaluateErrorImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double L = _params->getValue()(0);
       const double e_f = _params->getValue()(2);
       const double k_fl = _params->getValue()(9);
@@ -125,10 +123,8 @@ namespace aslam {
 
     void ErrorTermFws::evaluateJacobiansImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double L = _params->getValue()(0);
       const double e_f = _params->getValue()(2);
       const double k_fl = _params->getValue()(9);

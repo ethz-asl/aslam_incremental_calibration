@@ -46,18 +46,16 @@ namespace aslam {
       if (!_estimator.getValid())
         throw InvalidOperationException("CovarianceEstimator::getMean(): "
           "not enough measurements");
-      Eigen::Matrix<double, 1, 1> mean;
-      mean << _estimator.getDistribution().getMean();
-      return mean;
+      return (Eigen::Matrix<double, 1, 1>()
+        << _estimator.getDistribution().getMean()).finished();
     }
 
     Eigen::Matrix<double, 1, 1> CovarianceEstimator<1>::getCovariance() const {
       if (!_estimator.getValid())
         throw InvalidOperationException("CovarianceEstimator::getCovariance(): "
           "not enough measurements");
-      Eigen::Matrix<double, 1, 1> covariance;
-      covariance << _estimator.getDistribution().getVariance();
-      return covariance;
+      return (Eigen::Matrix<double, 1, 1>()
+        << _estimator.getDistribution().getVariance()).finished();
     }
 
     double CovarianceEstimator<1>::getEstChiSquaredMean() {

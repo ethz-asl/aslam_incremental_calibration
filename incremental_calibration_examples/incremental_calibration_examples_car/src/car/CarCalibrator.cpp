@@ -186,12 +186,11 @@ namespace aslam {
 
     void CarCalibrator::addErrorTerms(const ApplanixNavigationMeasurements&
         measurements, IncrementalEstimator::BatchSP batch) {
-      auto rv = boost::make_shared<RotationVector>();
-      BSplinePose bspline(_options.poseSplineOrder, rv);
       const size_t numMeasurements = measurements.size();
       Eigen::VectorXd timestamps(numMeasurements);
       Eigen::Matrix<double, 6, Eigen::Dynamic> poses(6, numMeasurements);
       const EulerAnglesYawPitchRoll ypr;
+      auto rv = boost::make_shared<RotationVector>();
       for (size_t i = 0; i < measurements.size(); ++i) {
         Eigen::Vector3d crv = rv->rotationMatrixToParameters(
           ypr.parametersToRotationMatrix(Eigen::Vector3d(
@@ -215,6 +214,7 @@ namespace aslam {
         numSegments = _options.poseMeasPerSecDesired * elapsedTime;
       else
         numSegments = numMeasurements;
+      BSplinePose bspline(_options.poseSplineOrder, rv);
       bspline.initPoseSplineSparse(timestamps, poses, numSegments,
         _options.poseSplineLambda);
       _bspdv = boost::make_shared<BSplinePoseDesignVariable>(bspline);
@@ -243,19 +243,17 @@ namespace aslam {
 
     void CarCalibrator::addErrorTerms(const ApplanixEncoderMeasurements&
         measurements, IncrementalEstimator::BatchSP batch) {
-      Eigen::Matrix<double, 1, 1> R_dmi;
-      R_dmi << _options.dmiVariance;
       double lastTimestamp = -1;
       double lastDistance = -1;
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        Eigen::Matrix<double, 1, 1> meas;
         if (lastTimestamp != -1) {
-          meas << (it->second.signedDistanceTraveled - lastDistance) /
-            (it->first - lastTimestamp);
+          const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
+            << (it->second.signedDistanceTraveled - lastDistance) /
+            (it->first - lastTimestamp)).finished());
           auto v = getOdometryVelocities(it->first, _bspdv);
           auto e_dmi = boost::make_shared<ErrorTermDMI>(v.first, v.second,
             _calibrationDesignVariables.intrinsicDMIDesignVariable.get(), meas,
-            R_dmi);
+            _options.dmiCovariance);
           batch->addErrorTerm(e_dmi);
         }
         lastTimestamp = it->first;
@@ -294,8 +292,6 @@ namespace aslam {
 
     void CarCalibrator::addErrorTerms(const CANSteeringMeasurements&
         measurements, IncrementalEstimator::BatchSP batch) {
-      Eigen::Matrix<double, 1, 1> R_st;
-      R_st << _options.steeringVariance;
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto v = getOdometryVelocities(it->first, _bspdv);
         if (std::fabs(v.first.toValue()(0)) < _options.linearVelocityTolerance)
@@ -304,7 +300,7 @@ namespace aslam {
         meas << it->second.value;
         auto e_st = boost::make_shared<ErrorTermSteering>(v.first, v.second,
           _calibrationDesignVariables.intrinsicCANDesignVariable.get(), meas,
-          R_st);
+          _options.steeringCovariance);
         batch->addErrorTerm(e_st);
       }
     }

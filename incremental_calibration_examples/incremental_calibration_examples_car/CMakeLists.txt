@@ -122,3 +122,9 @@ target_link_libraries(car-calibrate-batch-morsel ${PROJECT_NAME})
 rosbuild_add_executable(calibrate-prius-odometry-offline
   src/car/calibrate-prius-odometry-offline.cpp)
 target_link_libraries(calibrate-prius-odometry-offline ${PROJECT_NAME})
+
+rosbuild_add_executable(processBagNewSpline src/car/processBagNewSpline.cpp)
+target_link_libraries(processBagNewSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(processBagOldSpline src/car/processBagOldSpline.cpp)
+target_link_libraries(processBagOldSpline ${PROJECT_NAME})

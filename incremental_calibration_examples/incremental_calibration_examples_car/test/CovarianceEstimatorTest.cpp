@@ -27,8 +27,11 @@
 
 #include <gtest/gtest.h>
 
-#include "aslam/calibration/car/CovarianceEstimator.h"
+#include <sm/eigen/gtest.hpp>
+
 #include <aslam/calibration/statistics/NormalDistribution.h>
+
+#include "aslam/calibration/car/CovarianceEstimator.h"
 
 using namespace aslam::calibration;
 
@@ -38,61 +41,41 @@ TEST(AslamCalibrationTestSuite, testCovarianceEstimator) {
   NormalDistribution<2>().getSamples(x1, 100000);
   for (auto it = x1.cbegin(); it != x1.cend(); ++it)
     estimator1.addMeasurement(*it);
-  std::cout << "Mean: " << std::endl << estimator1.getMean() << std::endl
-    << std::endl;
-  std::cout << "Covariance: " << std::endl << estimator1.getCovariance()
-    << std::endl << std::endl;
-  std::cout << "Estimated chi-square mean: " << std::endl
-    << estimator1.getEstChiSquaredMean() << std::endl << std::endl;
-  std::cout << "Estimated chi-square variance: " << std::endl
-    << estimator1.getEstChiSquaredVariance() << std::endl << std::endl;
-  std::cout << "Estimated chi-square mode: " << std::endl
-    << estimator1.getEstChiSquaredMode() << std::endl << std::endl;
-  std::cout << "True chi-square mean: " << std::endl
-    << estimator1.getChiSquaredMean() << std::endl << std::endl;
-  std::cout << "True chi-square variance: " << std::endl
-    << estimator1.getChiSquaredVariance() << std::endl << std::endl;
-  std::cout << "True chi-square mode: " << std::endl
-    << estimator1.getChiSquaredMode() << std::endl << std::endl;
+  ASSERT_NEAR(estimator1.getEstChiSquaredMean(), estimator1.getChiSquaredMean(),
+    1e-1);
+  ASSERT_NEAR(estimator1.getEstChiSquaredVariance(),
+    estimator1.getChiSquaredVariance(), 1e-1);
+  sm::eigen::assertNear(estimator1.getCovariance(), Eigen::Matrix2d::Identity(),
+    1e-1, SM_SOURCE_FILE_POS, "Bad covariance estimate");
+  sm::eigen::assertNear(estimator1.getMean(), Eigen::Vector2d::Zero(),
+    1e-1, SM_SOURCE_FILE_POS, "Bad mean estimate");
   CovarianceEstimator<1> estimator2;
   std::vector<double> x2;
   NormalDistribution<1>().getSamples(x2, 100000);
   for (auto it = x2.cbegin(); it != x2.cend(); ++it)
     estimator2.addMeasurement(
       (Eigen::Matrix<double, 1, 1>() << *it).finished());
-  std::cout << "Mean: " << std::endl << estimator2.getMean() << std::endl
-    << std::endl;
-  std::cout << "Covariance: " << std::endl << estimator2.getCovariance()
-    << std::endl << std::endl;
-  std::cout << "Estimated chi-square mean: " << std::endl
-    << estimator2.getEstChiSquaredMean() << std::endl << std::endl;
-  std::cout << "Estimated chi-square variance: " << std::endl
-    << estimator2.getEstChiSquaredVariance() << std::endl << std::endl;
-  std::cout << "Estimated chi-square mode: " << std::endl
-    << estimator2.getEstChiSquaredMode() << std::endl << std::endl;
-  std::cout << "True chi-square mean: " << std::endl
-    << estimator2.getChiSquaredMean() << std::endl << std::endl;
-  std::cout << "True chi-square variance: " << std::endl
-    << estimator2.getChiSquaredVariance() << std::endl << std::endl;
+  ASSERT_NEAR(estimator2.getEstChiSquaredMean(), estimator2.getChiSquaredMean(),
+    1e-1);
+  ASSERT_NEAR(estimator2.getEstChiSquaredVariance(),
+    estimator2.getChiSquaredVariance(), 1e-1);
+  sm::eigen::assertNear(estimator2.getCovariance(),
+    Eigen::Matrix<double, 1, 1>::Identity(),
+    1e-1, SM_SOURCE_FILE_POS, "Bad covariance estimate");
+  sm::eigen::assertNear(estimator2.getMean(),
+    Eigen::Matrix<double, 1, 1>::Zero(),
+    1e-1, SM_SOURCE_FILE_POS, "Bad mean estimate");
   CovarianceEstimator<3> estimator3;
   std::vector<Eigen::Vector3d> x3;
   NormalDistribution<3>().getSamples(x3, 100000);
   for (auto it = x3.cbegin(); it != x3.cend(); ++it)
     estimator3.addMeasurement(*it);
-  std::cout << "Mean: " << std::endl << estimator3.getMean() << std::endl
-    << std::endl;
-  std::cout << "Covariance: " << std::endl << estimator3.getCovariance()
-    << std::endl << std::endl;
-  std::cout << "Estimated chi-square mean: " << std::endl
-    << estimator3.getEstChiSquaredMean() << std::endl << std::endl;
-  std::cout << "Estimated chi-square variance: " << std::endl
-    << estimator3.getEstChiSquaredVariance() << std::endl << std::endl;
-  std::cout << "Estimated chi-square mode: " << std::endl
-    << estimator3.getEstChiSquaredMode() << std::endl << std::endl;
-  std::cout << "True chi-square mean: " << std::endl
-    << estimator3.getChiSquaredMean() << std::endl << std::endl;
-  std::cout << "True chi-square variance: " << std::endl
-    << estimator3.getChiSquaredVariance() << std::endl << std::endl;
-  std::cout << "True chi-square mode: " << std::endl
-    << estimator3.getChiSquaredMode() << std::endl << std::endl;
+  ASSERT_NEAR(estimator3.getEstChiSquaredMean(), estimator3.getChiSquaredMean(),
+    1e-1);
+  ASSERT_NEAR(estimator3.getEstChiSquaredVariance(),
+    estimator3.getChiSquaredVariance(), 1e-1);
+  sm::eigen::assertNear(estimator3.getCovariance(), Eigen::Matrix3d::Identity(),
+    1e-1, SM_SOURCE_FILE_POS, "Bad covariance estimate");
+  sm::eigen::assertNear(estimator3.getMean(), Eigen::Vector3d::Zero(),
+    1e-1, SM_SOURCE_FILE_POS, "Bad mean estimate");
 }
