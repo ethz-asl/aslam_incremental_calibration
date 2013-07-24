@@ -22,22 +22,21 @@
 
 #include <boost/make_shared.hpp>
 
-#include <sm/kinematics/RotationVector.hpp>
+#include <sm/kinematics/quaternion_algebra.hpp>
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 
-#include <bsplines/BSplinePose.hpp>
-
-#include <aslam/splines/BSplinePoseDesignVariable.hpp>
+#include <bsplines/BSplineFitter.hpp>
 
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
+#include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
 
 #include <aslam/calibration/exceptions/InvalidOperationException.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
+#include <aslam/calibration/core/IncrementalEstimator.h>
 
-#include "aslam/calibration/car/utils.h"
 #include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/car/ErrorTermFws.h"
 #include "aslam/calibration/car/ErrorTermRws.h"
@@ -180,48 +179,102 @@ namespace aslam {
       addErrorTerms(_canFrontWheelsSpeedMeasurements, batch);
       addErrorTerms(_canRearWheelsSpeedMeasurements, batch);
       addErrorTerms(_canSteeringMeasurements, batch);
+      batch->setGroupsOrdering({0, 1});
+      if (_options.verbose) {
+        std::cout << "calibration before batch: " << std::endl;
+        std::cout << "CAN intrinsic: " << std::endl <<
+          *_calibrationDesignVariables.intrinsicCANDesignVariable << std::endl;
+        std::cout << "DMI intrinsic: " << std::endl <<
+          *_calibrationDesignVariables.intrinsicDMIDesignVariable << std::endl;
+        Eigen::MatrixXd t_io;
+        _calibrationDesignVariables.extrinsicOdometryTranslationDesignVariable
+          ->getParameters(t_io);
+        std::cout << "IMU-odometry translation: " << std::endl <<
+          t_io.transpose() << std::endl;
+        const EulerAnglesYawPitchRoll ypr;
+        Eigen::MatrixXd q_io;
+        _calibrationDesignVariables.extrinsicOdometryRotationDesignVariable
+          ->getParameters(q_io);
+        std::cout << "IMU-odometry rotation: " << std::endl <<
+          ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
+      }
       IncrementalEstimator::ReturnValue ret =
         _estimator->addBatch(batch);
+      if (_options.verbose) {
+        std::cout << "rank: " << ret._rank << std::endl;
+        std::cout << "QR tol: " << ret._qrTol << std::endl;
+        std::cout << "MI: " << ret._mi << std::endl;
+        std::cout << "Time [s]: " << ret._elapsedTime << std::endl;
+        std::cout << "Cholmod memory [MB]: " <<
+          ret._cholmodMemoryUsage / 1024.0 / 1024.0 << std::endl;
+        ret._batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+        std::cout << "calibration after batch: " << std::endl;
+        std::cout << "CAN intrinsic: " << std::endl <<
+          *_calibrationDesignVariables.intrinsicCANDesignVariable << std::endl;
+        std::cout << "DMI intrinsic: " << std::endl <<
+          *_calibrationDesignVariables.intrinsicDMIDesignVariable << std::endl;
+        Eigen::MatrixXd t_io;
+        _calibrationDesignVariables.extrinsicOdometryTranslationDesignVariable
+          ->getParameters(t_io);
+        std::cout << "IMU-odometry translation: " << std::endl <<
+          t_io.transpose() << std::endl;
+        const EulerAnglesYawPitchRoll ypr;
+        Eigen::MatrixXd q_io;
+        _calibrationDesignVariables.extrinsicOdometryRotationDesignVariable
+          ->getParameters(q_io);
+        std::cout << "IMU-odometry rotation: " << std::endl <<
+          ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
+      }
     }
 
     void CarCalibrator::addErrorTerms(const ApplanixNavigationMeasurements&
-        measurements, IncrementalEstimator::BatchSP batch) {
+        measurements, const OptimizationProblemSplineSP& batch) {
       const size_t numMeasurements = measurements.size();
-      Eigen::VectorXd timestamps(numMeasurements);
-      Eigen::Matrix<double, 6, Eigen::Dynamic> poses(6, numMeasurements);
+      std::vector<double> timestamps;
+      timestamps.reserve(numMeasurements);
+      std::vector<Eigen::Vector3d> transPoses;
+      transPoses.reserve(numMeasurements);
+      std::vector<Eigen::Vector4d> rotPoses;
+      rotPoses.reserve(numMeasurements);
       const EulerAnglesYawPitchRoll ypr;
-      auto rv = boost::make_shared<RotationVector>();
       for (size_t i = 0; i < measurements.size(); ++i) {
-        Eigen::Vector3d crv = rv->rotationMatrixToParameters(
+        Eigen::Vector4d quat = r2quat(
           ypr.parametersToRotationMatrix(Eigen::Vector3d(
-          measurements[i].second.yaw, measurements[i].second.pitch,
+          measurements[i].second.yaw,
+          measurements[i].second.pitch,
           measurements[i].second.roll)));
         if (i > 0) {
-          Eigen::Matrix<double, 6, 1> lastPose = poses.col(i - 1);
-          crv = rotVectorNoFlipping(lastPose.tail<3>(), crv);
+          const Eigen::Vector4d lastRotPose = rotPoses.back();
+          if ((lastRotPose + quat).norm() < (lastRotPose - quat).norm())
+            quat = -quat;
         }
-        timestamps(i) = measurements[i].first;
-        Eigen::Matrix<double, 6, 1> pose;
-        pose << measurements[i].second.x, measurements[i].second.y,
-          measurements[i].second.z, crv;
-        poses.col(i) = pose;
+        timestamps.push_back(measurements[i].first);
+        rotPoses.push_back(quat);
+        transPoses.push_back(Eigen::Vector3d(
+          measurements[i].second.x,
+          measurements[i].second.y,
+          measurements[i].second.z));
       }
+      _splineStartTime = timestamps[0];
+      _splineEndTime = timestamps[numMeasurements - 1];
       const double elapsedTime =
-        timestamps(numMeasurements - 1) - timestamps(0);
+        timestamps[numMeasurements - 1] - timestamps[0];
       const int measPerSec = numMeasurements / elapsedTime;
       int numSegments;
       if (measPerSec > _options.poseMeasPerSecDesired)
         numSegments = _options.poseMeasPerSecDesired * elapsedTime;
       else
         numSegments = numMeasurements;
-      BSplinePose bspline(_options.poseSplineOrder, rv);
-      bspline.initPoseSplineSparse(timestamps, poses, numSegments,
+      _translationSpline = boost::make_shared<TranslationSpline>();
+      BSplineFitter<TranslationSpline>::initUniformSplineSparse(
+        *_translationSpline, timestamps, transPoses, numSegments,
         _options.poseSplineLambda);
-      _bspdv = boost::make_shared<BSplinePoseDesignVariable>(bspline);
-      for (size_t i = 0; i < _bspdv->numDesignVariables(); ++i)
-        _bspdv->designVariable(i)->setActive(true);
-      dynamic_cast<OptimizationProblemSpline*>(batch.get())->addDesignVariable(
-        _bspdv, 0);
+      _rotationSpline = boost::make_shared<RotationSpline>();
+      BSplineFitter<RotationSpline>::initUniformSplineSparse(
+        *_rotationSpline, timestamps, rotPoses, numSegments,
+        _options.poseSplineLambda);
+      batch->addSpline(_translationSpline, 0);
+      batch->addSpline(_rotationSpline, 0);
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         ErrorTermPose::Input xm;
         xm.head<3>() = Eigen::Vector3d(it->second.x, it->second.y,
@@ -235,39 +288,51 @@ namespace aslam {
         Q(3, 3) = it->second.yaw_sigma2;
         Q(4, 4) = it->second.pitch_sigma2;
         Q(5, 5) = it->second.roll_sigma2;
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<0>(it->first);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<0>(it->first);
         auto e_pose = boost::make_shared<ErrorTermPose>(
-          _bspdv->transformation(it->first), xm, Q);
+          TransformationExpression(
+          Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression()),
+          translationExpressionFactory.getValueExpression()),
+          xm, Q);
         batch->addErrorTerm(e_pose);
       }
     }
 
     void CarCalibrator::addErrorTerms(const ApplanixEncoderMeasurements&
-        measurements, IncrementalEstimator::BatchSP batch) {
+        measurements, const OptimizationProblemSplineSP& batch) {
       double lastTimestamp = -1;
       double lastDistance = -1;
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        if (_splineStartTime > it->first || _splineEndTime < it->first)
+          continue;
         if (lastTimestamp != -1) {
           const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
             << (it->second.signedDistanceTraveled - lastDistance) /
-            (it->first - lastTimestamp)).finished());
-          auto v = getOdometryVelocities(it->first, _bspdv);
+            (it->second.gpsTimestamp - lastTimestamp)).finished());
+          auto v = getOdometryVelocities(it->first, _translationSpline,
+            _rotationSpline);
           auto e_dmi = boost::make_shared<ErrorTermDMI>(v.first, v.second,
             _calibrationDesignVariables.intrinsicDMIDesignVariable.get(), meas,
             _options.dmiCovariance);
           batch->addErrorTerm(e_dmi);
         }
-        lastTimestamp = it->first;
+        lastTimestamp = it->second.gpsTimestamp;
         lastDistance = it->second.signedDistanceTraveled;
       }
     }
 
     void CarCalibrator::addErrorTerms(const CANFrontWheelsSpeedMeasurements&
-        measurements, IncrementalEstimator::BatchSP batch) {
+        measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        auto v = getOdometryVelocities(it->first, _bspdv);
-        if (it->second.left == 0 || it->second.right == 0 ||
-            std::fabs(v.first.toValue()(0)) < _options.linearVelocityTolerance)
+        if (_splineStartTime > it->first || _splineEndTime < it->first ||
+            it->second.left == 0 || it->second.right == 0)
           continue;
+        auto v = getOdometryVelocities(it->first, _translationSpline,
+          _rotationSpline);
         auto e_fws = boost::make_shared<ErrorTermFws>(v.first, v.second,
           _calibrationDesignVariables.intrinsicCANDesignVariable.get(),
           Eigen::Vector2d(it->second.left, it->second.right),
@@ -277,11 +342,13 @@ namespace aslam {
     }
 
     void CarCalibrator::addErrorTerms(const CANRearWheelsSpeedMeasurements&
-        measurements, IncrementalEstimator::BatchSP batch) {
+        measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        if (it->second.left == 0 || it->second.right == 0)
+        if (_splineStartTime > it->first || _splineEndTime < it->first ||
+            it->second.left == 0 || it->second.right == 0)
           continue;
-        auto v = getOdometryVelocities(it->first, _bspdv);
+        auto v = getOdometryVelocities(it->first, _translationSpline,
+          _rotationSpline);
         auto e_rws = boost::make_shared<ErrorTermRws>(v.first, v.second,
           _calibrationDesignVariables.intrinsicCANDesignVariable.get(),
           Eigen::Vector2d(it->second.left, it->second.right),
@@ -291,9 +358,12 @@ namespace aslam {
     }
 
     void CarCalibrator::addErrorTerms(const CANSteeringMeasurements&
-        measurements, IncrementalEstimator::BatchSP batch) {
+        measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        auto v = getOdometryVelocities(it->first, _bspdv);
+        if (_splineStartTime > it->first || _splineEndTime < it->first)
+          continue;
+        auto v = getOdometryVelocities(it->first, _translationSpline,
+          _rotationSpline);
         if (std::fabs(v.first.toValue()(0)) < _options.linearVelocityTolerance)
           continue;
         Eigen::Matrix<double, 1, 1> meas;
@@ -307,17 +377,24 @@ namespace aslam {
 
     std::pair<EuclideanExpression, EuclideanExpression>
         CarCalibrator::getOdometryVelocities(double timestamp,
-        const BSplinePoseDesignVariableSP& bspdv) const {
+        const TranslationSplineSP& translationSpline,
+        const RotationSplineSP& rotationSpline) const {
       RotationExpression C_io(
         _calibrationDesignVariables.extrinsicOdometryRotationDesignVariable);
       EuclideanExpression t_io(
         _calibrationDesignVariables.extrinsicOdometryTranslationDesignVariable);
-      EuclideanExpression v_iw = bspdv->linearVelocity(timestamp);
-      RotationExpression C_wi = bspdv->orientation(timestamp);
-      EuclideanExpression v_ii = C_wi.inverse() * v_iw;
-      EuclideanExpression om_ii = bspdv->angularVelocityBodyFrame(timestamp);
-      EuclideanExpression v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-      EuclideanExpression om_oo = C_io.inverse() * om_ii;
+      auto translationExpressionFactory =
+        translationSpline->getExpressionFactoryAt<1>(timestamp);
+      auto rotationExpressionFactory =
+        rotationSpline->getExpressionFactoryAt<1>(timestamp);
+      auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+        rotationExpressionFactory.getValueExpression());
+      auto v_ii = C_wi.inverse() *
+        translationExpressionFactory.getValueExpression(1);
+      auto om_ii = -(C_wi.inverse() *
+        rotationExpressionFactory.getAngularVelocityExpression());
+      auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      auto om_oo = C_io.inverse() * om_ii;
       return std::make_pair(v_oo, om_oo);
     }
 

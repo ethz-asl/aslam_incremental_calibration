@@ -31,7 +31,10 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <aslam/calibration/core/IncrementalEstimator.h>
+#include <aslam/splines/OPTBSpline.hpp>
+#include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
+#include <bsplines/EuclideanBSpline.hpp>
+#include <bsplines/UnitQuaternionBSpline.hpp>
 
 namespace aslam {
   namespace backend {
@@ -41,14 +44,11 @@ namespace aslam {
     class EuclideanExpression;
 
   }
-  namespace splines {
-
-    class BSplinePoseDesignVariable;
-
-  }
   namespace calibration {
 
     template <int M> class VectorDesignVariable;
+    class OptimizationProblemSpline;
+    class IncrementalEstimator;
 
     /** The class CarCalibrator implements the car calibration algorithm.
         \brief Car calibration algorithm.
@@ -62,25 +62,23 @@ namespace aslam {
       struct Options {
         Options() :
             windowDuration(10.0),
-            poseSplineOrder(4),
-            poseSplineLambda(1e-1),
-            poseMeasPerSecDesired(5),
-            linearVelocityTolerance(1e-6),
+            poseSplineLambda(1e-3),
+            poseMeasPerSecDesired(10),
+            linearVelocityTolerance(1e-1),
             dmiCovariance((Eigen::Matrix<double, 1, 1>()
-              << 1e-6).finished()), // guess for now
+              << 0.018435).finished()),
             fwsCovariance((Eigen::Matrix2d() <<
-              1225.545759661739, 0,
-              0, 1271.17379804095).finished()),
+              1909.275246, 0,
+              0, 1990.308315).finished()),
             rwsCovariance((Eigen::Matrix2d() <<
-              828.2516524610561, 0,
-              0, 990.2353478304882).finished()),
+              2000.698921, 0,
+              0, 2113.749140).finished()),
             steeringCovariance((Eigen::Matrix<double, 1, 1>()
-              << 3.369624218217728).finished()) {
+              << 0.014407).finished()),
+            verbose(true) {
         }
         /// Window duration in seconds
         double windowDuration;
-        /// Pose spline order
-        int poseSplineOrder;
         /// Pose spline lambda
         double poseSplineLambda;
         /// Pose measurements per second desired
@@ -95,6 +93,8 @@ namespace aslam {
         Eigen::Matrix2d rwsCovariance;
         /// Covariance for steering measurements
         Eigen::Matrix<double, 1, 1> steeringCovariance;
+        /// Verbose option
+        bool verbose;
       };
       /// Applanix vehicle navigation measurement in local ENU system
       struct ApplanixNavigationMeasurement {
@@ -151,10 +151,12 @@ namespace aslam {
       };
       /// Applanix encoder measurement
       struct ApplanixEncoderMeasurement {
-        /// Signed distance travelled
+        /// Signed distance traveled
         double signedDistanceTraveled;
-        /// Unsigned distance travelled
-        double unsignedDistanceTravelled;
+        /// Unsigned distance traveled
+        double unsignedDistanceTraveled;
+        /// GPS timestamp
+        double gpsTimestamp;
       };
       /// CAN front wheels speed measurement
       struct CANFrontWheelsSpeedMeasurement {
@@ -213,9 +215,19 @@ namespace aslam {
       /// CAN steering measurement container
       typedef std::vector<std::pair<double, CANSteeringMeasurement> >
         CANSteeringMeasurements;
-      /// Shared pointer to B-spline pose design variable
-      typedef boost::shared_ptr<aslam::splines::BSplinePoseDesignVariable>
-        BSplinePoseDesignVariableSP;
+      /// Rotation spline
+      typedef typename aslam::splines::OPTBSpline<typename bsplines::
+        UnitQuaternionBSpline<4>::CONF>::BSpline RotationSpline;
+      /// Rotation spline shared pointer
+      typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
+      /// Translation spline
+      typedef typename aslam::splines::OPTBSpline<typename bsplines::
+        EuclideanBSpline<4, 3>::CONF>::BSpline TranslationSpline;
+      /// Euclidean spline shared pointer
+      typedef boost::shared_ptr<TranslationSpline> TranslationSplineSP;
+      /// Optimization problem shared pointer
+      typedef boost::shared_ptr<OptimizationProblemSpline>
+        OptimizationProblemSplineSP;
       /// Self type
       typedef CarCalibrator Self;
       /** @}
@@ -291,23 +303,24 @@ namespace aslam {
       void addMeasurement(double timestamp);
       /// Adds Applanix navigation error terms
       void addErrorTerms(const ApplanixNavigationMeasurements& measurements,
-        IncrementalEstimator::BatchSP batch);
+        const OptimizationProblemSplineSP& batch);
       /// Adds Applanix encoders error terms
       void addErrorTerms(const ApplanixEncoderMeasurements& measurements,
-        IncrementalEstimator::BatchSP batch);
+        const OptimizationProblemSplineSP& batch);
       /// Adds CAN front wheels speed error terms
       void addErrorTerms(const CANFrontWheelsSpeedMeasurements& measurements,
-        IncrementalEstimator::BatchSP batch);
+        const OptimizationProblemSplineSP& batch);
       /// Adds CAN rear wheels speed error terms
       void addErrorTerms(const CANRearWheelsSpeedMeasurements& measurements,
-        IncrementalEstimator::BatchSP batch);
+        const OptimizationProblemSplineSP& batch);
       /// Adds CAN steering error terms
       void addErrorTerms(const CANSteeringMeasurements& measurements,
-        IncrementalEstimator::BatchSP batch);
+        const OptimizationProblemSplineSP& batch);
       /// Returns linear and angular velocity in odometry frame from B-spline
       std::pair<aslam::backend::EuclideanExpression,
         aslam::backend::EuclideanExpression> getOdometryVelocities(double
-        timestamp, const BSplinePoseDesignVariableSP& bspdv) const;
+        timestamp, const TranslationSplineSP& translationSpline,
+        const RotationSplineSP& rotationSpline) const;
       /** @}
         */
 
@@ -334,8 +347,14 @@ namespace aslam {
       CANRearWheelsSpeedMeasurements _canRearWheelsSpeedMeasurements;
       /// Stored CAN steering measurements
       CANSteeringMeasurements _canSteeringMeasurements;
-      /// Current B-spline pose design variable
-      BSplinePoseDesignVariableSP _bspdv;
+      /// Current rotation spline
+      RotationSplineSP _rotationSpline;
+      /// Current translation spline
+      TranslationSplineSP _translationSpline;
+      /// Start time of spline
+      double _splineStartTime;
+      /// End time of spline
+      double _splineEndTime;
       /** @}
         */
 

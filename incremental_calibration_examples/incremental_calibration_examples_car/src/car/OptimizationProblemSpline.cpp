@@ -41,44 +41,84 @@ namespace aslam {
 /* Accessors                                                                  */
 /******************************************************************************/
 
-    const OptimizationProblemSpline::BSplinePoseDesignVariablesSP&
-        OptimizationProblemSpline::getBSplinePoseDesignVariables() const {
-      return _bsplinePoseDesignVariables;
+    const OptimizationProblemSpline::TranslationSplinesSP&
+        OptimizationProblemSpline::getTranslationSplines() const {
+      return _translationSplines;
     }
 
-    size_t OptimizationProblemSpline::getNumBSplinePoseDesignVariables() const {
-      return _bsplinePoseDesignVariables.size();
+    size_t OptimizationProblemSpline::getNumTranslationSplines() const {
+      return _translationSplines.size();
     }
 
-    const aslam::splines::BSplinePoseDesignVariable*
-        OptimizationProblemSpline::getBSplinePoseDesignVariable(size_t idx)
-        const {
-      if (idx >= _bsplinePoseDesignVariables.size())
+    const OptimizationProblemSpline::TranslationSpline*
+        OptimizationProblemSpline::getTranslationSpline(size_t idx) const {
+      if (idx >= _translationSplines.size())
         throw OutOfBoundException<size_t>(idx,
-          "OptimizationProblemSpline::getBSplinePoseDesignVariable(): "
+          "OptimizationProblemSpline::getTranslationSpline(): "
           "index out of bounds", __FILE__, __LINE__);
-      return _bsplinePoseDesignVariables[idx].get();
+      return _translationSplines[idx].get();
     }
 
-    aslam::splines::BSplinePoseDesignVariable*
-        OptimizationProblemSpline::getBSplinePoseDesignVariable(size_t idx) {
-      if (idx >= _bsplinePoseDesignVariables.size())
+    OptimizationProblemSpline::TranslationSpline*
+        OptimizationProblemSpline::getTranslationSpline(size_t idx) {
+      if (idx >= _translationSplines.size())
         throw OutOfBoundException<size_t>(idx,
-          "OptimizationProblemSpline::getBSplinePoseDesignVariable(): "
+          "OptimizationProblemSpline::getTranslationSpline(): "
           "index out of bounds", __FILE__, __LINE__);
-      return _bsplinePoseDesignVariables[idx].get();
+      return _translationSplines[idx].get();
+    }
+
+    const OptimizationProblemSpline::RotationSplinesSP&
+        OptimizationProblemSpline::getRotationSplines() const {
+      return _rotationSplines;
+    }
+
+    size_t OptimizationProblemSpline::getNumRotationSplines() const {
+      return _rotationSplines.size();
+    }
+
+    const OptimizationProblemSpline::RotationSpline*
+        OptimizationProblemSpline::getRotationSpline(size_t idx) const {
+      if (idx >= _rotationSplines.size())
+        throw OutOfBoundException<size_t>(idx,
+          "OptimizationProblemSpline::getRotationSpline(): "
+          "index out of bounds", __FILE__, __LINE__);
+      return _rotationSplines[idx].get();
+    }
+
+    OptimizationProblemSpline::RotationSpline*
+        OptimizationProblemSpline::getRotationSpline(size_t idx) {
+      if (idx >= _rotationSplines.size())
+        throw OutOfBoundException<size_t>(idx,
+          "OptimizationProblemSpline::getRotationSpline(): "
+          "index out of bounds", __FILE__, __LINE__);
+      return _rotationSplines[idx].get();
     }
 
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
 
-    void OptimizationProblemSpline::addDesignVariable(const
-        BSplinePoseDesignVariableSP& bspdv, size_t groupId) {
-      for (size_t i = 0; i < bspdv->numDesignVariables(); ++i)
+    void OptimizationProblemSpline::addSpline(const TranslationSplineSP& spline,
+        size_t groupId ) {
+      const size_t numDV = spline->numDesignVariables();
+      for (size_t i = 0; i < numDV; ++i) {
+        spline->designVariable(i)->setActive(true);
         addDesignVariable(boost::shared_ptr<DesignVariable>(
-          bspdv->designVariable(i), sm::null_deleter()), groupId);
-      _bsplinePoseDesignVariables.push_back(bspdv);
+          spline->designVariable(i), sm::null_deleter()), groupId);
+      }
+      _translationSplines.push_back(spline);
+    }
+
+    void OptimizationProblemSpline::addSpline(const RotationSplineSP& spline,
+        size_t groupId) {
+      const size_t numDV = spline->numDesignVariables();
+      for (size_t i = 0; i < numDV; ++i) {
+        spline->designVariable(i)->setActive(true);
+        addDesignVariable(boost::shared_ptr<DesignVariable>(
+          spline->designVariable(i), sm::null_deleter()), groupId);
+      }
+      _rotationSplines.push_back(spline);
     }
 
   }

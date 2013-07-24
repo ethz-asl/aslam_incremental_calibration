@@ -128,3 +128,20 @@ target_link_libraries(processBagNewSpline ${PROJECT_NAME})
 
 rosbuild_add_executable(processBagOldSpline src/car/processBagOldSpline.cpp)
 target_link_libraries(processBagOldSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrateCar src/car/calibrateCar.cpp)
+target_link_libraries(calibrateCar ${PROJECT_NAME})
+
+rosbuild_add_executable(optimizeNewSpline src/car/optimizeNewSpline.cpp)
+target_link_libraries(optimizeNewSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(optimizeOldSpline src/car/optimizeOldSpline.cpp)
+target_link_libraries(optimizeOldSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrateCarNewSplineBatch
+  src/car/calibrateCarNewSplineBatch.cpp)
+target_link_libraries(calibrateCarNewSplineBatch ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrateCarOldSplineBatch
+  src/car/calibrateCarOldSplineBatch.cpp)
+target_link_libraries(calibrateCarOldSplineBatch ${PROJECT_NAME})

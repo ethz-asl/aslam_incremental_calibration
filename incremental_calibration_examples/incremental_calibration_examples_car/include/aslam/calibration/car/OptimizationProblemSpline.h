@@ -28,14 +28,14 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <aslam/splines/OPTBSpline.hpp>
+#include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
+#include <bsplines/EuclideanBSpline.hpp>
+#include <bsplines/UnitQuaternionBSpline.hpp>
+
 #include <aslam/calibration/core/OptimizationProblem.h>
 
 namespace aslam {
-  namespace splines {
-
-    class BSplinePoseDesignVariable;
-
-  }
   namespace calibration {
 
     /** The class OptimizationProblemSpline is a specialization of
@@ -48,12 +48,20 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
-      /// Shared pointer to B-spline pose design variable
-      typedef boost::shared_ptr<aslam::splines::BSplinePoseDesignVariable>
-        BSplinePoseDesignVariableSP;
-      /// Container for B-spline pose design variables (shared pointer)
-      typedef std::vector<BSplinePoseDesignVariableSP>
-        BSplinePoseDesignVariablesSP;
+      /// Rotation spline
+      typedef typename aslam::splines::OPTBSpline<typename bsplines::
+        UnitQuaternionBSpline<4>::CONF>::BSpline RotationSpline;
+      /// Rotation spline shared pointer
+      typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
+      /// Rotation splines container
+      typedef std::vector<RotationSplineSP> RotationSplinesSP;
+      /// Translation spline
+      typedef typename aslam::splines::OPTBSpline<typename bsplines::
+        EuclideanBSpline<4, 3>::CONF>::BSpline TranslationSpline;
+      /// Euclidean spline shared pointer
+      typedef boost::shared_ptr<TranslationSpline> TranslationSplineSP;
+      /// Translation splines container
+      typedef std::vector<TranslationSplineSP> TranslationSplinesSP;
       /// Self type
       typedef OptimizationProblemSpline Self;
       /** @}
@@ -80,42 +88,43 @@ namespace aslam {
       /** \name Methods
         @{
         */
-      /// Inserts a B-spline pose design variable into the problem
-      void addDesignVariable(const BSplinePoseDesignVariableSP& bspdv,
-        size_t groupId = 0);
-      /// Using the functions from the base class
-      using OptimizationProblem::addDesignVariable;
+      /// Inserts a translation spline into the problem
+      void addSpline(const TranslationSplineSP& spline, size_t groupId = 0);
+      /// Inserts a rotation spline into the problem
+      void addSpline(const RotationSplineSP& spline, size_t groupId = 0);
       /** @}
         */
 
       /** \name Accessors
         @{
         */
-      /// Returns the B-spline pose design variables
-      const BSplinePoseDesignVariablesSP& getBSplinePoseDesignVariables() const;
-      /// Returns the number of B-spline pose design variables
-      size_t getNumBSplinePoseDesignVariables() const;
-      /// Returns a B-spline by index
-      const aslam::splines::BSplinePoseDesignVariable*
-        getBSplinePoseDesignVariable(size_t idx) const;
-      /// Returns a B-spline by index
-      aslam::splines::BSplinePoseDesignVariable*
-        getBSplinePoseDesignVariable(size_t idx);
+      /// Returns the translation splines
+      const TranslationSplinesSP& getTranslationSplines() const;
+      /// Returns the number of translation spliens
+      size_t getNumTranslationSplines() const;
+      /// Returns a translation spline by index
+      const TranslationSpline* getTranslationSpline(size_t idx) const;
+      /// Returns a translation spline by index
+      TranslationSpline* getTranslationSpline(size_t idx);
+      /// Returns the rotation splines
+      const RotationSplinesSP& getRotationSplines() const;
+      /// Returns the number of rotation spliens
+      size_t getNumRotationSplines() const;
+      /// Returns a rotation spline by index
+      const RotationSpline* getRotationSpline(size_t idx) const;
+      /// Returns a rotation spline by index
+      RotationSpline* getRotationSpline(size_t idx);
       /** @}
         */
 
     protected:
-      /** \name Protected methods
-        @{
-        */
-      /** @}
-        */
-
       /** \name Protected members
         @{
         */
-      /// Storage for the B-spline pose design variables shared pointers
-      BSplinePoseDesignVariablesSP _bsplinePoseDesignVariables;
+      /// Storage for the translation splines
+      TranslationSplinesSP _translationSplines;
+      /// Storage for the rotation splines
+      RotationSplinesSP _rotationSplines;
       /** @}
         */
 

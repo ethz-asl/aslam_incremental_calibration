@@ -32,7 +32,6 @@
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/quaternion_algebra.hpp>
 
-//#include <bsplines/OPTUnitQuaternionBSpline.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 #include <bsplines/BSplineFitter.hpp>
@@ -44,10 +43,7 @@
 #include <can_prius/RearWheelsSpeedMsg.h>
 #include <can_prius/Steering1Msg.h>
 
-#include <libposlv/sensor/Utils.h>
 #include <libposlv/geo-tools/Geo.h>
-
-#include <aslam/calibration/statistics/NormalDistribution.h>
 
 #include "aslam/calibration/car/CarCalibrator.h"
 #include "aslam/calibration/car/CovarianceEstimator.h"
@@ -56,24 +52,9 @@ using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace bsplines;
 
-//typedef typename OPTBSpline<typename UnitQuaternionBSpline<4>::CONF>::BSpline QuaternionSpline;
-//typedef typename OPTBSpline<typename EuclideanBSpline<4, 3>::CONF>::BSpline EuclideanSpline;
-
-//QuaternionSpline rotationSpline;
-//EuclideanSpline euclideanSpline;
-//BSplineFitter<EuclideanSpline>::initUniformSplineSparse(euclideanSpline, timesV, interpolationPointsV, numberOfSegments, lambda);
-//BSplineFitter<QuaternionSpline>::initUniformSplineSparse(rotationSpline, timesV, interpolationPointsV, numberOfSegments, lambda);
-
-//// expression
-//typename EuclideanSpline::template ExpressionFactory<1> fact = bspline.template getExpressionFactoryAt<1>(t);
-//auto expression = fact.getValueExpression(1);
-//typename QuaternionSpline::template ExpressionFactory<2> fact = bspline.template getExpressionFactoryAt<2>(t);
-
-
 int main(int argc, char** argv) {
   if (argc != 2) {
-    std::cerr << "Usage: " << argv[0]
-      << " <ros_bag_file>" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " <ros_bag_file>" << std::endl;
     return -1;
   }
   rosbag::Bag bag(argv[1]);
@@ -133,6 +114,8 @@ int main(int argc, char** argv) {
       data.v = vns->speed;
       applanixNavigationMeasurements.push_back(
         std::make_pair(vns->header.stamp.toSec(), data));
+//      applanixNavigationMeasurements.push_back(
+//        std::make_pair(vns->timeDistance.time1, data));
     }
   }
   std::cout << std::endl;
@@ -167,8 +150,8 @@ int main(int argc, char** argv) {
     timestamps[numMeasurements - 1] - timestamps[0];
   const int measPerSec = numMeasurements / elapsedTime;
   int numSegments;
-  const double lambda = 1e-3;
-  const int measPerSecDesired = 1;
+  const double lambda = 0;
+  const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
     numSegments = measPerSecDesired * elapsedTime;
   else
@@ -255,8 +238,7 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (fws->Left == 0 || fws->Right == 0 || std::fabs(v_oo_x < 1e-6) ||
-          timestamp < timestamps[0])
+      if (fws->Left == 0 || fws->Right == 0 || timestamp < timestamps[0])
         continue;
       const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
       const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
@@ -310,7 +292,7 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (std::fabs(v_oo_x < 1e-6) || timestamp < timestamps[0])
+      if (std::fabs(v_oo_x < 1e-1) || timestamp < timestamps[0])
         continue;
       const double predSteering = atan(L * om_oo_z / v_oo_x);
       canPredStMATLABFile << std::fixed << std::setprecision(16)
@@ -322,10 +304,11 @@ int main(int argc, char** argv) {
       poslv::TimeTaggedDMIDataMsgConstPtr dmi(
         it->instantiate<poslv::TimeTaggedDMIDataMsg>());
       const double timestamp = dmi->header.stamp.toSec();
+      const double timestampGPS = dmi->timeDistance.time1;
       if (lastDMITimestamp != -1) {
         const double velocity =
           (dmi->signedDistanceTraveled - lastDMIDistance) /
-          (timestamp - lastDMITimestamp);
+          (timestampGPS - lastDMITimestamp);
         dmiRawMATLABFile << std::fixed << std::setprecision(16)
           << timestamp << " " << velocity << std::endl;
         auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
@@ -347,7 +330,7 @@ int main(int argc, char** argv) {
         dmiCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
           << velocity - predLeft).finished());
       }
-      lastDMITimestamp = timestamp;
+      lastDMITimestamp = timestampGPS;
       lastDMIDistance = dmi->signedDistanceTraveled;
     }
   }
