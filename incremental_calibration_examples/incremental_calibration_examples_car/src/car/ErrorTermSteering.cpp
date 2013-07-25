@@ -109,29 +109,19 @@ namespace aslam {
 
     double ErrorTermSteering::evaluateErrorImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double L = _params->getValue()(0);
-      const double e_r = _params->getValue()(1);
-      const double e_f = _params->getValue()(2);
       const double a0 = _params->getValue()(3);
       const double a1 = _params->getValue()(4);
       const double a2 = _params->getValue()(5);
       const double a3 = _params->getValue()(6);
-      const double k_rl = _params->getValue()(7);
-      const double k_rr = _params->getValue()(8);
-      const double k_fl = _params->getValue()(9);
-      const double k_fr = _params->getValue()(10);
-      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
       const double phi = atan(L * om_oo_z / v_oo_x);
 
       // build the error term
       error_t error;
-      error(0) = _odo(0) - (a0 + a1 * phi + a2 * phi * phi +
-        a3 * phi * phi * phi);
+      error(0) = a0 + a1 * _odo(0) + a2 * _odo(0) * _odo(0) +
+        a3 * _odo(0) * _odo(0) * _odo(0) - phi;
       error(0) = sm::kinematics::angleMod(error(0));
       setError(error);
       return evaluateChiSquaredError();
@@ -139,24 +129,9 @@ namespace aslam {
 
     void ErrorTermSteering::evaluateJacobiansImplementation() {
       // useful pre-computations
-      const Eigen::Vector3d v_oo = _v_oo.toValue();
-      const Eigen::Vector3d om_oo = _om_oo.toValue();
-      const double v_oo_x = v_oo(0);
-      const double om_oo_z = om_oo(2);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double L = _params->getValue()(0);
-      const double e_r = _params->getValue()(1);
-      const double e_f = _params->getValue()(2);
-      const double a0 = _params->getValue()(3);
-      const double a1 = _params->getValue()(4);
-      const double a2 = _params->getValue()(5);
-      const double a3 = _params->getValue()(6);
-      const double k_rl = _params->getValue()(7);
-      const double k_rr = _params->getValue()(8);
-      const double k_fl = _params->getValue()(9);
-      const double k_fr = _params->getValue()(10);
-      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-      const double phi = atan(L * om_oo_z / v_oo_x);
 
       // Jacobian with respect to odometry parameters
       Eigen::Matrix<double, 1, 11> Ht = Eigen::Matrix<double, 1, 11>::Zero();
@@ -169,20 +144,18 @@ namespace aslam {
 
       // steering measurement
       const double sDenom = v_oo_x * v_oo_x + (L * om_oo_z) * (L * om_oo_z);
-      Ht(0, 0) = om_oo_z * v_oo_x * (a1 + 2 * a2 * phi + 3 * a3 * phi * phi) /
-        sDenom;
+      Ht(0, 0) = -v_oo_x * om_oo_z / sDenom;
       Ht(0, 3) = 1;
-      Ht(0, 4) = phi;
-      Ht(0, 5) = phi * phi;
-      Ht(0, 6) = phi * phi * phi;
-      Hv(0, 0) = -L * om_oo_z * (a1 + 2 * a2 * phi + 3 * a3 * phi * phi) /
-        sDenom;
-      Ho(0, 2) = L * v_oo_x * (a1 + 2 * a2 * phi + 3 * a3 * phi * phi) / sDenom;
+      Ht(0, 4) = _odo(0);
+      Ht(0, 5) = _odo(0) * _odo(0);
+      Ht(0, 6) = _odo(0) * _odo(0) * _odo(0);
+      Hv(0, 0) = L * om_oo_z / sDenom;
+      Ho(0, 2) = -L * v_oo_x / sDenom;
 
       // pass the Jacobians with the chain rule
-      _v_oo.evaluateJacobians(_jacobians, -Hv);
-      _om_oo.evaluateJacobians(_jacobians, -Ho);
-      _jacobians.add(_params, -Ht);
+      _v_oo.evaluateJacobians(_jacobians, Hv);
+      _om_oo.evaluateJacobians(_jacobians, Ho);
+      _jacobians.add(_params, Ht);
     }
 
   }

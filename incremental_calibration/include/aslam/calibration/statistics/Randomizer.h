@@ -25,7 +25,7 @@
 #define ASLAM_CALIBRATION_STATISTICS_RANDOMIZER_H
 
 #include "aslam/calibration/base/Serializable.h"
-#include "aslam/calibration/tpl/SizeTSupport.h"
+#include "aslam/calibration/utils/SizeTSupport.h"
 #include "aslam/calibration/tpl/IsReal.h"
 #include "aslam/calibration/tpl/IsInteger.h"
 

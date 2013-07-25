@@ -32,9 +32,8 @@ namespace aslam {
 
     template <int M> class VectorDesignVariable;
 
-    /** The class ErrorTermSteering implements an error term for the car
-        odometry
-        \brief Odometry error term
+    /** The class ErrorTermSteering implements an error term for the steering.
+        \brief Steering error term
       */
     class ErrorTermSteering :
       public aslam::backend::ErrorTermFs<1> {
@@ -65,7 +64,7 @@ namespace aslam {
        * @param params odometry parameters (\f$[L,e_r,e_f,a_0,a_1,a_2,a_3,
        *        \kappa_{rl},\kappa_{rr},\kappa_{fl},\kappa_{fr}]\f$)
        * @param odo odometry measurement
-       *        (\f$[\theta,v_{rl},v_{rr},v_{fl},v_{fr}]\f$)
+       *        (\f$[\theta]\f$)
        * @param Q Covariance matrix of the odometry measurement
        */
       ErrorTermSteering(const aslam::backend::EuclideanExpression& v_oo,

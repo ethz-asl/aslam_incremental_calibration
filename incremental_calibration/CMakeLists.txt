@@ -34,6 +34,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/exceptions/SystemException.cpp
   src/statistics/NormalDistribution1v.cpp
   src/statistics/ChiSquareDistribution.cpp
+  src/statistics/EstimatorMLNormal1v.cpp
   src/functions/IncompleteGammaPFunction.cpp
   src/functions/IncompleteGammaQFunction.cpp
   src/functions/LogFactorialFunction.cpp

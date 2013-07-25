@@ -26,6 +26,7 @@
 #include <fstream>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
 
 #include <Eigen/Core>
 
@@ -164,14 +165,12 @@ int main(int argc, char** argv) {
   std::vector<boost::shared_ptr<VectorDesignVariable<2> > > dv_x_l;
   dv_x_l.reserve(nl);
   for (size_t i = 0; i < nl; ++i) {
-    dv_x_l.push_back(boost::shared_ptr<VectorDesignVariable<2> >
-      (new VectorDesignVariable<2>(x_l_hat[i])));
+    dv_x_l.push_back(boost::make_shared<VectorDesignVariable<2> >(x_l_hat[i]));
     dv_x_l[i]->setActive(true);
   }
 
   // create calibration parameters design variable
-  boost::shared_ptr<VectorDesignVariable<3> >
-    dv_Theta(new VectorDesignVariable<3>(Theta_hat));
+  auto dv_Theta = boost::make_shared<VectorDesignVariable<3> >(Theta_hat);
   dv_Theta->setActive(true);
 
   std::cout << "calibration before: " << *dv_Theta << std::endl;
@@ -186,11 +185,10 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < steps; i += batchSize) {
 
     // create batch
-    IncrementalEstimator::BatchSP batch(new IncrementalEstimator::Batch());
+    auto batch = boost::make_shared<IncrementalEstimator::Batch>();
 
     // create starting state variable at k-1 and activate it
-    boost::shared_ptr<VectorDesignVariable<3> > dv_xkm1(
-      new VectorDesignVariable<3>(x_odom[i]));
+    auto dv_xkm1 = boost::make_shared<VectorDesignVariable<3> >(x_odom[i]);
     dv_xkm1->setActive(true);
     batch->addDesignVariable(dv_xkm1, 0);
 
@@ -204,23 +202,21 @@ int main(int argc, char** argv) {
     // create other state variables and error terms
     for (size_t j = i + 1; j < i + batchSize && j < steps; ++j) {
       // create state variable at k and activate it
-      boost::shared_ptr<VectorDesignVariable<3> > dv_xk(
-        new VectorDesignVariable<3>(x_odom[j]));
+      auto dv_xk = boost::make_shared<VectorDesignVariable<3> >(x_odom[j]);
       dv_xk->setActive(true);
 
       // add the variables to the batch
       batch->addDesignVariable(dv_xk, 0);
 
       // motion error term
-      boost::shared_ptr<ErrorTermMotion> e_mot(
-        new ErrorTermMotion(dv_xkm1.get(), dv_xk.get(), T, u_noise[j], Q));
+      auto e_mot = boost::make_shared<ErrorTermMotion>(dv_xkm1.get(),
+        dv_xk.get(), T, u_noise[j], Q);
       batch->addErrorTerm(e_mot);
 
       // observation error terms
       for (size_t k = 0; k < nl; ++k) {
-        boost::shared_ptr<aslam::calibration::ErrorTermObservation> e_obs(
-          new ErrorTermObservation(dv_xk.get(),
-          dv_x_l[k].get(), dv_Theta.get(), r[j][k], b[j][k], R));
+        auto e_obs = boost::make_shared<ErrorTermObservation>(dv_xk.get(),
+          dv_x_l[k].get(), dv_Theta.get(), r[j][k], b[j][k], R);
         batch->addErrorTerm(e_obs);
       }
       // switch state variable

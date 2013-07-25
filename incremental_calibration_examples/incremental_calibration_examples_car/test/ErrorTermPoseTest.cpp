@@ -22,6 +22,8 @@
 
 #include <cmath>
 
+#include <boost/make_shared.hpp>
+
 #include <gtest/gtest.h>
 
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
@@ -56,12 +58,11 @@ TEST(AslamCalibrationTestSuite, testErrorTermPose) {
     aslam::calibration::NormalDistribution<6>(xe, Q).getSample());
 
   // encapsulate the estimated pose into a transformation expression
-  boost::shared_ptr<aslam::backend::EuclideanPoint> translation(
-    new aslam::backend::EuclideanPoint(xe.head<3>()));
+  auto translation = boost::make_shared<aslam::backend::EuclideanPoint>(
+    xe.head<3>());
   sm::kinematics::EulerAnglesYawPitchRoll conv;
-  boost::shared_ptr<aslam::backend::RotationQuaternion> rotation(
-    new aslam::backend::RotationQuaternion(
-    conv.parametersToRotationMatrix(xe.tail<3>())));
+  auto rotation = boost::make_shared<aslam::backend::RotationQuaternion>(
+    conv.parametersToRotationMatrix(xe.tail<3>()));
   aslam::backend::TransformationExpression T(
     aslam::backend::RotationExpression(rotation.get()),
     aslam::backend::EuclideanExpression(translation.get()));

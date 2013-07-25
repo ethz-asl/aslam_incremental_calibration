@@ -70,14 +70,14 @@ namespace aslam {
       /// Optimizer type (shared_ptr)
       typedef boost::shared_ptr<Optimizer> OptimizerSP;
       /// Options for the incremental estimator
-      struct Options {              
-      Options() : 
-          _miTol(0.5), 
-              _qrTol(0.02),
-              _verbose(true),
-              _colNorm(true),
-              _maxIterations(20)
-              {}
+      struct Options {
+        Options() :
+            _miTol(0.5),
+            _qrTol(0.02),
+            _verbose(true),
+            _colNorm(true),
+            _maxIterations(20) {
+        }
         /// Mutual information threshold
         double _miTol;
         /// QR treshold for rank-deficiency
@@ -117,8 +117,7 @@ namespace aslam {
         @{
         */
       /// Constructs estimator with group to marginalize and options
-      IncrementalEstimator(size_t groupId,
-        const Options& options = _defaultOptions);
+      IncrementalEstimator(size_t groupId, const Options& options = Options());
       /// Copy constructor
       IncrementalEstimator(const Self& other) = delete;
       /// Copy assignment operator
@@ -145,7 +144,7 @@ namespace aslam {
       size_t getNumBatches() const;
       /// Returns the covariance matrix of the marginalized variables
       Eigen::MatrixXd getMarginalizedCovariance() const;
-      /// re-runs the optimizer.
+      /// Re-runs the optimizer
       ReturnValue reoptimize();
       /** @}
         */

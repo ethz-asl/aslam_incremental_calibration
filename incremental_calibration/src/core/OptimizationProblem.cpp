@@ -126,6 +126,10 @@ namespace aslam {
     void OptimizationProblem::
         addDesignVariable(const DesignVariableSP& designVariable,
         size_t groupId) {
+      if (!designVariable)
+        throw InvalidOperationException(
+          "OptimizationProblem::addDesignVariable(): "
+          "design variable is a null pointer");
       if (isDesignVariableInProblem(designVariable.get()))
         throw InvalidOperationException(
           "OptimizationProblem::addDesignVariable(): "
@@ -143,6 +147,9 @@ namespace aslam {
     }
 
     void OptimizationProblem::addErrorTerm(const ErrorTermSP& errorTerm) {
+      if (!errorTerm)
+        throw InvalidOperationException(
+          "OptimizationProblem::addErrorTerm(): error term is a null pointer");
       if (isErrorTermInProblem(errorTerm.get()))
         throw InvalidOperationException(
           "OptimizationProblem::addErrorTerm(): error term already included");

@@ -72,6 +72,10 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermFws.cpp
   src/car/ErrorTermRws.cpp
   src/car/ErrorTermSteering.cpp
+  src/car/ErrorTermDMI.cpp
+  src/car/CarCalibrator.cpp
+  src/car/OptimizationProblemSpline.cpp
+  src/car/CovarianceEstimator1v.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
   ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS} ${LIBCAN_PRIUS_SENSOR_LIBRARY}
@@ -82,6 +86,8 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/ErrorTermPoseTest.cpp
   test/ErrorTermOdometryTest.cpp
   test/OdometryTest.cpp
+  test/CarCalibratorTest.cpp
+  test/CovarianceEstimatorTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
@@ -117,6 +123,25 @@ rosbuild_add_executable(calibrate-prius-odometry-offline
   src/car/calibrate-prius-odometry-offline.cpp)
 target_link_libraries(calibrate-prius-odometry-offline ${PROJECT_NAME})
 
-rosbuild_add_executable(calibrate-prius-odometry-online
-  src/car/calibrate-prius-odometry-online.cpp)
-target_link_libraries(calibrate-prius-odometry-online ${PROJECT_NAME})
+rosbuild_add_executable(processBagNewSpline src/car/processBagNewSpline.cpp)
+target_link_libraries(processBagNewSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(processBagOldSpline src/car/processBagOldSpline.cpp)
+target_link_libraries(processBagOldSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrateCar src/car/calibrateCar.cpp)
+target_link_libraries(calibrateCar ${PROJECT_NAME})
+
+rosbuild_add_executable(optimizeNewSpline src/car/optimizeNewSpline.cpp)
+target_link_libraries(optimizeNewSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(optimizeOldSpline src/car/optimizeOldSpline.cpp)
+target_link_libraries(optimizeOldSpline ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrateCarNewSplineBatch
+  src/car/calibrateCarNewSplineBatch.cpp)
+target_link_libraries(calibrateCarNewSplineBatch ${PROJECT_NAME})
+
+rosbuild_add_executable(calibrateCarOldSplineBatch
+  src/car/calibrateCarOldSplineBatch.cpp)
+target_link_libraries(calibrateCarOldSplineBatch ${PROJECT_NAME})

@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <utility>
 
+#include <boost/make_shared.hpp>
+
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
@@ -34,25 +36,16 @@ namespace aslam {
   namespace calibration {
 
 /******************************************************************************/
-/* Static Members Initialization                                              */
-/******************************************************************************/
-
-const struct IncrementalEstimator::Options
-IncrementalEstimator::_defaultOptions;//(0.5, 0.02, true, true, 20);
-
-
-/******************************************************************************/
 /* Constructors and Destructor                                                */
 /******************************************************************************/
 
     IncrementalEstimator::IncrementalEstimator(size_t groupId,
         const Options& options) :
-        _problem(new IncrementalOptimizationProblem()),
+        _problem(boost::make_shared<IncrementalOptimizationProblem>()),
         _margGroupId(groupId),
         _mi(0),
         _sumLogDiagR(0),
-        _options(options)
-         {
+        _options(options) {
       // optimization options
       aslam::backend::Optimizer2Options optOptions;
       optOptions.verbose = _options._verbose;
@@ -132,37 +125,27 @@ IncrementalEstimator::_defaultOptions;//(0.5, 0.02, true, true, 20);
       return _optimizer->optimize();
     }
 
-      /// re-runs the optimizer.
-      IncrementalEstimator::ReturnValue 
-      IncrementalEstimator::reoptimize()
-      {
-          // ensure marginalized design variables are well located
-          orderMarginalizedDesignVariables();
-          
-          // optimize
-          aslam::backend::SolutionReturnValue srv = optimize();
-          
-          // // check if the solution is valid
-          // bool solutionValid = true;
-          // if (srv.iterations == _optimizer->options().maxIterations ||
-          //     srv.JFinal >= srv.JStart)
-          //     solutionValid = false;
+    IncrementalEstimator::ReturnValue IncrementalEstimator::reoptimize() {
+      // ensure marginalized design variables are well located
+      orderMarginalizedDesignVariables();
 
-          // return value
-          ReturnValue ret;
-          
-          // update output structure
-          ret._batchAccepted = false;
-          ret._mi = 0.0;
-          ret._rank = getRank();
-          ret._qrTol = getQRTol();
-          ret._numIterations = srv.iterations;
-          ret._JStart = srv.JStart;
-          ret._JFinal = srv.JFinal;
+      // optimize
+      aslam::backend::SolutionReturnValue srv = optimize();
 
-          return ret;
-      }
+      // return value
+      ReturnValue ret;
 
+      // update output structure
+      ret._batchAccepted = false;
+      ret._mi = 0.0;
+      ret._rank = getRank();
+      ret._qrTol = getQRTol();
+      ret._numIterations = srv.iterations;
+      ret._JStart = srv.JStart;
+      ret._JFinal = srv.JFinal;
+
+      return ret;
+    }
 
     IncrementalEstimator::ReturnValue
         IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
@@ -263,7 +246,8 @@ IncrementalEstimator::_defaultOptions;//(0.5, 0.02, true, true, 20);
 
     void IncrementalEstimator::removeBatch(const BatchSP& batch) {
       auto it = _problem->getOptimizationProblem(batch);
-      removeBatch(std::distance(_problem->getOptimizationProblemBegin(), it));
+      if (it != _problem->getOptimizationProblemEnd())
+        removeBatch(std::distance(_problem->getOptimizationProblemBegin(), it));
     }
 
     size_t IncrementalEstimator::getNumBatches() const

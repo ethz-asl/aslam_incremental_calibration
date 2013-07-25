@@ -22,6 +22,8 @@
 
 #include <cmath>
 
+#include <boost/make_shared.hpp>
+
 #include <gtest/gtest.h>
 
 #include <aslam/backend/test/ErrorTermTestHarness.hpp>
@@ -31,6 +33,10 @@
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 
 #include "aslam/calibration/car/ErrorTermOdometry.h"
+#include "aslam/calibration/car/ErrorTermFws.h"
+#include "aslam/calibration/car/ErrorTermRws.h"
+#include "aslam/calibration/car/ErrorTermSteering.h"
+#include "aslam/calibration/car/ErrorTermDMI.h"
 
 TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
 
@@ -52,14 +58,12 @@ TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
 
   // linear velocity
   const Eigen::Matrix<double, 3, 1> v(1.5, 0, 0);
-  boost::shared_ptr<aslam::backend::EuclideanPoint> v_en(
-    new aslam::backend::EuclideanPoint(v));
+  auto v_en = boost::make_shared<aslam::backend::EuclideanPoint>(v);
   aslam::backend::EuclideanExpression v_e(v_en);
 
   // angular velocity
   const Eigen::Matrix<double, 3, 1> om(0, 0, M_PI / 8.0);
-  boost::shared_ptr<aslam::backend::EuclideanPoint> om_en(
-    new aslam::backend::EuclideanPoint(om));
+  auto om_en = boost::make_shared<aslam::backend::EuclideanPoint>(om);
   aslam::backend::EuclideanExpression om_e(om_en);
 
   // odometry sensor measurement without noise
@@ -105,4 +109,57 @@ TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
   e1.setCovariance(Q);
   ASSERT_EQ(e1.getInput(), odo_n);
   ASSERT_EQ(e1.getCovariance(), Q);
+
+  // separate odometry error terms
+  try {
+    Eigen::Matrix2d R_fws;
+    R_fws << 1e-4, 0, 0, 1e-4;
+    Eigen::Vector2d meas;
+    meas << odo_n(3), odo_n(4);
+    aslam::calibration::ErrorTermFws eFws(v_e, om_e, &Theta, meas, R_fws);
+    aslam::backend::ErrorTermTestHarness<2> harness(&eFws);
+    harness.testAll();
+  }
+  catch (const std::exception& e) {
+    FAIL() << e.what();
+  }
+  try {
+    Eigen::Matrix2d R_rws;
+    R_rws << 1e-4, 0, 0, 1e-4;
+    Eigen::Vector2d meas;
+    meas << odo_n(1), odo_n(2);
+    aslam::calibration::ErrorTermRws eRws(v_e, om_e, &Theta, meas, R_rws);
+    aslam::backend::ErrorTermTestHarness<2> harness(&eRws);
+    harness.testAll();
+  }
+  catch (const std::exception& e) {
+    FAIL() << e.what();
+  }
+  try {
+    Eigen::Matrix<double, 1, 1> R_st;
+    R_st << 1e-4;
+    Eigen::Matrix<double, 1, 1> meas;
+    meas << odo_n(0);
+    aslam::calibration::ErrorTermSteering eSt(v_e, om_e, &Theta, meas, R_st);
+    aslam::backend::ErrorTermTestHarness<1> harness(&eSt);
+    harness.testAll();
+  }
+  catch (const std::exception& e) {
+    FAIL() << e.what();
+  }
+  try {
+    Eigen::Matrix<double, 1, 1> R_dmi;
+    R_dmi << 1e-4;
+    Eigen::Matrix<double, 1, 1> meas;
+    meas << odo_n(1);
+    aslam::calibration::VectorDesignVariable<1> ThetaDmi(
+      (aslam::calibration::VectorDesignVariable<1>::Container() <<
+      e_r).finished());
+    aslam::calibration::ErrorTermDMI eDmi(v_e, om_e, &ThetaDmi, meas, R_dmi);
+    aslam::backend::ErrorTermTestHarness<1> harness(&eDmi);
+    harness.testAll();
+  }
+  catch (const std::exception& e) {
+    FAIL() << e.what();
+  }
 }

@@ -4,13 +4,15 @@
 #include <aslam/cameras.hpp>
 #include <aslam/ImageSynchronizer.hpp>
 #include <aslam/Match.hpp>
-#include <aslam/NullUndistorter.hpp>
-#include <aslam/Undistorter.hpp>
-#include <aslam/SurfFrameBuilder.hpp>
+#include <aslam/NCameraPipeline.hpp>
 #include <sm/eigen/traits.hpp>
 #include <aslam/DenseMatcher.hpp>
 #include <aslam/DescriptorTrackingAlgorithm.hpp>
+#include <aslam/EpipolarMatchingAlgorithm.hpp>
 #include <sm/PropertyTree.hpp>
+#include <aslam/calibration/core/OptimizationProblem.h>
+#include <aslam/splines/BSplinePoseDesignVariable.hpp>
+
 
 namespace aslam {
     namespace calibration {
@@ -18,52 +20,62 @@ namespace aslam {
         class VisionDataAssociation
         {
         public:
-            typedef aslam::cameras::DistortedPinholeCameraGeometry camera_t;
-            typedef aslam::cameras::NullUndistorter<camera_t> single_undistorter_t;
-            typedef aslam::Undistorter2<single_undistorter_t,single_undistorter_t> undistorter_t;
-            typedef aslam::ImageSynchronizer<undistorter_t> synchronizer_t;
-            typedef aslam::CameraSystem<undistorter_t::camera_system_definition_t> camera_system_t;
-
+            typedef boost::shared_ptr<aslam::calibration::OptimizationProblem> OptimizationProblemSP;
+            typedef aslam::backend::DesignVariable DesignVariable;
             
-
-            VisionDataAssociation(const sm::kinematics::Transformation & T_v_cl,
-                                  boost::shared_ptr<camera_t> leftCamera,
-                                  const sm::kinematics::Transformation & T_v_cr,
-                                  boost::shared_ptr<camera_t> rightCamera,
-                                  double descriptorDistanceThreshold,
-                                  double disparityTrackingThreshold,
-                                  double disparityKeyframeThreshold,
-                                  int numTracksThreshold);
-
+            /// \brief Initialize the data association algorithm with a property tree
             VisionDataAssociation(const sm::PropertyTree & config);
                         
             virtual ~VisionDataAssociation();
             
+            /// \brief Add an image to the pipeline.
             void addImage(const aslam::Time & stamp,
                           int cameraIndex,
                           const cv::Mat & image);
-            
-            
+                        
+            /// \brief Add the contents of the internal state to the optimization problem
+            ///        using the bspline pose representation passed in.
+            void addToProblem( aslam::splines::BSplinePoseDesignVariable & T_w_vk, OptimizationProblemSP problem );
+
+            /// \brief reset the internal state (do this in between batches)
             void reset();
+
+            /// \brief how many calibration design variables does this class have?
+            size_t numCalibrationDesignVariables();
+            
+            /// \brief get calibration design variable i
+            boost::shared_ptr< DesignVariable > getCalibrationDesignVariable( size_t i );
+            
             
         private:
             double computeDisparity( const boost::shared_ptr<MultiFrame> & F0,
                                      const boost::shared_ptr<MultiFrame> & F1,
                                      const KeypointIdentifierMatch & match);
-                                   
 
+            void doOfovMatching( boost::shared_ptr<MultiFrame> mf );
+                                   
+            
+            /// \brief The pipeline for synchronising images and getting features
+            boost::shared_ptr< NCameraPipeline > _pipeline;
+
+            /// \brief The next available multiframe id
             MultiFrameId _nextFrameId;
+
+            /// \brief The next available landmark id
             LandmarkId _nextLandmarkId;
 
+            /// \brief the previous frame used.
             boost::shared_ptr<MultiFrame> _previousFrame;
 
-            boost::shared_ptr<synchronizer_t> _synchronizer;
             std::map< MultiFrameId, boost::shared_ptr<MultiFrame> > _frames;
             std::vector< KeypointIdentifierMatch > _matches;
             aslam::DenseMatcher _matcher;
             aslam::DescriptorTrackingAlgorithm _tracking;
+            aslam::EpipolarMatchingAlgorithm _ofovMatching;
             double _disparityKeyframeThreshold;
             int _numTracksThreshold;
+
+            std::vector< boost::shared_ptr<DesignVariable> > _designVariables;
         };
 
     } // namespace calibration

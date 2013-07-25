@@ -19,3 +19,5 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 rosbuild_add_library(${PROJECT_NAME}
   src/vision/VisionDataAssociation.cpp
 )
+
+rosbuild_link_boost(${PROJECT_NAME} system thread)

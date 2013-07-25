@@ -23,8 +23,6 @@
 #ifndef ASLAM_CALIBRATION_STATISTICS_NORMALDISTRIBUTION_H
 #define ASLAM_CALIBRATION_STATISTICS_NORMALDISTRIBUTION_H
 
-#include <cstdlib>
-
 namespace aslam {
   namespace calibration {
 
