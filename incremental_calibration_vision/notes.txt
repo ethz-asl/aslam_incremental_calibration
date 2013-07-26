@@ -5,3 +5,10 @@ Needed:
  * Extrinsics of the camera system.
 Interface:
 void createDesignVariables( NCameraSystem & system, bool doIntrinsics, bool doExtrinsics );
+
+[X] Finish filling in CameraGeometry.hpp
+[X] Test CameraGeometry.hpp
+[X] Add the intrinsics jacobian to the camerasystem interface
+[X] Add the distortion jacobian to the camerasystem interface
+[X] Add the jacobian with respect to the shutter parameters? dt/dp "Keypoint time and jacobian"
+[X] Add flags to the camera about what is being optimized
