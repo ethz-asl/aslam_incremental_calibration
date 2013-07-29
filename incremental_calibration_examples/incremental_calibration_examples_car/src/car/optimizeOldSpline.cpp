@@ -36,6 +36,8 @@
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 #include <sm/kinematics/rotations.hpp>
 
+#include <sm/timing/TimestampCorrector.hpp>
+
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/OptimizationProblem.hpp>
@@ -60,7 +62,9 @@
 
 using namespace aslam::calibration;
 using namespace aslam::splines;
+using namespace aslam::backend;
 using namespace sm::kinematics;
+using namespace sm::timing;
 using namespace bsplines;
 
 int main(int argc, char** argv) {
@@ -81,6 +85,7 @@ int main(int argc, char** argv) {
   double altRef = 0;
   size_t viewCounter = 0;
   CarCalibrator::ApplanixNavigationMeasurements measurements;
+  TimestampCorrector<double> timestampCorrector;
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
       << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
@@ -144,8 +149,9 @@ int main(int argc, char** argv) {
         lastVnp->northVelocityRMSError;
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
-      measurements.push_back(std::make_pair(vns->header.stamp.toSec(), data));
-//      measurements.push_back(std::make_pair(vns->timeDistance.time1, data));
+      measurements.push_back(
+        std::make_pair(timestampCorrector.correctTimestamp(
+        vns->timeDistance.time1, vns->header.stamp.toSec()), data));
     }
   }
   const size_t numMeasurements = measurements.size();
@@ -175,7 +181,7 @@ int main(int argc, char** argv) {
     timestamps[numMeasurements - 1] - timestamps[0];
   const int measPerSec = numMeasurements / elapsedTime;
   int numSegments;
-  const double lambda = 1e-3;
+  const double lambda = 1e-1;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
     numSegments = measPerSecDesired * elapsedTime;
@@ -183,6 +189,20 @@ int main(int argc, char** argv) {
     numSegments = numMeasurements;
   BSplinePose bspline(4, rv);
   bspline.initPoseSplineSparse(timestamps, poses, numSegments, lambda);
+
+  std::cout << "Outputting spline data to MATLAB..." << std::endl;
+  std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
+  for (size_t i = 0; i < numMeasurements; ++i)
+    applanixSplineMATLABFile << std::fixed << std::setprecision(16)
+      << timestamps(i) << " "
+      << bspline.position(timestamps(i)).transpose() << " "
+      << ypr.rotationMatrixToParameters(
+        bspline.orientation(timestamps(i))).transpose() << " "
+      << bspline.linearVelocity(timestamps(i)).transpose() << " "
+      << bspline.angularVelocityBodyFrame(timestamps(i)).transpose() << " "
+      << bspline.linearAccelerationBodyFrame(timestamps(i)).transpose()
+      << std::endl;
+
   auto problem = boost::make_shared<OptimizationProblem>();
   auto bspdv = boost::make_shared<BSplinePoseDesignVariable>(bspline);
   for (size_t i = 0; i < bspdv->numDesignVariables(); ++i) {
@@ -223,5 +243,29 @@ int main(int argc, char** argv) {
     linearSolverOptions);
   optimizer.setProblem(problem);
   optimizer.optimize();
+
+  // output optimized data from spline
+  std::cout << "Outputting optimized spline data to MATLAB..." << std::endl;
+  std::ofstream applanixSplineOptMATLABFile("applanix-spline-opt.txt");
+  for (size_t i = 0; i < numMeasurements; ++i) {
+    const Eigen::Vector3d r =
+      bspdv->position(timestamps(i)).toEuclidean();
+    const Eigen::Matrix3d C_wi =
+      bspdv->orientation(timestamps(i)).toRotationMatrix();
+    const Eigen::Vector3d v_iw =
+      bspdv->linearVelocity(timestamps(i)).toEuclidean();
+    const Eigen::Vector3d a_ii =
+      bspdv->linearAccelerationBodyFrame(timestamps(i)).toEuclidean();
+    const Eigen::Vector3d om_ii =
+      bspdv->angularVelocityBodyFrame(timestamps(i)).toEuclidean();
+    applanixSplineOptMATLABFile << std::fixed << std::setprecision(16)
+      << timestamps(i) << " "
+      << r.transpose() << " "
+      << ypr.rotationMatrixToParameters(C_wi).transpose() << " "
+      << v_iw.transpose() << " "
+      << om_ii.transpose() << " "
+      << a_ii.transpose() << std::endl;
+  }
+
   return 0;
 }

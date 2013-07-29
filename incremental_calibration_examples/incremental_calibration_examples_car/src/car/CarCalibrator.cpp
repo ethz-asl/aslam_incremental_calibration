@@ -310,17 +310,17 @@ namespace aslam {
         if (_splineStartTime > it->first || _splineEndTime < it->first)
           continue;
         if (lastTimestamp != -1) {
-          const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-            << (it->second.signedDistanceTraveled - lastDistance) /
-            (it->second.gpsTimestamp - lastTimestamp)).finished());
-          auto v = getOdometryVelocities(it->first, _translationSpline,
-            _rotationSpline);
-          auto e_dmi = boost::make_shared<ErrorTermDMI>(v.first, v.second,
-            _calibrationDesignVariables.intrinsicDMIDesignVariable.get(), meas,
-            _options.dmiCovariance);
-          batch->addErrorTerm(e_dmi);
+//          const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
+//            << (it->second.signedDistanceTraveled - lastDistance) /
+//            (it->second.gpsTimestamp - lastTimestamp)).finished());
+//          auto v = getOdometryVelocities(it->first, _translationSpline,
+//            _rotationSpline);
+//          auto e_dmi = boost::make_shared<ErrorTermDMI>(v.first, v.second,
+//            _calibrationDesignVariables.intrinsicDMIDesignVariable.get(), meas,
+//            _options.dmiCovariance);
+//          batch->addErrorTerm(e_dmi);
         }
-        lastTimestamp = it->second.gpsTimestamp;
+//        lastTimestamp = it->second.gpsTimestamp;
         lastDistance = it->second.signedDistanceTraveled;
       }
     }

@@ -31,6 +31,9 @@
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/quaternion_algebra.hpp>
+#include <sm/kinematics/transformations.hpp>
+
+#include <sm/timing/TimestampCorrector.hpp>
 
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
@@ -50,6 +53,7 @@
 
 using namespace aslam::calibration;
 using namespace sm::kinematics;
+using namespace sm::timing;
 using namespace bsplines;
 
 int main(int argc, char** argv) {
@@ -74,6 +78,7 @@ int main(int argc, char** argv) {
   std::cout << "Reading BAG file for Applanix navigation measurements..."
     << std::endl;
   size_t viewCounter = 0;
+  TimestampCorrector<double> timestampCorrector1;
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
       << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
@@ -98,7 +103,7 @@ int main(int argc, char** argv) {
       data.z = z_enu;
       data.yaw = angleMod(deg2rad(-vns->heading) + M_PI / 2);
       data.pitch = deg2rad(-vns->pitch);
-      data.roll = deg2rad(-vns->roll);
+      data.roll = deg2rad(vns->roll);
       Eigen::Vector3d linearVelocity =
         Geo::R_ENU_NED::getInstance().getMatrix() * Eigen::Vector3d(
         vns->northVelocity, vns->eastVelocity, vns->downVelocity);
@@ -113,9 +118,8 @@ int main(int argc, char** argv) {
       data.a_z = -vns->accDown;
       data.v = vns->speed;
       applanixNavigationMeasurements.push_back(
-        std::make_pair(vns->header.stamp.toSec(), data));
-//      applanixNavigationMeasurements.push_back(
-//        std::make_pair(vns->timeDistance.time1, data));
+        std::make_pair(timestampCorrector1.correctTimestamp(
+        vns->timeDistance.time1, vns->header.stamp.toSec()), data));
     }
   }
   std::cout << std::endl;
@@ -150,7 +154,7 @@ int main(int argc, char** argv) {
     timestamps[numMeasurements - 1] - timestamps[0];
   const int measPerSec = numMeasurements / elapsedTime;
   int numSegments;
-  const double lambda = 0;
+  const double lambda = 1e-1;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
     numSegments = measPerSecDesired * elapsedTime;
@@ -202,22 +206,27 @@ int main(int argc, char** argv) {
   std::ofstream canPredStMATLABFile("can-pred-st.txt");
   std::ofstream dmiRawMATLABFile("dmi-raw.txt");
   std::ofstream dmiPredMATLABFile("dmi-pred.txt");
-  double lastDMITimestamp = -1;
-  double lastDMIDistance = -1;
   const double L = 2.7; // wheelbase [m]
-  const double e_r = 0.7575; // half-track rear [m]
-  const double e_f = 0.7625; // half-track front [m]
-  const double a1 = 1.0 / (M_PI / 180 / 10); // steering coefficient
+  const double e_r = 0.74; // half-track rear [m]
+  const double e_f = 0.755; // half-track front [m]
+  const double a0 = -0.0351; // steering coefficient
+  const double a1 = 1.0 / 10.0 * M_PI / 180.0 / 1.3; // steering coefficient
   const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_rr = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_fl = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_fr = 1.0 / 3.6 / 100.0; // wheel coefficient
-  Eigen::Vector3d t_io(0, 0.0, -0.785);
-  Eigen::Matrix3d C_io = Eigen::Matrix3d::Identity();
+  const Eigen::Vector3d t_io(0, 0.0, -0.785);
+  const Eigen::Matrix3d C_io = Eigen::Matrix3d::Identity();
   CovarianceEstimator<2> fwsCovEst;
   CovarianceEstimator<2> rwsCovEst;
   CovarianceEstimator<1> dmiCovEst;
   CovarianceEstimator<1> stCovEst;
+  double lastDMITimestamp = -1;
+  double lastDMIDistance = -1;
+  Eigen::Matrix4d T_wi_km1;
+  const Eigen::Matrix4d T_io = rt2Transform(C_io, t_io);
+  TimestampCorrector<double> timestampCorrector2;
+  std::ofstream rearFrontFile("rear-front.txt");
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
       << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
@@ -227,6 +236,9 @@ int main(int argc, char** argv) {
       const double timestamp = fws->header.stamp.toSec();
       canRawFwMATLABFile << std::fixed << std::setprecision(16)
         << timestamp << " " << fws->Left << " " << fws->Right << std::endl;
+      if (fws->Left == 0 || fws->Right == 0 || timestamp < timestamps[0] ||
+          timestamp > timestamps[numMeasurements - 1])
+        continue;
       auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
       auto rotEvaluator = rotSpline.getEvaluatorAt<1>(timestamp);
       const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
@@ -238,8 +250,6 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (fws->Left == 0 || fws->Right == 0 || timestamp < timestamps[0])
-        continue;
       const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
       const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
       const double predLeft = (v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl;
@@ -255,6 +265,9 @@ int main(int argc, char** argv) {
       const double timestamp = rws->header.stamp.toSec();
       canRawRwMATLABFile << std::fixed << std::setprecision(16)
         << timestamp << " " << rws->Left << " " << rws->Right << std::endl;
+      if (rws->Left == 0 || rws->Right == 0 || timestamp < timestamps[0] ||
+          timestamp > timestamps[numMeasurements - 1])
+        continue;
       auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
       auto rotEvaluator = rotSpline.getEvaluatorAt<1>(timestamp);
       const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
@@ -266,8 +279,6 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (rws->Left == 0 || rws->Right == 0 || timestamp < timestamps[0])
-        continue;
       const double predLeft = (v_oo_x - e_r * om_oo_z) / k_rl;
       const double predRight = (v_oo_x + e_r * om_oo_z) / k_rr;
       canPredRwMATLABFile << std::fixed << std::setprecision(16)
@@ -279,8 +290,12 @@ int main(int argc, char** argv) {
       can_prius::Steering1MsgConstPtr st(
         it->instantiate<can_prius::Steering1Msg>());
       const double timestamp = st->header.stamp.toSec();
+      const double measuredSteering = a0 + a1 * st->value;
       canRawStMATLABFile << std::fixed << std::setprecision(16)
-        << timestamp << " " << st->value << std::endl;
+        << timestamp << " " << measuredSteering << std::endl;
+      if (timestamp < timestamps[0] ||
+          timestamp > timestamps[numMeasurements - 1])
+        continue;
       auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
       auto rotEvaluator = rotSpline.getEvaluatorAt<1>(timestamp);
       const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
@@ -292,46 +307,49 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (std::fabs(v_oo_x < 1e-1) || timestamp < timestamps[0])
+      if (std::fabs(v_oo_x < 1))
         continue;
       const double predSteering = atan(L * om_oo_z / v_oo_x);
       canPredStMATLABFile << std::fixed << std::setprecision(16)
-        << timestamp << " " << predSteering * a1 << std::endl;
+        << timestamp << " " << predSteering << std::endl;
       stCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
-        << st->value / a1 - predSteering).finished());
+        << measuredSteering - predSteering).finished());
+      rearFrontFile << std::fixed << std::setprecision(16) <<
+        tan(measuredSteering) * v_oo_x / om_oo_z << std::endl;
     }
     if (it->isType<poslv::TimeTaggedDMIDataMsg>()) {
       poslv::TimeTaggedDMIDataMsgConstPtr dmi(
         it->instantiate<poslv::TimeTaggedDMIDataMsg>());
-      const double timestamp = dmi->header.stamp.toSec();
-      const double timestampGPS = dmi->timeDistance.time1;
+      const double timestamp = timestampCorrector2.correctTimestamp(
+        dmi->timeDistance.time1, dmi->header.stamp.toSec());
+      if (timestamp < timestamps[0] ||
+          timestamp > timestamps[numMeasurements - 1])
+        continue;
+      auto transEvaluator = transSpline.getEvaluatorAt<0>(timestamp);
+      auto rotEvaluator = rotSpline.getEvaluatorAt<0>(timestamp);
+      const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
+      const Eigen::Vector3d t_wi = transEvaluator.evalD(0);
+      const Eigen::Matrix4d T_wi_k = rt2Transform(C_wi, t_wi);
       if (lastDMITimestamp != -1) {
-        const double velocity =
-          (dmi->signedDistanceTraveled - lastDMIDistance) /
-          (timestampGPS - lastDMITimestamp);
+        const double displacement = dmi->signedDistanceTraveled -
+          lastDMIDistance;
         dmiRawMATLABFile << std::fixed << std::setprecision(16)
-          << timestamp << " " << velocity << std::endl;
-        auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
-        auto rotEvaluator = rotSpline.getEvaluatorAt<1>(timestamp);
-        const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
-        const Eigen::Vector3d v_ii = C_wi.transpose() * transEvaluator.evalD(1);
-        const Eigen::Vector3d om_ii =
-          -C_wi.transpose() * rotEvaluator.evalAngularVelocity();
-        const Eigen::Vector3d v_oo = C_io.transpose() *
-          (v_ii + om_ii.cross(t_io));
-        const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
-        const double v_oo_x = v_oo(0);
-        const double om_oo_z = om_oo(2);
-        if (timestamp < timestamps[0])
-          continue;
+          << timestamp << " " << displacement << std::endl;
+        const Eigen::Matrix4d T_o_km1_o_k = T_io.inverse() *
+          T_wi_km1.inverse() * T_wi_k * T_io;
+        const Eigen::Vector3d t_o_km1_o_k = transform2rho(T_o_km1_o_k);
+        const Eigen::Matrix3d C_o_km1_o_k = transform2C(T_o_km1_o_k);
+        const double v_oo_x = t_o_km1_o_k(0);
+        const double om_oo_z = (ypr.rotationMatrixToParameters(C_o_km1_o_k))(0);
         const double predLeft = (v_oo_x - e_r * om_oo_z);
         dmiPredMATLABFile << std::fixed << std::setprecision(16)
           << timestamp << " " << predLeft << std::endl;
         dmiCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
-          << velocity - predLeft).finished());
+          << displacement - predLeft).finished());
       }
-      lastDMITimestamp = timestampGPS;
+      lastDMITimestamp = timestamp;
       lastDMIDistance = dmi->signedDistanceTraveled;
+      T_wi_km1 = T_wi_k;
     }
   }
   std::cout << std::endl;

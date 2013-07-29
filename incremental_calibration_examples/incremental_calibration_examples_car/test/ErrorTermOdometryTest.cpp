@@ -152,10 +152,7 @@ TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
     R_dmi << 1e-4;
     Eigen::Matrix<double, 1, 1> meas;
     meas << odo_n(1);
-    aslam::calibration::VectorDesignVariable<1> ThetaDmi(
-      (aslam::calibration::VectorDesignVariable<1>::Container() <<
-      e_r).finished());
-    aslam::calibration::ErrorTermDMI eDmi(v_e, om_e, &ThetaDmi, meas, R_dmi);
+    aslam::calibration::ErrorTermDMI eDmi(v_e, om_e, &Theta, meas, R_dmi);
     aslam::backend::ErrorTermTestHarness<1> harness(&eDmi);
     harness.testAll();
   }

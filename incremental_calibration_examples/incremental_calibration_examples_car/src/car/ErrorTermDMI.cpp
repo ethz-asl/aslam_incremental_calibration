@@ -32,7 +32,7 @@ namespace aslam {
     ErrorTermDMI::ErrorTermDMI(
         const aslam::backend::EuclideanExpression& v_oo,
         const aslam::backend::EuclideanExpression& om_oo,
-        VectorDesignVariable<1>* params,
+        VectorDesignVariable<11>* params,
         const Input& odo, const Covariance& Q) :
         _v_oo(v_oo),
         _om_oo(om_oo),
@@ -106,8 +106,8 @@ namespace aslam {
     double ErrorTermDMI::evaluateErrorImplementation() {
       // useful pre-computations
       const double v_oo_x = _v_oo.toValue()(0);
-      const double om_oo_z = _om_oo.toValue()(2);
-      const double e_r = _params->getValue()(0);
+      const double om_oo_z = _om_oo.toValue()(0);
+      const double e_r = _params->getValue()(1);
 
       // build the error term
       error_t error;
@@ -118,11 +118,11 @@ namespace aslam {
 
     void ErrorTermDMI::evaluateJacobiansImplementation() {
       // useful pre-computations
-      const double om_oo_z = _om_oo.toValue()(2);
+      const double om_oo_z = _om_oo.toValue()(0);
       const double e_r = _params->getValue()(1);
 
       // Jacobian with respect to odometry parameters
-      Eigen::Matrix<double, 1, 1> Ht = Eigen::Matrix<double, 1, 1>::Zero();
+      Eigen::Matrix<double, 1, 11> Ht = Eigen::Matrix<double, 1, 11>::Zero();
 
       // Jacobian with respect to v_oo
       Eigen::Matrix<double, 1, 3> Hv = Eigen::Matrix<double, 1, 3>::Zero();
@@ -131,9 +131,9 @@ namespace aslam {
       Eigen::Matrix<double, 1, 3> Ho = Eigen::Matrix<double, 1, 3>::Zero();
 
       // v_rl measurement
-      Ht(0, 0) = -om_oo_z;
+      Ht(0, 1) = -om_oo_z;
       Hv(0, 0) = 1.0;
-      Ho(0, 2) = -e_r;
+      Ho(0, 0) = -e_r;
 
       // pass the Jacobians with the chain rule
       _v_oo.evaluateJacobians(_jacobians, -Hv);

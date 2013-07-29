@@ -203,7 +203,6 @@ int main(int argc, char** argv) {
       CarCalibrator::ApplanixEncoderMeasurement data;
       data.signedDistanceTraveled = dmi->signedDistanceTraveled;
       data.unsignedDistanceTraveled = dmi->unsignedDistanceTraveled;
-      data.gpsTimestamp = dmi->timeDistance.time1;
       calibrator.addMeasurement(data, dmi->header.stamp.toSec());
     }
   }

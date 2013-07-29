@@ -38,6 +38,8 @@
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/quaternion_algebra.hpp>
 
+#include <sm/timing/TimestampCorrector.hpp>
+
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/OptimizationProblem.hpp>
@@ -66,7 +68,9 @@
 
 using namespace aslam::calibration;
 using namespace aslam::splines;
+using namespace aslam::backend;
 using namespace sm::kinematics;
+using namespace sm::timing;
 using namespace bsplines;
 
 int main(int argc, char** argv) {
@@ -87,6 +91,7 @@ int main(int argc, char** argv) {
   double altRef = 0;
   size_t viewCounter = 0;
   CarCalibrator::ApplanixNavigationMeasurements measurements;
+  TimestampCorrector<double> timestampCorrector;
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
       << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
@@ -150,8 +155,9 @@ int main(int argc, char** argv) {
         lastVnp->northVelocityRMSError;
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
-//      measurements.push_back(std::make_pair(vns->header.stamp.toSec(), data));
-      measurements.push_back(std::make_pair(vns->timeDistance.time1, data));
+      measurements.push_back(
+        std::make_pair(timestampCorrector.correctTimestamp(
+        vns->timeDistance.time1, vns->header.stamp.toSec()), data));
     }
   }
   const size_t numMeasurements = measurements.size();
@@ -184,7 +190,7 @@ int main(int argc, char** argv) {
     timestamps[numMeasurements - 1] - timestamps[0];
   const int measPerSec = numMeasurements / elapsedTime;
   int numSegments;
-  const double lambda = 0;
+  const double lambda = 1e-1;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
     numSegments = measPerSecDesired * elapsedTime;

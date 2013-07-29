@@ -58,17 +58,18 @@ namespace aslam {
        * Constructs the error term from input data and design variables
        * \brief Constructs the error term
        * 
-       * @param v_oo \f$\mathbf{v}_{oo}\f$ linear velocity in odometry frame
-       * @param om_oo \f$\boldsymbol{\omega}_{oo}\f$ angular velocity in
+       * @param v_oo \f$\mathbf{v}_{oo}\f$ linear displacement of odometry frame
+       * @param om_oo \f$\boldsymbol{\omega}_{oo}\f$ angular displacement of
        *              odometry frame
-       * @param params odometry parameters (\f$[e_r]\f$)
+       * @param params odometry parameters (\f$[L,e_r,e_f,a_0,a_1,a_2,a_3,
+       *        \kappa_{rl},\kappa_{rr},\kappa_{fl},\kappa_{fr}]\f$)
        * @param odo odometry measurement
-       *        (\f$[v_{rl}]\f$)
+       *        (\f$[d_{rl}]\f$)
        * @param Q Covariance matrix of the odometry measurement
        */
       ErrorTermDMI(const aslam::backend::EuclideanExpression& v_oo,
         const aslam::backend::EuclideanExpression& om_oo,
-        VectorDesignVariable<1>* params,
+        VectorDesignVariable<11>* params,
         const Input& odo, const Covariance& Q);
       /// Copy constructor
       ErrorTermDMI(const ErrorTermDMI& other);
@@ -116,7 +117,7 @@ namespace aslam {
       /// Estimated vehicle angular velocity in odometry frame
       aslam::backend::EuclideanExpression _om_oo;
       /// Estimated odometry parameters
-      VectorDesignVariable<1>* _params;
+      VectorDesignVariable<11>* _params;
       /// Measured odometry
       Input _odo;
       /// Covariance matrix of the odometry measurement

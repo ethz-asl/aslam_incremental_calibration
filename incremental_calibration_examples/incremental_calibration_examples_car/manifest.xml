@@ -15,6 +15,7 @@
   <depend package="bsplines"/>
   <depend package="aslam_splines"/>
   <depend package="sm_eigen"/>
+  <depend package="sm_timing"/>
   <depend package="rosbag"/>
   <depend package="poslv"/>
   <depend package="can_prius"/>

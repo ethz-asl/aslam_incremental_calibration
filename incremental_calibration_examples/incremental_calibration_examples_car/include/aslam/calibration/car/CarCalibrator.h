@@ -155,8 +155,6 @@ namespace aslam {
         double signedDistanceTraveled;
         /// Unsigned distance traveled
         double unsignedDistanceTraveled;
-        /// GPS timestamp
-        double gpsTimestamp;
       };
       /// CAN front wheels speed measurement
       struct CANFrontWheelsSpeedMeasurement {
