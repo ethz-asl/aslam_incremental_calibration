@@ -16,14 +16,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrateCarNewSplineBatch.cpp
+/** \file calibrateCarOdometryNewSplineBatch.cpp
     \brief This file calibrates the car parameters from a ROS bag file.
   */
 
 #include <iostream>
 #include <vector>
 #include <string>
-#include <limits>
 
 #include <boost/make_shared.hpp>
 
@@ -47,7 +46,6 @@
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
-#include <aslam/backend/test/ErrorTermTestHarness.hpp>
 
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
@@ -177,7 +175,7 @@ int main(int argc, char** argv) {
         std::make_pair(timestampCorrector1.correctTimestamp(
         vns->timeDistance.time1, vns->header.stamp.toSec()), data));
     }
-    if (it->isType<can_prius::FrontWheelsSpeedMsg>()) {
+    if (it->getTopic() == "/can_prius/front_wheels_speed") {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
       CarCalibrator::CANFrontWheelsSpeedMeasurement data;
@@ -185,8 +183,9 @@ int main(int argc, char** argv) {
       data.right = fws->Right;
       frontWheelsSpeedMeasurements.push_back(std::make_pair(
         fws->header.stamp.toSec(), data));
+      
     }
-    if (it->isType<can_prius::RearWheelsSpeedMsg>()) {
+    if (it->getTopic() == "/can_prius/rear_wheels_speed") {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
       CarCalibrator::CANRearWheelsSpeedMeasurement data;
@@ -327,7 +326,6 @@ int main(int argc, char** argv) {
   const double e_f = 0.755; // half-track front [m]
   const double a0 = 0; // steering coefficient
   const double a1 = (M_PI / 180 / 10); // steering coefficient
-//  const double a1 = 1.0 / (M_PI / 180 / 10); // steering coefficient
   const double a2 = 0; // steering coefficient
   const double a3 = 0; // steering coefficient
   const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
@@ -341,7 +339,7 @@ int main(int argc, char** argv) {
   problem->addDesignVariable(cpdv);
   auto t_io_dv = boost::make_shared<EuclideanPoint>(
     Eigen::Vector3d(0, 0, -0.785));
-//  t_io_dv->setActive(true);
+  t_io_dv->setActive(true);
   auto C_io_dv = boost::make_shared<RotationQuaternion>(
     ypr->parametersToRotationMatrix(Eigen::Vector3d(0, 0, 0)));
   C_io_dv->setActive(true);
@@ -380,15 +378,9 @@ int main(int argc, char** argv) {
       auto ypr_o_km1_o_k = C_o_km1_o_k.toParameters(ypr);
       auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
         cpdv.get(), meas,
-        (Eigen::Matrix<double, 1, 1>() << 0.018435).finished());
-//      problem->addErrorTerm(e_dmi);
-//      try {
-//        aslam::backend::ErrorTermTestHarness<1> harness(e_dmi.get());
-//        harness.testAll();
-//      }
-//      catch (const std::exception& e) {
-//      }
-//      e_dmi->evaluateError();
+        (Eigen::Matrix<double, 1, 1>() << 1000).finished());
+      problem->addErrorTerm(e_dmi);
+      e_dmi->evaluateError();
       errorDmiPreFile << std::fixed << std::setprecision(16)
         << it->first << " " << e_dmi->error().transpose() << std::endl;
     }
@@ -414,11 +406,9 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getAngularVelocityExpression());
     auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
     auto om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < 1e-3)
-      continue;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 1909.275246, 0, 0, 1990.308315).finished());
+      (Eigen::Matrix2d() << 2000, 0, 0, 2000).finished());
     problem->addErrorTerm(e_fws);
     e_fws->evaluateError();
     errorFwsPreFile << std::fixed << std::setprecision(16)
@@ -444,7 +434,7 @@ int main(int argc, char** argv) {
     auto om_oo = C_io.inverse() * om_ii;
     auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 2000.698921, 0, 0, 2113.749140).finished());
+      (Eigen::Matrix2d() << 2000, 0, 0, 2000).finished());
     problem->addErrorTerm(e_rws);
     e_rws->evaluateError();
     errorRwsPreFile << std::fixed << std::setprecision(16)
@@ -468,12 +458,12 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getAngularVelocityExpression());
     auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
     auto om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < 1e-3)
+    if (std::fabs(v_oo.toValue()(0)) < 1e-1)
       continue;
     Eigen::Matrix<double, 1, 1> meas;
     meas << it->second.value;
     auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
-      meas, (Eigen::Matrix<double, 1, 1>() << 10).finished());
+      meas, (Eigen::Matrix<double, 1, 1>() << 1000).finished());
     problem->addErrorTerm(e_st);
     e_st->evaluateError();
     errorStPreFile << std::fixed << std::setprecision(16)
@@ -572,7 +562,7 @@ int main(int argc, char** argv) {
     auto om_oo = C_io.inverse() * om_ii;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 1909.275246, 0, 0, 1990.308315).finished());
+      (Eigen::Matrix2d() << 1809.178907, 0, 0, 1889.837032).finished());
     e_fws->evaluateError();
     errorFwsPostFile << std::fixed << std::setprecision(16)
       << it->first << " " << e_fws->error().transpose() << std::endl;
@@ -597,7 +587,7 @@ int main(int argc, char** argv) {
     auto om_oo = C_io.inverse() * om_ii;
     auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 2000.698921, 0, 0, 2113.749140).finished());
+      (Eigen::Matrix2d() << 1921.031351, 0, 0, 2021.77554).finished());
     e_rws->evaluateError();
     errorRwsPostFile << std::fixed << std::setprecision(16)
       << it->first << " " << e_rws->error().transpose() << std::endl;
@@ -620,7 +610,7 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getAngularVelocityExpression());
     auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
     auto om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < 1e-3)
+    if (std::fabs(v_oo.toValue()(0)) < 1e-1)
       continue;
     Eigen::Matrix<double, 1, 1> meas;
     meas << it->second.value;

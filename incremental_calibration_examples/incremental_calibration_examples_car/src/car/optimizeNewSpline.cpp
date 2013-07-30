@@ -32,8 +32,6 @@
 #include <rosbag/view.h>
 #include <rosbag/message_instance.h>
 
-#include <aslam/backend/test/ErrorTermTestHarness.hpp>
-
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/quaternion_algebra.hpp>
@@ -123,7 +121,7 @@ int main(int argc, char** argv) {
       data.z = z_enu;
       data.yaw = angleMod(deg2rad(-vns->heading) + M_PI / 2);
       data.pitch = deg2rad(-vns->pitch);
-      data.roll = deg2rad(-vns->roll);
+      data.roll = deg2rad(vns->roll);
       Eigen::Vector3d linearVelocity =
         Geo::R_ENU_NED::getInstance().getMatrix() * Eigen::Vector3d(
         vns->northVelocity, vns->eastVelocity, vns->downVelocity);
@@ -261,12 +259,6 @@ int main(int argc, char** argv) {
       translationExpressionFactory.getValueExpression()),
       xm, Q);
     problem->addErrorTerm(e_pose);
-//    try {
-//      aslam::backend::ErrorTermTestHarness<6> harness(e_pose.get());
-//      harness.testAll();
-//    }
-//    catch (const std::exception& e) {
-//    }
   }
   Optimizer2Options options;
   options.verbose = true;

@@ -226,11 +226,10 @@ int main(int argc, char** argv) {
   Eigen::Matrix4d T_wi_km1;
   const Eigen::Matrix4d T_io = rt2Transform(C_io, t_io);
   TimestampCorrector<double> timestampCorrector2;
-  std::ofstream rearFrontFile("rear-front.txt");
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
       << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
-    if (it->isType<can_prius::FrontWheelsSpeedMsg>()) {
+    if (it->getTopic() == "/can_prius/front_wheels_speed") {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
       const double timestamp = fws->header.stamp.toSec();
@@ -259,7 +258,7 @@ int main(int argc, char** argv) {
       fwsCovEst.addMeasurement(Eigen::Vector2d(fws->Left - predLeft,
         fws->Right - predRight));
     }
-    if (it->isType<can_prius::RearWheelsSpeedMsg>()) {
+    if (it->getTopic() == "/can_prius/rear_wheels_speed") {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
       const double timestamp = rws->header.stamp.toSec();
@@ -307,15 +306,13 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (std::fabs(v_oo_x < 1))
+      if (std::fabs(v_oo_x) < 1e-1)
         continue;
       const double predSteering = atan(L * om_oo_z / v_oo_x);
       canPredStMATLABFile << std::fixed << std::setprecision(16)
         << timestamp << " " << predSteering << std::endl;
       stCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
         << measuredSteering - predSteering).finished());
-      rearFrontFile << std::fixed << std::setprecision(16) <<
-        tan(measuredSteering) * v_oo_x / om_oo_z << std::endl;
     }
     if (it->isType<poslv::TimeTaggedDMIDataMsg>()) {
       poslv::TimeTaggedDMIDataMsgConstPtr dmi(

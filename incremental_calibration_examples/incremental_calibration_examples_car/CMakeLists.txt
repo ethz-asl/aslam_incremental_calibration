@@ -17,57 +17,30 @@ else()
   set(CMAKE_CXX_FLAGS "-std=c++0x")
 endif()
 
-#set the default path for built executables to the "bin" directory
+# set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-#set the default path for built libraries to the "lib" directory
+# set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-# Find libposlv
-find_path(LIBPOSLV_INCLUDE_DIR sensor/BinaryLogReader.h
-  /usr/include
-  PATH_SUFFIXES
-  libposlv
-)
-message(Found ${LIBPOSLV_INCLUDE_DIR})
-include_directories(${LIBPOSLV_INCLUDE_DIR})
-find_library(LIBPOSLV_SENSOR poslv-sensor
-  /usr/lib
-)
-find_library(LIBPOSLV_BASE poslv-base
-  /usr/lib
-)
-find_library(LIBPOSLV_EXCEPTIONS poslv-exceptions
-  /usr/lib
-)
-find_library(LIBPOSLV_GEO_TOOLS poslv-geo-tools
-  /usr/lib
-)
+# Package config
+include($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
 
-# libcan-prius
-find_path(LIBCAN_PRIUS_INCLUDE_DIR sensor/PRIUSReader.h
-  /usr/include
-  PATH_SUFFIXES
-  libcan-prius
-)
-message(Found ${LIBCAN_PRIUS_INCLUDE_DIR})
-find_library(LIBCAN_PRIUS_SENSOR_LIBRARY can-prius-sensor
-  /usr/lib
-)
-find_library(LIBCAN_PRIUS_TYPES_LIBRARY can-prius-types
-  /usr/lib
-)
-include_directories(
-  ${LIBCAN_PRIUS_INCLUDE_DIR}
-)
+# Find libposlv
+pkg_check_modules(LIBPOSLV REQUIRED libposlv)
+include_directories(${LIBPOSLV_INCLUDE_DIRS})
+link_directories(${LIBPOSLV_LIBRARY_DIRS})
+pkg_check_modules(LIBPOSLV_GEO_TOOLS REQUIRED libposlv-geo-tools)
+include_directories(${LIBPOSLV_GEO_TOOLS_INCLUDE_DIRS})
+link_directories(${LIBPOSLV_GEO_TOOLS_LIBRARY_DIRS})
+
+# Find libcan-prius
+pkg_check_modules(LIBCAN_PRIUS REQUIRED libcan-prius)
+include_directories(${LIBCAN_PRIUS_INCLUDE_DIRS})
+link_directories(${LIBCAN_PRIUS_LIBRARY_DIRS})
 
 rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermPose.cpp
   src/car/ErrorTermOdometry.cpp
-  src/car/Odometry.cpp
-  src/car/AckermanOdometry.cpp
-  src/car/DifferentialOdometry.cpp
-  src/car/ApplanixBinaryParser.cpp
-  src/car/CANBinaryParser.cpp
   src/car/utils.cpp
   src/car/ErrorTermFws.cpp
   src/car/ErrorTermRws.cpp
@@ -77,71 +50,50 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/OptimizationProblemSpline.cpp
   src/car/CovarianceEstimator1v.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${LIBPOSLV_SENSOR} ${LIBPOSLV_BASE}
-  ${LIBPOSLV_EXCEPTIONS} ${LIBPOSLV_GEO_TOOLS} ${LIBCAN_PRIUS_SENSOR_LIBRARY}
-  ${LIBCAN_PRIUS_TYPES_LIBRARY})
 
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
   test/ErrorTermPoseTest.cpp
   test/ErrorTermOdometryTest.cpp
-  test/OdometryTest.cpp
   test/CarCalibratorTest.cpp
   test/CovarianceEstimatorTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
-rosbuild_add_executable(applanixBSpline src/car/applanixBSpline.cpp)
-target_link_libraries(applanixBSpline ${PROJECT_NAME})
-
-rosbuild_add_executable(applanixBSplineOptimize
-  src/car/applanixBSplineOptimize.cpp)
-target_link_libraries(applanixBSplineOptimize ${PROJECT_NAME})
-
-rosbuild_add_executable(applanixPredOdometry
-  src/car/applanixPredOdometry.cpp)
-target_link_libraries(applanixPredOdometry ${PROJECT_NAME})
-
-rosbuild_add_executable(applanixBSplinePredOdometry
-  src/car/applanixBSplinePredOdometry.cpp)
-target_link_libraries(applanixBSplinePredOdometry ${PROJECT_NAME})
-
-rosbuild_add_executable(odometryDump src/car/odometryDump.cpp)
-target_link_libraries(odometryDump ${PROJECT_NAME})
-
-rosbuild_add_executable(odometryBSpline src/car/odometryBSpline.cpp)
-target_link_libraries(odometryBSpline ${PROJECT_NAME})
-
-rosbuild_add_executable(integrateOdometry src/car/integrateOdometry.cpp)
-target_link_libraries(integrateOdometry ${PROJECT_NAME})
-
-rosbuild_add_executable(car-calibrate-batch-morsel
-  src/car/calibrate-batch-morsel.cpp)
-target_link_libraries(car-calibrate-batch-morsel ${PROJECT_NAME})
-
-rosbuild_add_executable(calibrate-prius-odometry-offline
-  src/car/calibrate-prius-odometry-offline.cpp)
-target_link_libraries(calibrate-prius-odometry-offline ${PROJECT_NAME})
+rosbuild_add_executable(calibrateCarOdometryMorselBatch
+  src/car/calibrateCarOdometryMorselBatch.cpp)
+target_link_libraries(calibrateCarOdometryMorselBatch ${PROJECT_NAME})
 
 rosbuild_add_executable(processBagNewSpline src/car/processBagNewSpline.cpp)
-target_link_libraries(processBagNewSpline ${PROJECT_NAME})
+target_link_libraries(processBagNewSpline ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
 rosbuild_add_executable(processBagOldSpline src/car/processBagOldSpline.cpp)
-target_link_libraries(processBagOldSpline ${PROJECT_NAME})
+target_link_libraries(processBagOldSpline ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
 rosbuild_add_executable(calibrateCar src/car/calibrateCar.cpp)
-target_link_libraries(calibrateCar ${PROJECT_NAME})
+target_link_libraries(calibrateCar ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
 rosbuild_add_executable(optimizeNewSpline src/car/optimizeNewSpline.cpp)
-target_link_libraries(optimizeNewSpline ${PROJECT_NAME})
+target_link_libraries(optimizeNewSpline ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
 rosbuild_add_executable(optimizeOldSpline src/car/optimizeOldSpline.cpp)
-target_link_libraries(optimizeOldSpline ${PROJECT_NAME})
+target_link_libraries(optimizeOldSpline ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
-rosbuild_add_executable(calibrateCarNewSplineBatch
-  src/car/calibrateCarNewSplineBatch.cpp)
-target_link_libraries(calibrateCarNewSplineBatch ${PROJECT_NAME})
+rosbuild_add_executable(calibrateCarOdometryNewSplineBatch
+  src/car/calibrateCarOdometryNewSplineBatch.cpp)
+target_link_libraries(calibrateCarOdometryNewSplineBatch ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
-rosbuild_add_executable(calibrateCarOldSplineBatch
-  src/car/calibrateCarOldSplineBatch.cpp)
-target_link_libraries(calibrateCarOldSplineBatch ${PROJECT_NAME})
+rosbuild_add_executable(calibrateCarOdometryOldSplineBatch
+  src/car/calibrateCarOdometryOldSplineBatch.cpp)
+target_link_libraries(calibrateCarOdometryOldSplineBatch ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
+
+rosbuild_add_executable(convertBinaryToBag src/car/convertBinaryToBag.cpp)
+target_link_libraries(convertBinaryToBag ${PROJECT_NAME}
+  ${LIBPOSLV_LIBRARIES} ${LIBCAN_PRIUS_LIBRARIES})

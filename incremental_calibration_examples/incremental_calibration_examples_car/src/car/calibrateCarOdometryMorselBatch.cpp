@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrate-batch-morsel.cpp
+/** \file calibrateCarOdometryMorselBatch.cpp
     \brief This file calibrates the car from a log file captured in Morsel
            in a batch manner.
   */

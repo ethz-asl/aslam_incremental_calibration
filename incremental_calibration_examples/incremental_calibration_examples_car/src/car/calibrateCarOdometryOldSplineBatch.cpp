@@ -16,14 +16,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrateCarOldSplineBatch.cpp
+/** \file calibrateCarOdometryOldSplineBatch.cpp
     \brief This file calibrates the car parameters from a ROS bag file.
   */
 
 #include <iostream>
 #include <vector>
 #include <string>
-#include <limits>
 
 #include <boost/make_shared.hpp>
 
@@ -46,7 +45,6 @@
 #include <aslam/backend/Optimizer2.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
-#include <aslam/backend/test/ErrorTermTestHarness.hpp>
 
 #include <bsplines/BSplinePose.hpp>
 
@@ -174,7 +172,7 @@ int main(int argc, char** argv) {
         std::make_pair(timestampCorrector1.correctTimestamp(
         vns->timeDistance.time1, vns->header.stamp.toSec()), data));
     }
-    if (it->isType<can_prius::FrontWheelsSpeedMsg>()) {
+    if (it->getTopic() == "/can_prius/front_wheels_speed") {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
       CarCalibrator::CANFrontWheelsSpeedMeasurement data;
@@ -183,7 +181,7 @@ int main(int argc, char** argv) {
       frontWheelsSpeedMeasurements.push_back(std::make_pair(
         fws->header.stamp.toSec(), data));
     }
-    if (it->isType<can_prius::RearWheelsSpeedMsg>()) {
+    if (it->getTopic() == "/can_prius/rear_wheels_speed") {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
       CarCalibrator::CANRearWheelsSpeedMeasurement data;
@@ -292,7 +290,6 @@ int main(int argc, char** argv) {
   const double e_f = 0.755; // half-track front [m]
   const double a0 = 0; // steering coefficient
   const double a1 = (M_PI / 180 / 10); // steering coefficient
-//  const double a1 = 1.0 / (M_PI / 180 / 10); // steering coefficient
   const double a2 = 0; // steering coefficient
   const double a3 = 0; // steering coefficient
   const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
@@ -323,10 +320,14 @@ int main(int argc, char** argv) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first)
       continue;
+    const double displacement = it->second.signedDistanceTraveled -
+      lastDistance;
+    if (std::fabs(displacement) < 1e-3)
+      continue;
     auto T_wi_k = bspdv->transformation(it->first);
     if (lastTimestamp != -1) {
       const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-        << it->second.signedDistanceTraveled - lastDistance).finished());
+        << displacement).finished());
       auto T_o_km1_o_k = T_io.inverse() * T_wi_km1.inverse() * T_wi_k * T_io;
       auto t_o_km1_o_k = T_o_km1_o_k.toEuclideanExpression();
       auto C_o_km1_o_k = T_o_km1_o_k.toRotationExpression();
@@ -335,12 +336,6 @@ int main(int argc, char** argv) {
         cpdv.get(), meas,
         (Eigen::Matrix<double, 1, 1>() << 0.018435).finished());
       problem->addErrorTerm(e_dmi);
-//      try {
-//        aslam::backend::ErrorTermTestHarness<1> harness(e_dmi.get());
-//        harness.testAll();
-//      }
-//      catch (const std::exception& e) {
-//      }
     }
     lastTimestamp = it->first;
     lastDistance = it->second.signedDistanceTraveled;
@@ -359,7 +354,7 @@ int main(int argc, char** argv) {
     EuclideanExpression om_oo = C_io.inverse() * om_ii;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 1909.275246, 0, 0, 1990.308315).finished());
+      (Eigen::Matrix2d() << 1809.178907, 0, 0, 1889.837032).finished());
     problem->addErrorTerm(e_fws);
   }
   for (auto it = rearWheelsSpeedMeasurements.cbegin();
@@ -375,7 +370,7 @@ int main(int argc, char** argv) {
     EuclideanExpression om_oo = C_io.inverse() * om_ii;
     auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 2000.698921, 0, 0, 2113.749140).finished());
+      (Eigen::Matrix2d() << 1921.031351, 0, 0, 2021.77554).finished());
     problem->addErrorTerm(e_rws);
   }
   for (auto it = steeringMeasurements.cbegin();
@@ -389,7 +384,7 @@ int main(int argc, char** argv) {
     EuclideanExpression v_ii = C_wi.inverse() * v_iw;
     EuclideanExpression v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
     EuclideanExpression om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < 1e-3)
+    if (std::fabs(v_oo.toValue()(0)) < 1e-1)
       continue;
     Eigen::Matrix<double, 1, 1> meas;
     meas << it->second.value;
