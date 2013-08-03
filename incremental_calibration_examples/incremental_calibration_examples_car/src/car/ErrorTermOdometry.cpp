@@ -141,7 +141,7 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermOdometry::evaluateJacobiansImplementation() {
+    void ErrorTermOdometry::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
       // useful pre-computations
       const Eigen::Vector3d v_oo = _v_oo.toValue();
       const Eigen::Vector3d om_oo = _om_oo.toValue();

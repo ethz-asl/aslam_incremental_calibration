@@ -116,7 +116,7 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermDMI::evaluateJacobiansImplementation() {
+    void ErrorTermDMI::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
       // useful pre-computations
       const double om_oo_z = _om_oo.toValue()(0);
       const double e_r = _params->getValue()(1);

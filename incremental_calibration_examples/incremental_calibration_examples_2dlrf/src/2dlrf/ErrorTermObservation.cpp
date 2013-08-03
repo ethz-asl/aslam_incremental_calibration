@@ -130,7 +130,7 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermObservation::evaluateJacobiansImplementation() {
+    void ErrorTermObservation::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
       const double ct = cos((_xk->getValue())(2));
       const double st = sin((_xk->getValue())(2));
       const double dxct = (_Theta->getValue())(0) * ct;

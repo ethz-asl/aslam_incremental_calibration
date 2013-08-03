@@ -110,7 +110,7 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermPose::evaluateJacobiansImplementation() {
+    void ErrorTermPose::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
       Eigen::Matrix<double, 6, 6> J = Eigen::Matrix<double, 6, 6>::Identity();
       const Eigen::Matrix4d T = _T.toTransformationMatrix();
       J.topRightCorner<3, 3>() =
