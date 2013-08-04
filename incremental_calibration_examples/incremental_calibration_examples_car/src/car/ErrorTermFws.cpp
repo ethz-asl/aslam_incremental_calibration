@@ -121,7 +121,8 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermFws::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
+    void ErrorTermFws::evaluateJacobiansImplementation(
+        aslam::backend::JacobianContainer& jacobians) {
       // useful pre-computations
       const double v_oo_x = _v_oo.toValue()(0);
       const double om_oo_z = _om_oo.toValue()(2);
@@ -166,9 +167,9 @@ namespace aslam {
         (v_oo_x + e_f * om_oo_z) + (L * om_oo_z) * (L * om_oo_z))) / vfrDenom;
 
       // pass the Jacobians with the chain rule
-      _v_oo.evaluateJacobians(_jacobians, -Hv);
-      _om_oo.evaluateJacobians(_jacobians, -Ho);
-      _jacobians.add(_params, -Ht);
+      _v_oo.evaluateJacobians(jacobians, -Hv);
+      _om_oo.evaluateJacobians(jacobians, -Ho);
+      jacobians.add(_params, -Ht);
     }
 
   }

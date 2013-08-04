@@ -130,7 +130,8 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermObservation::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
+    void ErrorTermObservation::evaluateJacobiansImplementation(
+        aslam::backend::JacobianContainer& jacobians) {
       const double ct = cos((_xk->getValue())(2));
       const double st = sin((_xk->getValue())(2));
       const double dxct = (_Theta->getValue())(0) * ct;
@@ -161,9 +162,9 @@ namespace aslam {
       Gtk(1, 0) = (-aa * st + bb * ct) / temp1;
       Gtk(1, 1) = -(aa * ct + bb * st) / temp1;
       Gtk(1, 2) = -1;
-      _jacobians.add(_xk, -Gxk);
-      _jacobians.add(_xl, -Glk);
-      _jacobians.add(_Theta, -Gtk);
+      jacobians.add(_xk, -Gxk);
+      jacobians.add(_xl, -Glk);
+      jacobians.add(_Theta, -Gtk);
     }
 
   }

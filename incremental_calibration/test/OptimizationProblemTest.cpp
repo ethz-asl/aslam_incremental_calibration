@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 
 #include <aslam/backend/ErrorTerm.hpp>
+#include <aslam/backend/JacobianContainer.hpp>
 
 #include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/data-structures/VectorDesignVariable.h"
@@ -43,7 +44,8 @@ protected:
   virtual double evaluateErrorImplementation() {
     return 0;
   };
-  virtual void evaluateJacobiansImplementation() {};
+  virtual void evaluateJacobiansImplementation(
+    aslam::backend::JacobianContainer& J) {};
 };
 
 using namespace aslam::calibration;

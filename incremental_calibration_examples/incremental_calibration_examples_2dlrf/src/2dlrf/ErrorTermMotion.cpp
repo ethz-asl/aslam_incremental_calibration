@@ -121,7 +121,8 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-  void ErrorTermMotion::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
+    void ErrorTermMotion::evaluateJacobiansImplementation(
+        aslam::backend::JacobianContainer& jacobians) {
       Eigen::Matrix<double, 3, 3> Hxk = Eigen::Matrix<double, 3, 3>::Zero();
       Hxk(0, 0) = cos((_xkm1->getValue())(2));
       Hxk(0, 1) = sin((_xkm1->getValue())(2));
@@ -143,8 +144,8 @@ namespace aslam {
         sin((_xkm1->getValue())(2)) *
         ((_xk->getValue())(1) - (_xkm1->getValue())(1));
       Hxkm1(2, 2) = -1;
-      _jacobians.add(_xkm1, -Hxkm1 / _T);
-      _jacobians.add(_xk, -Hxk / _T);
+      jacobians.add(_xkm1, -Hxkm1 / _T);
+      jacobians.add(_xk, -Hxk / _T);
     }
 
   }

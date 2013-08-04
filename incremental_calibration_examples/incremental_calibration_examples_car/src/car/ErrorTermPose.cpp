@@ -110,7 +110,8 @@ namespace aslam {
       return evaluateChiSquaredError();
     }
 
-    void ErrorTermPose::evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians) {
+    void ErrorTermPose::evaluateJacobiansImplementation(
+        aslam::backend::JacobianContainer& jacobians) {
       Eigen::Matrix<double, 6, 6> J = Eigen::Matrix<double, 6, 6>::Identity();
       const Eigen::Matrix4d T = _T.toTransformationMatrix();
       J.topRightCorner<3, 3>() =
@@ -118,7 +119,7 @@ namespace aslam {
       const sm::kinematics::EulerAnglesYawPitchRoll ypr;
       J.bottomRightCorner<3, 3>() = (ypr.parametersToSMatrix(
         ypr.rotationMatrixToParameters(T.topLeftCorner<3, 3>()))).inverse();
-      _T.evaluateJacobians(_jacobians, -J);
+      _T.evaluateJacobians(jacobians, -J);
     }
 
   }
