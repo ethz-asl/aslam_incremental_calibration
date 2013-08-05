@@ -419,7 +419,7 @@ int main(int argc, char** argv) {
   std::cout << "Outputting to file..." << std::endl;
   std::ofstream outFile("bsplinePoses.txt");
   for (size_t i = 0; i < timestampsParse.size(); ++i) {
-    outFile << std::fixed << std::setprecision(16)
+    outFile << std::fixed << std::setprecision(18)
       << timestampsParse[i]
       << " " << bspline.position(timestampsParse[i]).transpose()
       << " " << zxy.rotationMatrixToParameters(
@@ -594,7 +594,7 @@ int main(int argc, char** argv) {
   Eigen::MatrixXd Sigma =
     aslam::calibration::computeCovariance(RFactor, 0, numCols - 1);
   std::cout << "Sigma: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16) <<
+  std::cout << std::fixed << std::setprecision(18) <<
     Sigma.diagonal().transpose() << std::endl;
   std::cout << "SumLogDiagR: "
     << aslam::calibration::computeSumLogDiagR(RFactor, 0, numCols - 1)
@@ -612,7 +612,7 @@ int main(int argc, char** argv) {
       bspdv->linearVelocity(timestampsParse[i]).toEuclidean();
     const Eigen::Vector3d om =
       bspdv->angularVelocityBodyFrame(timestampsParse[i]).toEuclidean();
-    outFile2 << std::fixed << std::setprecision(16)
+    outFile2 << std::fixed << std::setprecision(18)
       << timestampsParse[i]
       << " " << r.transpose()
       << " " << zxy.rotationMatrixToParameters(C).transpose()

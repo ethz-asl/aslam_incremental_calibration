@@ -25,6 +25,17 @@
 
 #include <Eigen/Core>
 
+#include <aslam/DiscreteTrajectory.hpp>
+#include <aslam/SplineTrajectory.hpp>
+
+#include <sm/kinematics/Transformation.hpp>
+
+#include "aslam/calibration/car/MeasurementsContainer.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
+#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
+#include "aslam/calibration/car/SteeringMeasurement.h"
+#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
+
 namespace aslam {
   namespace calibration {
 
@@ -32,8 +43,37 @@ namespace aslam {
       @{
       */
     /// Ensures rotation vector does not flip
-    Eigen::Vector3d rotVectorNoFlipping(const Eigen::Vector3d& prv,
-      const Eigen::Vector3d& crv);
+    Eigen::Vector3d bestRotVector(const Eigen::Vector3d& prv, const
+      Eigen::Vector3d& crv);
+    /// Finds the best quaternion
+    Eigen::Vector4d bestQuat(const Eigen::Vector4d& pquat, const
+      Eigen::Vector4d& cquat);
+    /// Builds a discrete trajectory based on Applanix navigation measurements
+    void generateTrajectory(const MeasurementsContainer<
+      ApplanixNavigationMeasurement>::Type& measurements, DiscreteTrajectory&
+      trajectory);
+    /// Simulates rear wheels speed measurements
+    void simulateRearWheelsSpeedMeasurements(const SplineTrajectory& trajectory,
+      double frequency, double sigma2_t, double sigma2_rl, double sigma2_rr,
+      double e_r, double k_rl, double k_rr, const
+      sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& measurements);
+    /// Simulates front wheels speed measurements
+    void simulateFrontWheelsSpeedMeasurements(const SplineTrajectory&
+      trajectory, double frequency, double sigma2_t, double sigma2_fl, double
+      sigma2_fr, double e_f, double L, double k_fl, double k_fr, const
+      sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& measurements);
+    /// Simulates steering measurements
+    void simulateSteeringMeasurements(const SplineTrajectory& trajectory, double
+      frequency, double sigma2_t, double sigma2_st, double L, double a0, double
+      a1, double a2, double a3, const sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<SteeringMeasurement>::Type& measurements);
+    /// Simulates DMI measurements
+    void simulateDMIMeasurements(const SplineTrajectory& trajectory, double
+      frequency, double sigma2_t, double sigma2_dmi, double e_r, const
+      sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<ApplanixDMIMeasurement>::Type& measurements);
     /** @}
       */
 

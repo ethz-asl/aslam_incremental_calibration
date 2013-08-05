@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
       applanixNavigationMeasurements[i].second.roll)));
     if (i > 0) {
       Eigen::Matrix<double, 6, 1> lastPose = poses.col(i - 1);
-      crv = rotVectorNoFlipping(lastPose.tail<3>(), crv);
+      crv = bestRotVector(lastPose.tail<3>(), crv);
       crvFile << crv.transpose() << std::endl;
     }
     timestamps(i) = applanixNavigationMeasurements[i].first;
@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
   std::ofstream applanixRawMATLABFile("applanix-raw.txt");
   for (auto it = applanixNavigationMeasurements.cbegin();
       it != applanixNavigationMeasurements.cend(); ++it)
-    applanixRawMATLABFile << std::fixed << std::setprecision(16)
+    applanixRawMATLABFile << std::fixed << std::setprecision(18)
       << it->first << " "
       << it->second.x << " " << it->second.y << " " << it->second.z << " "
       << it->second.yaw << " " << it->second.pitch << " "
@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
   std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
   for (size_t i = 0; i < numMeasurements; ++i) {
-    applanixSplineMATLABFile << std::fixed << std::setprecision(16)
+    applanixSplineMATLABFile << std::fixed << std::setprecision(18)
       << timestamps(i) << " "
       << bspline.position(timestamps(i)).transpose() << " "
       << ypr.rotationMatrixToParameters(
@@ -220,7 +220,7 @@ int main(int argc, char** argv) {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
       const double timestamp = fws->header.stamp.toSec();
-      canRawFwMATLABFile << std::fixed << std::setprecision(16)
+      canRawFwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << fws->Left << " " << fws->Right << std::endl;
       if (fws->Left == 0 || fws->Right == 0 || timestamp < timestamps(0) ||
           timestamp > timestamps(numMeasurements - 1))
@@ -237,14 +237,14 @@ int main(int argc, char** argv) {
       const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
       const double predLeft = (v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl;
       const double predRight = (v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr;
-      canPredFwMATLABFile << std::fixed << std::setprecision(16)
+      canPredFwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predLeft << " " << predRight << std::endl;
     }
     if (it->getTopic() == "/can_prius/rear_wheels_speed") {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
       const double timestamp = rws->header.stamp.toSec();
-      canRawRwMATLABFile << std::fixed << std::setprecision(16)
+      canRawRwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << rws->Left << " " << rws->Right << std::endl;
       if (rws->Left == 0 || rws->Right == 0 || timestamp < timestamps(0) ||
           timestamp > timestamps(numMeasurements - 1))
@@ -259,14 +259,14 @@ int main(int argc, char** argv) {
       const double om_oo_z = om_oo(2);
       const double predLeft = (v_oo_x - e_r * om_oo_z) / k_rl;
       const double predRight = (v_oo_x + e_r * om_oo_z) / k_rr;
-      canPredRwMATLABFile << std::fixed << std::setprecision(16)
+      canPredRwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predLeft << " " << predRight << std::endl;
     }
     if (it->isType<can_prius::Steering1Msg>()) {
       can_prius::Steering1MsgConstPtr st(
         it->instantiate<can_prius::Steering1Msg>());
       const double timestamp = st->header.stamp.toSec();
-      canRawStMATLABFile << std::fixed << std::setprecision(16)
+      canRawStMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << st->value << std::endl;
       if (timestamp < timestamps(0) ||
           timestamp > timestamps(numMeasurements - 1))
@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
       if (std::fabs(v_oo_x) < 1e-1)
         continue;
       const double predSteering = atan(L * om_oo_z / v_oo_x);
-      canPredStMATLABFile << std::fixed << std::setprecision(16)
+      canPredStMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predSteering * a1 << std::endl;
     }
     if (it->isType<poslv::TimeTaggedDMIDataMsg>()) {
@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
       if (lastDMITimestamp != -1) {
         const double displacement = dmi->signedDistanceTraveled -
           lastDMIDistance;
-        dmiRawMATLABFile << std::fixed << std::setprecision(16)
+        dmiRawMATLABFile << std::fixed << std::setprecision(18)
           << timestamp << " " << displacement << std::endl;
         const Eigen::Matrix4d T_o_km1_o_k = T_io.inverse() *
           T_wi_km1.inverse() * T_wi_k * T_io;
@@ -308,7 +308,7 @@ int main(int argc, char** argv) {
         const double v_oo_x = t_o_km1_o_k(0);
         const double om_oo_z = (ypr.rotationMatrixToParameters(C_o_km1_o_k))(0);
         const double predLeft = (v_oo_x - e_r * om_oo_z);
-        dmiPredMATLABFile << std::fixed << std::setprecision(16)
+        dmiPredMATLABFile << std::fixed << std::setprecision(18)
           << timestamp << " " << predLeft << std::endl;
       }
       lastDMITimestamp = timestamp;

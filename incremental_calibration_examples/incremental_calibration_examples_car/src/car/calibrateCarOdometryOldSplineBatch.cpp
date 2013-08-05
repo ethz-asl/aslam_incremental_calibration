@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
       navigationMeasurements[i].second.roll)));
     if (i > 0) {
       Eigen::Matrix<double, 6, 1> lastPose = poses.col(i - 1);
-      crv = rotVectorNoFlipping(lastPose.tail<3>(), crv);
+      crv = bestRotVector(lastPose.tail<3>(), crv);
     }
     timestamps(i) = navigationMeasurements[i].first;
     Eigen::Matrix<double, 6, 1> pose;
@@ -251,7 +251,7 @@ int main(int argc, char** argv) {
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
   std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
   for (size_t i = 0; i < numMeasurements; ++i)
-    applanixSplineMATLABFile << std::fixed << std::setprecision(16)
+    applanixSplineMATLABFile << std::fixed << std::setprecision(18)
       << timestamps(i) << " "
       << bspline.position(timestamps(i)).transpose() << " "
       << ypr->rotationMatrixToParameters(
@@ -394,13 +394,13 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Calibration before optimization: " << std::endl;
-  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(16)
+  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(18)
     << *cpdv << std::endl;
   std::cout << "Translation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << ypr->rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
     << std::endl;
 
@@ -419,13 +419,13 @@ int main(int argc, char** argv) {
   optimizer.optimize();
 
   std::cout << "Calibration after optimization: " << std::endl;
-  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(16)
+  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(18)
     << *cpdv << std::endl;
   std::cout << "Translation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << ypr->rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
     << std::endl;
 
@@ -443,7 +443,7 @@ int main(int argc, char** argv) {
       bspdv->linearAccelerationBodyFrame(timestamps(i)).toEuclidean();
     const Eigen::Vector3d om_ii =
       bspdv->angularVelocityBodyFrame(timestamps(i)).toEuclidean();
-    applanixSplineOptMATLABFile << std::fixed << std::setprecision(16)
+    applanixSplineOptMATLABFile << std::fixed << std::setprecision(18)
       << timestamps(i) << " "
       << r.transpose() << " "
       << ypr->rotationMatrixToParameters(C_wi).transpose() << " "

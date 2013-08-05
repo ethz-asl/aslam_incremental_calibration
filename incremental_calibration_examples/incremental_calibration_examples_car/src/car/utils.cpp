@@ -18,6 +18,11 @@
 
 #include "aslam/calibration/car/utils.h"
 
+#include <sm/kinematics/Transformation.hpp>
+#include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
+#include <sm/kinematics/rotations.hpp>
+#include <sm/kinematics/quaternion_algebra.hpp>
+
 namespace aslam {
   namespace calibration {
 
@@ -25,8 +30,8 @@ namespace aslam {
 /* Methods                                                                    */
 /******************************************************************************/
 
-    Eigen::Vector3d rotVectorNoFlipping(const Eigen::Vector3d& prv,
-        const Eigen::Vector3d& crv) {
+    Eigen::Vector3d bestRotVector(const Eigen::Vector3d& prv, const
+        Eigen::Vector3d& crv) {
       // current angle
       const double angle = crv.norm();
       // current axis
@@ -45,6 +50,51 @@ namespace aslam {
         }
       }
       return best_rv;
+    }
+
+    Eigen::Vector4d bestQuat(const Eigen::Vector4d& pquat, const
+        Eigen::Vector4d& cquat) {
+      if ((pquat + cquat).norm() < (pquat - cquat).norm())
+        return -cquat;
+      else
+        return cquat;
+    }
+
+    void generateTrajectory(const MeasurementsContainer<
+        ApplanixNavigationMeasurement>::Type& measurements, DiscreteTrajectory&
+        trajectory) {
+      const sm::kinematics::EulerAnglesYawPitchRoll ypr;
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it)
+        trajectory.addPose(it->first * 1e9, sm::kinematics::Transformation(
+          sm::kinematics::r2quat(ypr.parametersToRotationMatrix(Eigen::Vector3d(
+          it->second.yaw, it->second.pitch, it->second.roll))), Eigen::Vector3d(
+          it->second.x, it->second.y, it->second.z)));
+    }
+
+    void simulateRearWheelsSpeedMeasurements(const SplineTrajectory& trajectory,
+        double frequency, double sigma2_t, double sigma2_rl, double sigma2_rr,
+        double e_r, double k_rl, double k_rr, const
+        sm::kinematics::Transformation& T_io,
+        MeasurementsContainer<WheelsSpeedMeasurement>::Type& measurements) {
+    }
+
+    void simulateFrontWheelsSpeedMeasurements(const SplineTrajectory&
+        trajectory, double frequency, double sigma2_t, double sigma2_fl, double
+        sigma2_fr, double e_f, double L, double k_fl, double k_fr, const
+        sm::kinematics::Transformation& T_io,
+        MeasurementsContainer<WheelsSpeedMeasurement>::Type& measurements) {
+    }
+
+    void simulateSteeringMeasurements(const SplineTrajectory& trajectory, double
+        frequency, double sigma2_t, double sigma2_st, double L, double a0,
+        double a1, double a2, double a3, const sm::kinematics::Transformation&
+        T_io, MeasurementsContainer<SteeringMeasurement>::Type& measurements) {
+    }
+
+    void simulateDMIMeasurements(const SplineTrajectory& trajectory, double
+        frequency, double sigma2_t, double sigma2_dmi, double e_r, const
+        sm::kinematics::Transformation& T_io,
+        MeasurementsContainer<ApplanixDMIMeasurement>::Type& measurements) {
     }
 
   }

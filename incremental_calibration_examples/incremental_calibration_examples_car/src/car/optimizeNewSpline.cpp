@@ -194,14 +194,22 @@ int main(int argc, char** argv) {
     numSegments = measPerSecDesired * elapsedTime;
   else
     numSegments = numMeasurements;
-  OPTBSpline<EuclideanBSpline<4, 3>::CONF>::BSpline translationSpline;
-  BSplineFitter<OPTBSpline<EuclideanBSpline<4, 3>::CONF>::BSpline>::
-    initUniformSplineSparse(translationSpline, timestamps, transPoses,
+  const int transSplineOrder = 4;
+  const int rotSplineOrder = 4;
+  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::BSpline
+    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3>::CONF(
+    EuclideanBSpline<Eigen::Dynamic, 3>::CONF::ManifoldConf(3),
+    transSplineOrder));
+  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::
+    BSpline>::initUniformSplineSparse(translationSpline, timestamps, transPoses,
     numSegments, lambda);
-  OPTBSpline<UnitQuaternionBSpline<4>::CONF>::BSpline rotationSpline;
-  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<4>::CONF>::BSpline>::
-    initUniformSplineSparse(rotationSpline, timestamps, rotPoses, numSegments,
-    lambda);
+  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::BSpline
+    rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic>::CONF(
+    UnitQuaternionBSpline<Eigen::Dynamic>::CONF::ManifoldConf(),
+    rotSplineOrder));
+  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::
+    BSpline>::initUniformSplineSparse(rotationSpline, timestamps, rotPoses,
+    numSegments, lambda);
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
@@ -211,7 +219,7 @@ int main(int argc, char** argv) {
       rotationSpline.getExpressionFactoryAt<1>(*it);
     Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
       rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-    applanixSplineFile << std::fixed << std::setprecision(16)
+    applanixSplineFile << std::fixed << std::setprecision(18)
       << *it << " "
       << translationExpressionFactory.getValueExpression().toValue().
         transpose() << " "
@@ -280,7 +288,7 @@ int main(int argc, char** argv) {
       rotationSpline.getExpressionFactoryAt<1>(*it);
     Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
       rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-    applanixSplineOptFile << std::fixed << std::setprecision(16)
+    applanixSplineOptFile << std::fixed << std::setprecision(18)
       << *it << " "
       << translationExpressionFactory.getValueExpression().toValue().
         transpose() << " "

@@ -65,6 +65,7 @@
 #include <libposlv/geo-tools/Geo.h>
 
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
+#include <aslam/calibration/algorithms/matrixOperations.h>
 
 #include "aslam/calibration/car/CarCalibrator.h"
 #include "aslam/calibration/car/ErrorTermPose.h"
@@ -72,6 +73,7 @@
 #include "aslam/calibration/car/ErrorTermRws.h"
 #include "aslam/calibration/car/ErrorTermSteering.h"
 #include "aslam/calibration/car/ErrorTermDMI.h"
+#include "aslam/calibration/car/utils.h"
 
 using namespace aslam::calibration;
 using namespace sm::kinematics;
@@ -231,8 +233,7 @@ int main(int argc, char** argv) {
       navigationMeasurements[i].second.roll)));
     if (i > 0) {
       const Eigen::Vector4d lastRotPose = rotPoses.back();
-      if ((lastRotPose + quat).norm() < (lastRotPose - quat).norm())
-        quat = -quat;
+      quat = bestQuat(lastRotPose, quat);
     }
     timestamps.push_back(navigationMeasurements[i].first);
     rotPoses.push_back(quat);
@@ -251,14 +252,22 @@ int main(int argc, char** argv) {
     numSegments = measPerSecDesired * elapsedTime;
   else
     numSegments = numMeasurements;
-  OPTBSpline<EuclideanBSpline<4, 3>::CONF>::BSpline translationSpline;
-  BSplineFitter<OPTBSpline<EuclideanBSpline<4, 3>::CONF>::BSpline>::
-    initUniformSplineSparse(translationSpline, timestamps, transPoses,
+  const int transSplineOrder = 4;
+  const int rotSplineOrder = 4;
+  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::BSpline
+    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3>::CONF(
+    EuclideanBSpline<Eigen::Dynamic, 3>::CONF::ManifoldConf(3),
+    transSplineOrder));
+  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::
+    BSpline>::initUniformSplineSparse(translationSpline, timestamps, transPoses,
     numSegments, lambda);
-  OPTBSpline<UnitQuaternionBSpline<4>::CONF>::BSpline rotationSpline;
-  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<4>::CONF>::BSpline>::
-    initUniformSplineSparse(rotationSpline, timestamps, rotPoses, numSegments,
-    lambda);
+  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::BSpline
+    rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic>::CONF(
+    UnitQuaternionBSpline<Eigen::Dynamic>::CONF::ManifoldConf(),
+    rotSplineOrder));
+  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::
+    BSpline>::initUniformSplineSparse(rotationSpline, timestamps, rotPoses,
+    numSegments, lambda);
 
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
@@ -269,7 +278,7 @@ int main(int argc, char** argv) {
       rotationSpline.getExpressionFactoryAt<1>(*it);
     Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
       rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-    applanixSplineFile << std::fixed << std::setprecision(16)
+    applanixSplineFile << std::fixed << std::setprecision(18)
       << *it << " "
       << translationExpressionFactory.getValueExpression().toValue().
         transpose() << " "
@@ -345,8 +354,8 @@ int main(int argc, char** argv) {
   C_io_dv->setActive(true);
   RotationExpression C_io(C_io_dv);
   EuclideanExpression t_io(t_io_dv);
-  problem->addDesignVariable(t_io_dv);
   problem->addDesignVariable(C_io_dv);
+  problem->addDesignVariable(t_io_dv);
   auto T_io = TransformationExpression(C_io, t_io);
   TransformationExpression T_wi_km1;
   double lastTimestamp = -1;
@@ -359,8 +368,8 @@ int main(int argc, char** argv) {
       continue;
     const double displacement = it->second.signedDistanceTraveled -
       lastDistance;
-    if (std::fabs(displacement) < 1e-3)
-      continue;
+//    if (std::fabs(displacement) < 1e-2)
+//      continue;
     auto translationExpressionFactory =
       translationSpline.getExpressionFactoryAt<0>(it->first);
     auto rotationExpressionFactory =
@@ -379,9 +388,9 @@ int main(int argc, char** argv) {
       auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
         cpdv.get(), meas,
         (Eigen::Matrix<double, 1, 1>() << 1000).finished());
-      problem->addErrorTerm(e_dmi);
+//      problem->addErrorTerm(e_dmi);
       e_dmi->evaluateError();
-      errorDmiPreFile << std::fixed << std::setprecision(16)
+      errorDmiPreFile << std::fixed << std::setprecision(18)
         << it->first << " " << e_dmi->error().transpose() << std::endl;
     }
     lastTimestamp = it->first;
@@ -411,7 +420,7 @@ int main(int argc, char** argv) {
       (Eigen::Matrix2d() << 2000, 0, 0, 2000).finished());
     problem->addErrorTerm(e_fws);
     e_fws->evaluateError();
-    errorFwsPreFile << std::fixed << std::setprecision(16)
+    errorFwsPreFile << std::fixed << std::setprecision(18)
       << it->first << " " << e_fws->error().transpose() << std::endl;
   }
   std::ofstream errorRwsPreFile("error_rws_pre.txt");
@@ -437,7 +446,7 @@ int main(int argc, char** argv) {
       (Eigen::Matrix2d() << 2000, 0, 0, 2000).finished());
     problem->addErrorTerm(e_rws);
     e_rws->evaluateError();
-    errorRwsPreFile << std::fixed << std::setprecision(16)
+    errorRwsPreFile << std::fixed << std::setprecision(18)
       << it->first << " " << e_rws->error().transpose() << std::endl;
   }
   std::ofstream errorStPreFile("error_st_pre.txt");
@@ -466,18 +475,18 @@ int main(int argc, char** argv) {
       meas, (Eigen::Matrix<double, 1, 1>() << 1000).finished());
     problem->addErrorTerm(e_st);
     e_st->evaluateError();
-    errorStPreFile << std::fixed << std::setprecision(16)
+    errorStPreFile << std::fixed << std::setprecision(18)
       << it->first << " " << e_st->error().transpose() << std::endl;
   }
 
   std::cout << "Calibration before optimization: " << std::endl;
-  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(16)
+  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(18)
     << *cpdv << std::endl;
   std::cout << "Translation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << ypr->rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
     << std::endl;
 
@@ -496,15 +505,22 @@ int main(int argc, char** argv) {
   optimizer.optimize();
 
   std::cout << "Calibration after optimization: " << std::endl;
-  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(16)
+  std::cout << "CAN intrinsic: " << std::fixed << std::setprecision(18)
     << *cpdv << std::endl;
   std::cout << "Translation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << t_io.toValue().transpose() << std::endl;
   std::cout << "Rotation IMU-ODO: " << std::endl;
-  std::cout << std::fixed << std::setprecision(16)
+  std::cout << std::fixed << std::setprecision(18)
     << ypr->rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
     << std::endl;
+//  const CompressedColumnMatrix<ssize_t>& RFactor =
+//    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
+//  const size_t numCols = RFactor.cols();
+//  std::cout << "Sigma: " << std::endl
+//    << computeCovariance(RFactor, numCols - cpdv->minimalDimensions() -
+//    t_io_dv->minimalDimensions() - C_io_dv->minimalDimensions(), numCols - 1)
+//    << std::endl;
 
   std::cout << "Outputting errors after optimization..." << std::endl;
   lastTimestamp = -1;
@@ -535,7 +551,7 @@ int main(int argc, char** argv) {
         cpdv.get(), meas,
         (Eigen::Matrix<double, 1, 1>() << 0.018435).finished());
       e_dmi->evaluateError();
-      errorDmiPostFile << std::fixed << std::setprecision(16)
+      errorDmiPostFile << std::fixed << std::setprecision(18)
         << it->first << " " << e_dmi->error().transpose() << std::endl;
     }
     lastTimestamp = it->first;
@@ -564,7 +580,7 @@ int main(int argc, char** argv) {
       Eigen::Vector2d(it->second.left, it->second.right),
       (Eigen::Matrix2d() << 1809.178907, 0, 0, 1889.837032).finished());
     e_fws->evaluateError();
-    errorFwsPostFile << std::fixed << std::setprecision(16)
+    errorFwsPostFile << std::fixed << std::setprecision(18)
       << it->first << " " << e_fws->error().transpose() << std::endl;
   }
   std::ofstream errorRwsPostFile("error_rws_post.txt");
@@ -589,7 +605,7 @@ int main(int argc, char** argv) {
       Eigen::Vector2d(it->second.left, it->second.right),
       (Eigen::Matrix2d() << 1921.031351, 0, 0, 2021.77554).finished());
     e_rws->evaluateError();
-    errorRwsPostFile << std::fixed << std::setprecision(16)
+    errorRwsPostFile << std::fixed << std::setprecision(18)
       << it->first << " " << e_rws->error().transpose() << std::endl;
   }
   std::ofstream errorStPostFile("error_st_post.txt");
@@ -617,7 +633,7 @@ int main(int argc, char** argv) {
     auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
       meas, (Eigen::Matrix<double, 1, 1>() << 10).finished());
     e_st->evaluateError();
-    errorStPostFile << std::fixed << std::setprecision(16)
+    errorStPostFile << std::fixed << std::setprecision(18)
       << it->first << " " << e_st->error().transpose() << std::endl;
   }
 
@@ -630,7 +646,7 @@ int main(int argc, char** argv) {
       rotationSpline.getExpressionFactoryAt<1>(*it);
     Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
       rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-    applanixSplineOptFile << std::fixed << std::setprecision(16)
+    applanixSplineOptFile << std::fixed << std::setprecision(18)
       << *it << " "
       << translationExpressionFactory.getValueExpression().toValue().
         transpose() << " "
