@@ -26,6 +26,8 @@
 #include <vector>
 #include <utility>
 
+#include <sm/timing/NsecTimeUtilities.hpp>
+
 namespace aslam {
   namespace calibration {
 
@@ -33,12 +35,12 @@ namespace aslam {
         container.
         \brief Measurements container
       */
-    template <typename T> struct MeasurementsContainer {
+    template <typename C> struct MeasurementsContainer {
       /** \name Types definitions
         @{
         */
       /// Container type
-      typedef std::vector<std::pair<double, T> > Type;
+      typedef std::vector<std::pair<sm::timing::NsecTime, C> > Type;
       /** @}
         */
 

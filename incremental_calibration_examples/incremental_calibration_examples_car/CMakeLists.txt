@@ -97,3 +97,7 @@ target_link_libraries(calibrateCarOdometryOldSplineBatch ${PROJECT_NAME}
 rosbuild_add_executable(convertBinaryToBag src/car/convertBinaryToBag.cpp)
 target_link_libraries(convertBinaryToBag ${PROJECT_NAME}
   ${LIBPOSLV_LIBRARIES} ${LIBCAN_PRIUS_LIBRARIES})
+
+rosbuild_add_executable(simulateCarOdometry src/car/simulateCarOdometry.cpp)
+target_link_libraries(simulateCarOdometry ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})

@@ -62,7 +62,10 @@
 
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 
-#include "aslam/calibration/car/CarCalibrator.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
+#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
+#include "aslam/calibration/car/SteeringMeasurement.h"
+#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
 #include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/car/ErrorTermFws.h"
 #include "aslam/calibration/car/ErrorTermRws.h"
@@ -98,11 +101,14 @@ int main(int argc, char** argv) {
   double longRef = 0;
   double altRef = 0;
   size_t viewCounter = 0;
-  CarCalibrator::ApplanixNavigationMeasurements navigationMeasurements;
-  CarCalibrator::ApplanixEncoderMeasurements encoderMeasurements;
-  CarCalibrator::CANFrontWheelsSpeedMeasurements frontWheelsSpeedMeasurements;
-  CarCalibrator::CANRearWheelsSpeedMeasurements rearWheelsSpeedMeasurements;
-  CarCalibrator::CANSteeringMeasurements steeringMeasurements;
+  std::vector<std::pair<double, ApplanixNavigationMeasurement> >
+    navigationMeasurements;
+  std::vector<std::pair<double, ApplanixDMIMeasurement> > encoderMeasurements;
+  std::vector<std::pair<double, WheelsSpeedMeasurement> >
+    frontWheelsSpeedMeasurements;
+  std::vector<std::pair<double, WheelsSpeedMeasurement> >
+    rearWheelsSpeedMeasurements;
+  std::vector<std::pair<double, SteeringMeasurement> > steeringMeasurements;
   TimestampCorrector<double> timestampCorrector1;
   TimestampCorrector<double> timestampCorrector2;
   for (auto it = view.begin(); it != view.end(); ++it) {
@@ -130,7 +136,7 @@ int main(int argc, char** argv) {
       double x_enu, y_enu, z_enu;
       Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
         y_enu, z_enu);
-      CarCalibrator::ApplanixNavigationMeasurement data;
+      ApplanixNavigationMeasurement data;
       data.x = x_enu;
       data.y = y_enu;
       data.z = z_enu;
@@ -175,7 +181,7 @@ int main(int argc, char** argv) {
     if (it->getTopic() == "/can_prius/front_wheels_speed") {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
-      CarCalibrator::CANFrontWheelsSpeedMeasurement data;
+      WheelsSpeedMeasurement data;
       data.left = fws->Left;
       data.right = fws->Right;
       frontWheelsSpeedMeasurements.push_back(std::make_pair(
@@ -184,7 +190,7 @@ int main(int argc, char** argv) {
     if (it->getTopic() == "/can_prius/rear_wheels_speed") {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
-      CarCalibrator::CANRearWheelsSpeedMeasurement data;
+      WheelsSpeedMeasurement data;
       data.left = rws->Left;
       data.right = rws->Right;
       rearWheelsSpeedMeasurements.push_back(std::make_pair(
@@ -193,7 +199,7 @@ int main(int argc, char** argv) {
     if (it->isType<can_prius::Steering1Msg>()) {
       can_prius::Steering1MsgConstPtr st(
         it->instantiate<can_prius::Steering1Msg>());
-      CarCalibrator::CANSteeringMeasurement data;
+      SteeringMeasurement data;
       data.value = st->value;
       steeringMeasurements.push_back(std::make_pair(st->header.stamp.toSec(),
         data));
@@ -201,7 +207,7 @@ int main(int argc, char** argv) {
     if (it->isType<poslv::TimeTaggedDMIDataMsg>()) {
       poslv::TimeTaggedDMIDataMsgConstPtr dmi(
         it->instantiate<poslv::TimeTaggedDMIDataMsg>());
-      CarCalibrator::ApplanixEncoderMeasurement data;
+      ApplanixDMIMeasurement data;
       data.signedDistanceTraveled = dmi->signedDistanceTraveled;
       data.unsignedDistanceTraveled = dmi->unsignedDistanceTraveled;
       encoderMeasurements.push_back(
@@ -236,12 +242,12 @@ int main(int argc, char** argv) {
   }
   const double elapsedTime =
     timestamps[numMeasurements - 1] - timestamps[0];
-  const int measPerSec = numMeasurements / elapsedTime;
+  const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
   const double lambda = 1e-1;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
-    numSegments = measPerSecDesired * elapsedTime;
+    numSegments = std::ceil(measPerSecDesired * elapsedTime);
   else
     numSegments = numMeasurements;
   BSplinePose bspline(4, rv);
@@ -335,7 +341,7 @@ int main(int argc, char** argv) {
       auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
         cpdv.get(), meas,
         (Eigen::Matrix<double, 1, 1>() << 0.018435).finished());
-      problem->addErrorTerm(e_dmi);
+//      problem->addErrorTerm(e_dmi);
     }
     lastTimestamp = it->first;
     lastDistance = it->second.signedDistanceTraveled;

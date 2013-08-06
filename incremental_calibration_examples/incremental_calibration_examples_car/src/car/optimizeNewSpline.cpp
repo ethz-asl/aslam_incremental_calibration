@@ -37,6 +37,7 @@
 #include <sm/kinematics/quaternion_algebra.hpp>
 
 #include <sm/timing/TimestampCorrector.hpp>
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
@@ -55,6 +56,7 @@
 #include <bsplines/BSplineFitter.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
+#include <bsplines/SimpleTypeTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
@@ -62,7 +64,9 @@
 #include <libposlv/geo-tools/Geo.h>
 
 #include "aslam/calibration/car/ErrorTermPose.h"
-#include "aslam/calibration/car/CarCalibrator.h"
+#include "aslam/calibration/car/MeasurementsContainer.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
+#include "aslam/calibration/car/utils.h"
 
 using namespace aslam::calibration;
 using namespace aslam::splines;
@@ -70,6 +74,13 @@ using namespace aslam::backend;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace bsplines;
+
+struct NsecTimePolicy :
+  public SimpleTypeTimePolicy<NsecTime> {
+  inline static NsecTime getOne() {
+    return NsecTime(1e9);
+  }
+};
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -88,7 +99,7 @@ int main(int argc, char** argv) {
   double longRef = 0;
   double altRef = 0;
   size_t viewCounter = 0;
-  CarCalibrator::ApplanixNavigationMeasurements measurements;
+  MeasurementsContainer<ApplanixNavigationMeasurement>::Type measurements;
   TimestampCorrector<double> timestampCorrector;
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
@@ -115,7 +126,7 @@ int main(int argc, char** argv) {
       double x_enu, y_enu, z_enu;
       Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
         y_enu, z_enu);
-      CarCalibrator::ApplanixNavigationMeasurement data;
+      ApplanixNavigationMeasurement data;
       data.x = x_enu;
       data.y = y_enu;
       data.z = z_enu;
@@ -154,12 +165,13 @@ int main(int argc, char** argv) {
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
       measurements.push_back(
-        std::make_pair(timestampCorrector.correctTimestamp(
-        vns->timeDistance.time1, vns->header.stamp.toSec()), data));
+        std::make_pair(round(timestampCorrector.correctTimestamp(
+        secToNsec(vns->timeDistance.time1), vns->header.stamp.toNSec())),
+        data));
     }
   }
   const size_t numMeasurements = measurements.size();
-  std::vector<double> timestamps;
+  std::vector<NsecTime> timestamps;
   timestamps.reserve(numMeasurements);
   std::vector<Eigen::Vector3d> transPoses;
   transPoses.reserve(numMeasurements);
@@ -174,8 +186,7 @@ int main(int argc, char** argv) {
       measurements[i].second.roll)));
     if (i > 0) {
       const Eigen::Vector4d lastRotPose = rotPoses.back();
-      if ((lastRotPose + quat).norm() < (lastRotPose - quat).norm())
-        quat = -quat;
+      quat = bestQuat(lastRotPose, quat);
     }
     timestamps.push_back(measurements[i].first);
     rotPoses.push_back(quat);
@@ -184,32 +195,32 @@ int main(int argc, char** argv) {
       measurements[i].second.y,
       measurements[i].second.z));
   }
-  const double elapsedTime =
-    timestamps[numMeasurements - 1] - timestamps[0];
-  const int measPerSec = numMeasurements / elapsedTime;
+  const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
+    (double)NsecTimePolicy::getOne();
+  const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
-  const double lambda = 1e-1;
+  const double lambda = 0;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
-    numSegments = measPerSecDesired * elapsedTime;
+    numSegments = std::ceil(measPerSecDesired * elapsedTime);
   else
     numSegments = numMeasurements;
   const int transSplineOrder = 4;
   const int rotSplineOrder = 4;
-  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::BSpline
-    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3>::CONF(
-    EuclideanBSpline<Eigen::Dynamic, 3>::CONF::ManifoldConf(3),
+  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF>::BSpline
+    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
+    EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF::ManifoldConf(3),
     transSplineOrder));
-  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::
-    BSpline>::initUniformSplineSparse(translationSpline, timestamps, transPoses,
-    numSegments, lambda);
-  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::BSpline
-    rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic>::CONF(
-    UnitQuaternionBSpline<Eigen::Dynamic>::CONF::ManifoldConf(),
-    rotSplineOrder));
-  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::
-    BSpline>::initUniformSplineSparse(rotationSpline, timestamps, rotPoses,
-    numSegments, lambda);
+  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::
+    CONF>::BSpline>::initUniformSplineSparse(translationSpline, timestamps,
+    transPoses, numSegments, lambda);
+  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF>::
+    BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
+    ::CONF(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF::
+    ManifoldConf(), rotSplineOrder));
+  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
+    ::CONF>::BSpline>::initUniformSplineSparse(rotationSpline, timestamps,
+    rotPoses, numSegments, lambda);
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {

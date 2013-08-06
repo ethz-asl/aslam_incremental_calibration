@@ -34,10 +34,12 @@
 #include <sm/kinematics/transformations.hpp>
 
 #include <sm/timing/TimestampCorrector.hpp>
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 #include <bsplines/BSplineFitter.hpp>
+#include <bsplines/SimpleTypeTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/TimeTaggedDMIDataMsg.h>
@@ -48,7 +50,8 @@
 
 #include <libposlv/geo-tools/Geo.h>
 
-#include "aslam/calibration/car/CarCalibrator.h"
+#include "aslam/calibration/car/MeasurementsContainer.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
 #include "aslam/calibration/car/CovarianceEstimator.h"
 #include "aslam/calibration/car/utils.h"
 
@@ -56,6 +59,13 @@ using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace bsplines;
+
+struct NsecTimePolicy :
+  public SimpleTypeTimePolicy<NsecTime> {
+  inline static NsecTime getOne() {
+    return NsecTime(1e9);
+  }
+};
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -71,7 +81,8 @@ int main(int argc, char** argv) {
   topics.push_back(std::string("/poslv/vehicle_navigation_performance"));
   topics.push_back(std::string("/poslv/time_tagged_dmi_data"));
   rosbag::View view(bag, rosbag::TopicQuery(topics));
-  CarCalibrator::ApplanixNavigationMeasurements applanixNavigationMeasurements;
+  MeasurementsContainer<ApplanixNavigationMeasurement>::Type
+    applanixNavigationMeasurements;
   bool firstVNS = true;
   double latRef = 0;
   double longRef = 0;
@@ -98,7 +109,7 @@ int main(int argc, char** argv) {
       double x_enu, y_enu, z_enu;
       Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
         y_enu, z_enu);
-      CarCalibrator::ApplanixNavigationMeasurement data;
+      ApplanixNavigationMeasurement data;
       data.x = x_enu;
       data.y = y_enu;
       data.z = z_enu;
@@ -119,14 +130,15 @@ int main(int argc, char** argv) {
       data.a_z = -vns->accDown;
       data.v = vns->speed;
       applanixNavigationMeasurements.push_back(
-        std::make_pair(timestampCorrector1.correctTimestamp(
-        vns->timeDistance.time1, vns->header.stamp.toSec()), data));
+        std::make_pair(round(timestampCorrector1.correctTimestamp(
+        secToNsec(vns->timeDistance.time1), vns->header.stamp.toNSec())),
+        data));
     }
   }
   std::cout << std::endl;
   std::cout << "Building spline..." << std::endl;
   const size_t numMeasurements = applanixNavigationMeasurements.size();
-  std::vector<double> timestamps;
+  std::vector<NsecTime> timestamps;
   timestamps.reserve(numMeasurements);
   std::vector<Eigen::Vector3d> transPoses;
   transPoses.reserve(numMeasurements);
@@ -150,24 +162,26 @@ int main(int argc, char** argv) {
       applanixNavigationMeasurements[i].second.y,
       applanixNavigationMeasurements[i].second.z));
   }
-  const double elapsedTime =
-    timestamps[numMeasurements - 1] - timestamps[0];
-  const int measPerSec = numMeasurements / elapsedTime;
+  const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
+    (double)NsecTimePolicy::getOne();
+  const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
-  const double lambda = 1e-1;
+  const double lambda = 0;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
-    numSegments = measPerSecDesired * elapsedTime;
+    numSegments = std::ceil(measPerSecDesired * elapsedTime);
   else
     numSegments = numMeasurements;
   const int transSplineOrder = 4;
   const int rotSplineOrder = 4;
-  EuclideanBSpline<Eigen::Dynamic, 3>::TYPE transSpline(transSplineOrder);
-  UnitQuaternionBSpline<Eigen::Dynamic>::TYPE rotSpline(rotSplineOrder);
-  BSplineFitter<EuclideanBSpline<Eigen::Dynamic, 3>::TYPE>::
+  EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::TYPE transSpline(
+    transSplineOrder);
+  UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE rotSpline(
+    rotSplineOrder);
+  BSplineFitter<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::TYPE>::
     initUniformSplineSparse(transSpline, timestamps, transPoses, numSegments,
     lambda);
-  BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic>::TYPE>::
+  BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE>::
     initUniformSplineSparse(rotSpline, timestamps, rotPoses, numSegments,
     lambda);
   std::cout << "Outputting raw data to MATLAB..." << std::endl;
@@ -225,7 +239,7 @@ int main(int argc, char** argv) {
   CovarianceEstimator<2> rwsCovEst;
   CovarianceEstimator<1> dmiCovEst;
   CovarianceEstimator<1> stCovEst;
-  double lastDMITimestamp = -1;
+  NsecTime lastDMITimestamp = -1;
   double lastDMIDistance = -1;
   Eigen::Matrix4d T_wi_km1;
   const Eigen::Matrix4d T_io = rt2Transform(C_io, t_io);
@@ -236,7 +250,7 @@ int main(int argc, char** argv) {
     if (it->getTopic() == "/can_prius/front_wheels_speed") {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
-      const double timestamp = fws->header.stamp.toSec();
+      const NsecTime timestamp = fws->header.stamp.toNSec();
       canRawFwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << fws->Left << " " << fws->Right << std::endl;
       if (fws->Left == 0 || fws->Right == 0 || timestamp < timestamps[0] ||
@@ -255,8 +269,10 @@ int main(int argc, char** argv) {
       const double om_oo_z = om_oo(2);
       const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
       const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-      const double predLeft = (v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl;
-      const double predRight = (v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr;
+      const uint16_t predLeft = fabs(round((v_oo_x - e_f * om_oo_z) /
+        cos(phi_L) / k_fl));
+      const uint16_t predRight = fabs(round((v_oo_x + e_f * om_oo_z) /
+        cos(phi_R) / k_fr));
       canPredFwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predLeft << " " << predRight << std::endl;
       fwsCovEst.addMeasurement(Eigen::Vector2d(fws->Left - predLeft,
@@ -265,7 +281,7 @@ int main(int argc, char** argv) {
     if (it->getTopic() == "/can_prius/rear_wheels_speed") {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
-      const double timestamp = rws->header.stamp.toSec();
+      const NsecTime timestamp = rws->header.stamp.toNSec();
       canRawRwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << rws->Left << " " << rws->Right << std::endl;
       if (rws->Left == 0 || rws->Right == 0 || timestamp < timestamps[0] ||
@@ -282,8 +298,8 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      const double predLeft = (v_oo_x - e_r * om_oo_z) / k_rl;
-      const double predRight = (v_oo_x + e_r * om_oo_z) / k_rr;
+      const uint16_t predLeft = fabs(round((v_oo_x - e_r * om_oo_z) / k_rl));
+      const uint16_t predRight = fabs(round((v_oo_x + e_r * om_oo_z) / k_rr));
       canPredRwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predLeft << " " << predRight << std::endl;
       rwsCovEst.addMeasurement(Eigen::Vector2d(rws->Left - predLeft,
@@ -292,10 +308,9 @@ int main(int argc, char** argv) {
     if (it->isType<can_prius::Steering1Msg>()) {
       can_prius::Steering1MsgConstPtr st(
         it->instantiate<can_prius::Steering1Msg>());
-      const double timestamp = st->header.stamp.toSec();
-      const double measuredSteering = a0 + a1 * st->value;
+      const NsecTime timestamp = st->header.stamp.toNSec();
       canRawStMATLABFile << std::fixed << std::setprecision(18)
-        << timestamp << " " << measuredSteering << std::endl;
+        << timestamp << " " << st->value << std::endl;
       if (timestamp < timestamps[0] ||
           timestamp > timestamps[numMeasurements - 1])
         continue;
@@ -312,17 +327,18 @@ int main(int argc, char** argv) {
       const double om_oo_z = om_oo(2);
       if (std::fabs(v_oo_x) < 1e-1)
         continue;
-      const double predSteering = atan(L * om_oo_z / v_oo_x);
+      const double phi = atan(L * om_oo_z / v_oo_x);
+      const int16_t predSteering = round((phi - a0) / a1);
       canPredStMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predSteering << std::endl;
       stCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
-        << measuredSteering - predSteering).finished());
+        << st->value - predSteering).finished());
     }
     if (it->isType<poslv::TimeTaggedDMIDataMsg>()) {
       poslv::TimeTaggedDMIDataMsgConstPtr dmi(
         it->instantiate<poslv::TimeTaggedDMIDataMsg>());
-      const double timestamp = timestampCorrector2.correctTimestamp(
-        dmi->timeDistance.time1, dmi->header.stamp.toSec());
+      const NsecTime timestamp = round(timestampCorrector2.correctTimestamp(
+        secToNsec(dmi->timeDistance.time1), dmi->header.stamp.toNSec()));
       if (timestamp < timestamps[0] ||
           timestamp > timestamps[numMeasurements - 1])
         continue;

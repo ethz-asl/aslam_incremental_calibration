@@ -54,26 +54,29 @@ namespace aslam {
       trajectory);
     /// Simulates rear wheels speed measurements
     void simulateRearWheelsSpeedMeasurements(const SplineTrajectory& trajectory,
-      double frequency, double sigma2_t, double sigma2_rl, double sigma2_rr,
-      double e_r, double k_rl, double k_rr, const
-      sm::kinematics::Transformation& T_io,
-      MeasurementsContainer<WheelsSpeedMeasurement>::Type& measurements);
+      double frequency, double sigma2_rl, double sigma2_rr, double e_r, double
+      k_rl, double k_rr, const sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& noisyMeasurements);
     /// Simulates front wheels speed measurements
     void simulateFrontWheelsSpeedMeasurements(const SplineTrajectory&
-      trajectory, double frequency, double sigma2_t, double sigma2_fl, double
-      sigma2_fr, double e_f, double L, double k_fl, double k_fr, const
+      trajectory, double frequency, double sigma2_fl, double sigma2_fr, double
+      e_f, double L, double k_fl, double k_fr, const
       sm::kinematics::Transformation& T_io,
-      MeasurementsContainer<WheelsSpeedMeasurement>::Type& measurements);
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& noisyMeasurements);
     /// Simulates steering measurements
     void simulateSteeringMeasurements(const SplineTrajectory& trajectory, double
-      frequency, double sigma2_t, double sigma2_st, double L, double a0, double
-      a1, double a2, double a3, const sm::kinematics::Transformation& T_io,
-      MeasurementsContainer<SteeringMeasurement>::Type& measurements);
+      frequency, double sigma2_st, double L, double a0, double a1, double a2,
+      double a3, const sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<SteeringMeasurement>::Type& trueMeasurements,
+      MeasurementsContainer<SteeringMeasurement>::Type& noisyMeasurements);
     /// Simulates DMI measurements
     void simulateDMIMeasurements(const SplineTrajectory& trajectory, double
-      frequency, double sigma2_t, double sigma2_dmi, double e_r, const
+      frequency, double sigma2_dmi, double e_r, const
       sm::kinematics::Transformation& T_io,
-      MeasurementsContainer<ApplanixDMIMeasurement>::Type& measurements);
+      MeasurementsContainer<ApplanixDMIMeasurement>::Type& trueMeasurements,
+      MeasurementsContainer<ApplanixDMIMeasurement>::Type& noisyMeasurements);
     /** @}
       */
 

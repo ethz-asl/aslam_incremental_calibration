@@ -35,6 +35,7 @@
 #include <sm/kinematics/quaternion_algebra.hpp>
 
 #include <sm/timing/TimestampCorrector.hpp>
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
@@ -53,6 +54,7 @@
 #include <bsplines/BSplineFitter.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
+#include <bsplines/SimpleTypeTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
@@ -67,7 +69,11 @@
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/algorithms/matrixOperations.h>
 
-#include "aslam/calibration/car/CarCalibrator.h"
+#include "aslam/calibration/car/MeasurementsContainer.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
+#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
+#include "aslam/calibration/car/SteeringMeasurement.h"
+#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
 #include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/car/ErrorTermFws.h"
 #include "aslam/calibration/car/ErrorTermRws.h"
@@ -81,6 +87,13 @@ using namespace sm::timing;
 using namespace bsplines;
 using namespace aslam::splines;
 using namespace aslam::backend;
+
+struct NsecTimePolicy :
+  public SimpleTypeTimePolicy<NsecTime> {
+  inline static NsecTime getOne() {
+    return NsecTime(1e9);
+  }
+};
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -103,11 +116,14 @@ int main(int argc, char** argv) {
   double longRef = 0;
   double altRef = 0;
   size_t viewCounter = 0;
-  CarCalibrator::ApplanixNavigationMeasurements navigationMeasurements;
-  CarCalibrator::ApplanixEncoderMeasurements encoderMeasurements;
-  CarCalibrator::CANFrontWheelsSpeedMeasurements frontWheelsSpeedMeasurements;
-  CarCalibrator::CANRearWheelsSpeedMeasurements rearWheelsSpeedMeasurements;
-  CarCalibrator::CANSteeringMeasurements steeringMeasurements;
+  MeasurementsContainer<ApplanixNavigationMeasurement>::Type
+    navigationMeasurements;
+  MeasurementsContainer<ApplanixDMIMeasurement>::Type encoderMeasurements;
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    frontWheelsSpeedMeasurements;
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    rearWheelsSpeedMeasurements;
+  MeasurementsContainer<SteeringMeasurement>::Type steeringMeasurements;
   TimestampCorrector<double> timestampCorrector1;
   TimestampCorrector<double> timestampCorrector2;
   for (auto it = view.begin(); it != view.end(); ++it) {
@@ -135,7 +151,7 @@ int main(int argc, char** argv) {
       double x_enu, y_enu, z_enu;
       Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
         y_enu, z_enu);
-      CarCalibrator::ApplanixNavigationMeasurement data;
+      ApplanixNavigationMeasurement data;
       data.x = x_enu;
       data.y = y_enu;
       data.z = z_enu;
@@ -174,51 +190,53 @@ int main(int argc, char** argv) {
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
       navigationMeasurements.push_back(
-        std::make_pair(timestampCorrector1.correctTimestamp(
-        vns->timeDistance.time1, vns->header.stamp.toSec()), data));
+        std::make_pair(round(timestampCorrector1.correctTimestamp(
+        secToNsec(vns->timeDistance.time1), vns->header.stamp.toNSec())),
+        data));
     }
     if (it->getTopic() == "/can_prius/front_wheels_speed") {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
-      CarCalibrator::CANFrontWheelsSpeedMeasurement data;
+      WheelsSpeedMeasurement data;
       data.left = fws->Left;
       data.right = fws->Right;
       frontWheelsSpeedMeasurements.push_back(std::make_pair(
-        fws->header.stamp.toSec(), data));
+        fws->header.stamp.toNSec(), data));
       
     }
     if (it->getTopic() == "/can_prius/rear_wheels_speed") {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
-      CarCalibrator::CANRearWheelsSpeedMeasurement data;
+      WheelsSpeedMeasurement data;
       data.left = rws->Left;
       data.right = rws->Right;
       rearWheelsSpeedMeasurements.push_back(std::make_pair(
-        rws->header.stamp.toSec(), data));
+        rws->header.stamp.toNSec(), data));
     }
     if (it->isType<can_prius::Steering1Msg>()) {
       can_prius::Steering1MsgConstPtr st(
         it->instantiate<can_prius::Steering1Msg>());
-      CarCalibrator::CANSteeringMeasurement data;
+      SteeringMeasurement data;
       data.value = st->value;
-      steeringMeasurements.push_back(std::make_pair(st->header.stamp.toSec(),
+      steeringMeasurements.push_back(std::make_pair(st->header.stamp.toNSec(),
         data));
     }
     if (it->isType<poslv::TimeTaggedDMIDataMsg>()) {
       poslv::TimeTaggedDMIDataMsgConstPtr dmi(
         it->instantiate<poslv::TimeTaggedDMIDataMsg>());
-      CarCalibrator::ApplanixEncoderMeasurement data;
+      ApplanixDMIMeasurement data;
       data.signedDistanceTraveled = dmi->signedDistanceTraveled;
       data.unsignedDistanceTraveled = dmi->unsignedDistanceTraveled;
       encoderMeasurements.push_back(
-        std::make_pair(timestampCorrector2.correctTimestamp(
-        dmi->timeDistance.time1, dmi->header.stamp.toSec()), data));
+        std::make_pair(round(timestampCorrector2.correctTimestamp(
+        secToNsec(dmi->timeDistance.time1), dmi->header.stamp.toNSec())),
+        data));
     }
   }
 
   std::cout << "Building spline..." << std::endl;
   const size_t numMeasurements = navigationMeasurements.size();
-  std::vector<double> timestamps;
+  std::vector<NsecTime> timestamps;
   timestamps.reserve(numMeasurements);
   std::vector<Eigen::Vector3d> transPoses;
   transPoses.reserve(numMeasurements);
@@ -242,32 +260,32 @@ int main(int argc, char** argv) {
       navigationMeasurements[i].second.y,
       navigationMeasurements[i].second.z));
   }
-  const double elapsedTime =
-    timestamps[numMeasurements - 1] - timestamps[0];
-  const int measPerSec = numMeasurements / elapsedTime;
+  const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
+    (double)NsecTimePolicy::getOne();
+  const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
-  const double lambda = 1e-1;
+  const double lambda = 0;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
-    numSegments = measPerSecDesired * elapsedTime;
+    numSegments = std::ceil(measPerSecDesired * elapsedTime);
   else
     numSegments = numMeasurements;
   const int transSplineOrder = 4;
   const int rotSplineOrder = 4;
-  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::BSpline
-    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3>::CONF(
-    EuclideanBSpline<Eigen::Dynamic, 3>::CONF::ManifoldConf(3),
+  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF>::BSpline
+    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
+    EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF::ManifoldConf(3),
     transSplineOrder));
-  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3>::CONF>::
-    BSpline>::initUniformSplineSparse(translationSpline, timestamps, transPoses,
-    numSegments, lambda);
-  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::BSpline
-    rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic>::CONF(
-    UnitQuaternionBSpline<Eigen::Dynamic>::CONF::ManifoldConf(),
-    rotSplineOrder));
-  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic>::CONF>::
-    BSpline>::initUniformSplineSparse(rotationSpline, timestamps, rotPoses,
-    numSegments, lambda);
+  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::
+    CONF>::BSpline>::initUniformSplineSparse(translationSpline, timestamps,
+    transPoses, numSegments, lambda);
+  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF>::
+    BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
+    ::CONF(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF::
+    ManifoldConf(), rotSplineOrder));
+  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
+    ::CONF>::BSpline>::initUniformSplineSparse(rotationSpline, timestamps,
+    rotPoses, numSegments, lambda);
 
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
@@ -358,7 +376,7 @@ int main(int argc, char** argv) {
   problem->addDesignVariable(t_io_dv);
   auto T_io = TransformationExpression(C_io, t_io);
   TransformationExpression T_wi_km1;
-  double lastTimestamp = -1;
+  NsecTime lastTimestamp = -1;
   double lastDistance = -1;
   std::ofstream errorDmiPreFile("error_dmi_pre.txt");
   for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();

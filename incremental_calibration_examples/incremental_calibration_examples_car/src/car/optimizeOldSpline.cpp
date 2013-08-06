@@ -57,7 +57,7 @@
 
 #include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/car/utils.h"
-#include "aslam/calibration/car/CarCalibrator.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
 
 using namespace aslam::calibration;
 using namespace aslam::splines;
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
   double longRef = 0;
   double altRef = 0;
   size_t viewCounter = 0;
-  CarCalibrator::ApplanixNavigationMeasurements measurements;
+  std::vector<std::pair<double, ApplanixNavigationMeasurement> > measurements;
   TimestampCorrector<double> timestampCorrector;
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
       double x_enu, y_enu, z_enu;
       Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
         y_enu, z_enu);
-      CarCalibrator::ApplanixNavigationMeasurement data;
+      ApplanixNavigationMeasurement data;
       data.x = x_enu;
       data.y = y_enu;
       data.z = z_enu;
@@ -178,12 +178,12 @@ int main(int argc, char** argv) {
   }
   const double elapsedTime =
     timestamps[numMeasurements - 1] - timestamps[0];
-  const int measPerSec = numMeasurements / elapsedTime;
+  const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
   const double lambda = 1e-1;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
-    numSegments = measPerSecDesired * elapsedTime;
+    numSegments = std::ceil(measPerSecDesired * elapsedTime);
   else
     numSegments = numMeasurements;
   BSplinePose bspline(4, rv);
