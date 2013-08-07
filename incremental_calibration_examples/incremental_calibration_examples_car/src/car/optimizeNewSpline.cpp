@@ -178,22 +178,18 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Vector4d> rotPoses;
   rotPoses.reserve(numMeasurements);
   const EulerAnglesYawPitchRoll ypr;
-  for (size_t i = 0; i < measurements.size(); ++i) {
+  for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
     Eigen::Vector4d quat = r2quat(
-      ypr.parametersToRotationMatrix(Eigen::Vector3d(
-      measurements[i].second.yaw,
-      measurements[i].second.pitch,
-      measurements[i].second.roll)));
-    if (i > 0) {
+      ypr.parametersToRotationMatrix(Eigen::Vector3d(it->second.yaw,
+      it->second.pitch, it->second.roll)));
+    if (!rotPoses.empty()) {
       const Eigen::Vector4d lastRotPose = rotPoses.back();
       quat = bestQuat(lastRotPose, quat);
     }
-    timestamps.push_back(measurements[i].first);
+    timestamps.push_back(it->first);
     rotPoses.push_back(quat);
-    transPoses.push_back(Eigen::Vector3d(
-      measurements[i].second.x,
-      measurements[i].second.y,
-      measurements[i].second.z));
+    transPoses.push_back(Eigen::Vector3d(it->second.x, it->second.y,
+      it->second.z));
   }
   const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
     (double)NsecTimePolicy::getOne();

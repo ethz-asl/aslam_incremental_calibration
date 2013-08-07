@@ -17,7 +17,7 @@
  ******************************************************************************/
 
 /** \file simulateCarOdometry.cpp
-    \brief This file simulates car data and optimizes it.
+    \brief This file simulates car data.
   */
 
 #include <iostream>
@@ -38,20 +38,6 @@
 #include <sm/timing/TimestampCorrector.hpp>
 #include <sm/timing/NsecTimeUtilities.hpp>
 
-#include <aslam/backend/EuclideanPoint.hpp>
-#include <aslam/backend/RotationQuaternion.hpp>
-#include <aslam/backend/OptimizationProblem.hpp>
-#include <aslam/backend/Optimizer2Options.hpp>
-#include <aslam/backend/SparseQrLinearSystemSolver.hpp>
-#include <aslam/backend/SparseQRLinearSolverOptions.h>
-#include <aslam/backend/Optimizer2.hpp>
-#include <aslam/backend/EuclideanExpression.hpp>
-#include <aslam/backend/RotationExpression.hpp>
-#include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
-
-#include <aslam/splines/OPTBSpline.hpp>
-#include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
-
 #include <bsplines/BSplineFitter.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
@@ -59,16 +45,8 @@
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
-#include <poslv/TimeTaggedDMIDataMsg.h>
-
-#include <can_prius/FrontWheelsSpeedMsg.h>
-#include <can_prius/RearWheelsSpeedMsg.h>
-#include <can_prius/Steering1Msg.h>
 
 #include <libposlv/geo-tools/Geo.h>
-
-#include <aslam/calibration/data-structures/VectorDesignVariable.h>
-#include <aslam/calibration/algorithms/matrixOperations.h>
 
 #include <aslam/DiscreteTrajectory.hpp>
 #include <aslam/SplineTrajectory.hpp>
@@ -78,11 +56,6 @@
 #include "aslam/calibration/car/WheelsSpeedMeasurement.h"
 #include "aslam/calibration/car/SteeringMeasurement.h"
 #include "aslam/calibration/car/ApplanixDMIMeasurement.h"
-#include "aslam/calibration/car/ErrorTermPose.h"
-#include "aslam/calibration/car/ErrorTermFws.h"
-#include "aslam/calibration/car/ErrorTermRws.h"
-#include "aslam/calibration/car/ErrorTermSteering.h"
-#include "aslam/calibration/car/ErrorTermDMI.h"
 #include "aslam/calibration/car/utils.h"
 #include "aslam/calibration/car/CovarianceEstimator.h"
 
@@ -91,8 +64,6 @@ using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace bsplines;
-using namespace aslam::splines;
-using namespace aslam::backend;
 
 struct NsecTimePolicy :
   public SimpleTypeTimePolicy<NsecTime> {
@@ -255,22 +226,19 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Vector4d> rotPoses;
   rotPoses.reserve(numMeasurements);
   const EulerAnglesYawPitchRoll ypr;
-  for (size_t i = 0; i < numMeasurements; ++i) {
+  for (auto it = navigationMeasurements.cbegin();
+      it != navigationMeasurements.cend(); ++it) {
     Eigen::Vector4d quat = r2quat(
-      ypr.parametersToRotationMatrix(Eigen::Vector3d(
-      navigationMeasurements[i].second.yaw,
-      navigationMeasurements[i].second.pitch,
-      navigationMeasurements[i].second.roll)));
-    if (i > 0) {
+      ypr.parametersToRotationMatrix(Eigen::Vector3d(it->second.yaw,
+      it->second.pitch, it->second.roll)));
+    if (!rotPoses.empty()) {
       const Eigen::Vector4d lastRotPose = rotPoses.back();
       quat = bestQuat(lastRotPose, quat);
     }
-    timestamps.push_back(navigationMeasurements[i].first);
+    timestamps.push_back(it->first);
     rotPoses.push_back(quat);
-    transPoses.push_back(Eigen::Vector3d(
-      navigationMeasurements[i].second.x,
-      navigationMeasurements[i].second.y,
-      navigationMeasurements[i].second.z));
+    transPoses.push_back(Eigen::Vector3d(it->second.x, it->second.y,
+      it->second.z));
   }
   const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
     (double)::NsecTimePolicy::getOne();
@@ -306,12 +274,12 @@ int main(int argc, char** argv) {
       << std::endl;
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
   std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
-  for (size_t i = 0; i < numMeasurements; ++i) {
-    auto transEvaluator = transSpline.getEvaluatorAt<2>(timestamps[i]);
-    auto rotEvaluator = rotSpline.getEvaluatorAt<1>(timestamps[i]);
+  for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
+    auto transEvaluator = transSpline.getEvaluatorAt<2>(*it);
+    auto rotEvaluator = rotSpline.getEvaluatorAt<1>(*it);
     const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
     applanixSplineMATLABFile << std::fixed << std::setprecision(18)
-      << timestamps[i] << " "
+      << *it << " "
       << transEvaluator.evalD(0).transpose() << " "
       << ypr.rotationMatrixToParameters(C_wi).transpose() << " "
       << transEvaluator.evalD(1).transpose() << " "
@@ -338,8 +306,8 @@ int main(int argc, char** argv) {
   double lastDMITimestamp = -1;
   double lastDMIDistance = -1;
   Eigen::Matrix4d T_wi_km1;
-  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-      it != frontWheelsSpeedMeasurements.cend(); ++it) {
+  for (auto it = trueFrontWheelsSpeedMeasurements.cbegin();
+      it != trueFrontWheelsSpeedMeasurements.cend(); ++it) {
     const NsecTime timestamp = it->first;
     canRawFwMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << it->second.left << " " << it->second.right
@@ -357,17 +325,15 @@ int main(int argc, char** argv) {
     const double om_oo_z = om_oo(2);
     const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
     const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-    const uint16_t predLeft = fabs(round((v_oo_x - e_f * om_oo_z) / cos(phi_L) /
-      k_fl));
-    const uint16_t predRight = fabs(round((v_oo_x + e_f * om_oo_z) /
-      cos(phi_R) / k_fr));
+    const double predLeft = fabs((v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl);
+    const double predRight = fabs((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr);
     canPredFwMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << predLeft << " " << predRight << std::endl;
     fwsCovEst.addMeasurement(Eigen::Vector2d(it->second.left - predLeft,
       it->second.right - predRight));
   }
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it) {
+  for (auto it = trueRearWheelsSpeedMeasurements.cbegin();
+      it != trueRearWheelsSpeedMeasurements.cend(); ++it) {
     const NsecTime timestamp = it->first;
     canRawRwMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << it->second.left << " " << it->second.right
@@ -383,15 +349,15 @@ int main(int argc, char** argv) {
     const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
     const double v_oo_x = v_oo(0);
     const double om_oo_z = om_oo(2);
-    const uint16_t predLeft = fabs(round((v_oo_x - e_r * om_oo_z) / k_rl));
-    const uint16_t predRight = fabs(round((v_oo_x + e_r * om_oo_z) / k_rr));
+    const double predLeft = fabs((v_oo_x - e_r * om_oo_z) / k_rl);
+    const double predRight = fabs((v_oo_x + e_r * om_oo_z) / k_rr);
     canPredRwMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << predLeft << " " << predRight << std::endl;
     rwsCovEst.addMeasurement(Eigen::Vector2d(it->second.left - predLeft,
       it->second.right - predRight));
   }
-  for (auto it = steeringMeasurements.cbegin();
-      it != steeringMeasurements.cend(); ++it) {
+  for (auto it = trueSteeringMeasurements.cbegin();
+      it != trueSteeringMeasurements.cend(); ++it) {
     const NsecTime timestamp = it->first;
     canRawStMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << it->second.value << std::endl;
@@ -412,14 +378,14 @@ int main(int argc, char** argv) {
     if (std::fabs(v_oo_x) < 1e-1)
       continue;
     const double phi = atan(L * om_oo_z / v_oo_x);
-    const int16_t predSteering = round((phi - a0) / a1);
+    const double predSteering = (phi - a0) / a1;
     canPredStMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << predSteering << std::endl;
     stCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
       << it->second.value - predSteering).finished());
    }
-  for (auto it = encoderMeasurements.cbegin();
-      it != encoderMeasurements.cend(); ++it) {
+  for (auto it = trueEncoderMeasurements.cbegin();
+      it != trueEncoderMeasurements.cend(); ++it) {
     const NsecTime timestamp = it->first;
     if (timestamp < timestamps[0] ||
         timestamp > timestamps[numMeasurements - 1])

@@ -145,22 +145,19 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Vector4d> rotPoses;
   rotPoses.reserve(numMeasurements);
   const EulerAnglesYawPitchRoll ypr;
-  for (size_t i = 0; i < numMeasurements; ++i) {
+  for (auto it = applanixNavigationMeasurements.cbegin();
+      it != applanixNavigationMeasurements.cend(); ++it) {
     Eigen::Vector4d quat = r2quat(
-      ypr.parametersToRotationMatrix(Eigen::Vector3d(
-      applanixNavigationMeasurements[i].second.yaw,
-      applanixNavigationMeasurements[i].second.pitch,
-      applanixNavigationMeasurements[i].second.roll)));
-    if (i > 0) {
+      ypr.parametersToRotationMatrix(Eigen::Vector3d(it->second.yaw,
+      it->second.pitch, it->second.roll)));
+    if (!rotPoses.empty()) {
       const Eigen::Vector4d lastRotPose = rotPoses.back();
       quat = bestQuat(lastRotPose, quat);
     }
-    timestamps.push_back(applanixNavigationMeasurements[i].first);
+    timestamps.push_back(it->first);
     rotPoses.push_back(quat);
-    transPoses.push_back(Eigen::Vector3d(
-      applanixNavigationMeasurements[i].second.x,
-      applanixNavigationMeasurements[i].second.y,
-      applanixNavigationMeasurements[i].second.z));
+    transPoses.push_back(Eigen::Vector3d(it->second.x, it->second.y,
+      it->second.z));
   }
   const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
     (double)NsecTimePolicy::getOne();
@@ -200,12 +197,12 @@ int main(int argc, char** argv) {
       << std::endl;
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
   std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
-  for (size_t i = 0; i < numMeasurements; ++i) {
-    auto transEvaluator = transSpline.getEvaluatorAt<2>(timestamps[i]);
-    auto rotEvaluator = rotSpline.getEvaluatorAt<1>(timestamps[i]);
+  for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
+    auto transEvaluator = transSpline.getEvaluatorAt<2>(*it);
+    auto rotEvaluator = rotSpline.getEvaluatorAt<1>(*it);
     const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
     applanixSplineMATLABFile << std::fixed << std::setprecision(18)
-      << timestamps[i] << " "
+      << *it << " "
       << transEvaluator.evalD(0).transpose() << " "
       << ypr.rotationMatrixToParameters(C_wi).transpose() << " "
       << transEvaluator.evalD(1).transpose() << " "
@@ -269,10 +266,8 @@ int main(int argc, char** argv) {
       const double om_oo_z = om_oo(2);
       const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
       const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-      const uint16_t predLeft = fabs(round((v_oo_x - e_f * om_oo_z) /
-        cos(phi_L) / k_fl));
-      const uint16_t predRight = fabs(round((v_oo_x + e_f * om_oo_z) /
-        cos(phi_R) / k_fr));
+      const double predLeft = fabs((v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl);
+      const double predRight = fabs((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr);
       canPredFwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predLeft << " " << predRight << std::endl;
       fwsCovEst.addMeasurement(Eigen::Vector2d(fws->Left - predLeft,
@@ -298,8 +293,8 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      const uint16_t predLeft = fabs(round((v_oo_x - e_r * om_oo_z) / k_rl));
-      const uint16_t predRight = fabs(round((v_oo_x + e_r * om_oo_z) / k_rr));
+      const double predLeft = fabs((v_oo_x - e_r * om_oo_z) / k_rl);
+      const double predRight = fabs((v_oo_x + e_r * om_oo_z) / k_rr);
       canPredRwMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predLeft << " " << predRight << std::endl;
       rwsCovEst.addMeasurement(Eigen::Vector2d(rws->Left - predLeft,
@@ -328,7 +323,7 @@ int main(int argc, char** argv) {
       if (std::fabs(v_oo_x) < 1e-1)
         continue;
       const double phi = atan(L * om_oo_z / v_oo_x);
-      const int16_t predSteering = round((phi - a0) / a1);
+      const double predSteering = (phi - a0) / a1;
       canPredStMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predSteering << std::endl;
       stCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()

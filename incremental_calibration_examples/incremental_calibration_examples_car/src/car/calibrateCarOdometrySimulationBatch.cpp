@@ -16,8 +16,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrateCarOdometryNewSplineBatch.cpp
-    \brief This file calibrates the car parameters from a ROS bag file.
+/** \file calibrateCarOdometrySimulationBatch.cpp
+    \brief This file calibrates the car parameters from simulated data.
   */
 
 #include <iostream>
@@ -58,15 +58,13 @@
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
-#include <poslv/TimeTaggedDMIDataMsg.h>
-
-#include <can_prius/FrontWheelsSpeedMsg.h>
-#include <can_prius/RearWheelsSpeedMsg.h>
-#include <can_prius/Steering1Msg.h>
 
 #include <libposlv/geo-tools/Geo.h>
 
 #include <robot-odometry/generic/DifferentialOdometry.h>
+
+#include <aslam/DiscreteTrajectory.hpp>
+#include <aslam/SplineTrajectory.hpp>
 
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/algorithms/matrixOperations.h>
@@ -83,6 +81,7 @@
 #include "aslam/calibration/car/ErrorTermDMI.h"
 #include "aslam/calibration/car/utils.h"
 
+using namespace aslam;
 using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace sm::timing;
@@ -104,12 +103,8 @@ int main(int argc, char** argv) {
   }
   rosbag::Bag bag(argv[1]);
   std::vector<std::string> topics;
-  topics.push_back(std::string("/can_prius/front_wheels_speed"));
-  topics.push_back(std::string("/can_prius/rear_wheels_speed"));
-  topics.push_back(std::string("/can_prius/steering1"));
   topics.push_back(std::string("/poslv/vehicle_navigation_solution"));
   topics.push_back(std::string("/poslv/vehicle_navigation_performance"));
-  topics.push_back(std::string("/poslv/time_tagged_dmi_data"));
   rosbag::View view(bag, rosbag::TopicQuery(topics));
   std::cout << "Processing BAG file..." << std::endl;
   poslv::VehicleNavigationPerformanceMsgConstPtr lastVnp;
@@ -120,14 +115,7 @@ int main(int argc, char** argv) {
   size_t viewCounter = 0;
   MeasurementsContainer<ApplanixNavigationMeasurement>::Type
     navigationMeasurements;
-  MeasurementsContainer<ApplanixDMIMeasurement>::Type encoderMeasurements;
-  MeasurementsContainer<WheelsSpeedMeasurement>::Type
-    frontWheelsSpeedMeasurements;
-  MeasurementsContainer<WheelsSpeedMeasurement>::Type
-    rearWheelsSpeedMeasurements;
-  MeasurementsContainer<SteeringMeasurement>::Type steeringMeasurements;
-  TimestampCorrector<double> timestampCorrector1;
-  TimestampCorrector<double> timestampCorrector2;
+  TimestampCorrector<double> timestampCorrector;
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
       << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
@@ -192,49 +180,66 @@ int main(int argc, char** argv) {
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
       navigationMeasurements.push_back(
-        std::make_pair(round(timestampCorrector1.correctTimestamp(
+        std::make_pair(round(timestampCorrector.correctTimestamp(
         secToNsec(vns->timeDistance.time1), vns->header.stamp.toNSec())),
         data));
     }
-    if (it->getTopic() == "/can_prius/front_wheels_speed") {
-      can_prius::FrontWheelsSpeedMsgConstPtr fws(
-        it->instantiate<can_prius::FrontWheelsSpeedMsg>());
-      WheelsSpeedMeasurement data;
-      data.left = fws->Left;
-      data.right = fws->Right;
-      frontWheelsSpeedMeasurements.push_back(std::make_pair(
-        fws->header.stamp.toNSec(), data));
-      
-    }
-    if (it->getTopic() == "/can_prius/rear_wheels_speed") {
-      can_prius::RearWheelsSpeedMsgConstPtr rws(
-        it->instantiate<can_prius::RearWheelsSpeedMsg>());
-      WheelsSpeedMeasurement data;
-      data.left = rws->Left;
-      data.right = rws->Right;
-      rearWheelsSpeedMeasurements.push_back(std::make_pair(
-        rws->header.stamp.toNSec(), data));
-    }
-    if (it->isType<can_prius::Steering1Msg>()) {
-      can_prius::Steering1MsgConstPtr st(
-        it->instantiate<can_prius::Steering1Msg>());
-      SteeringMeasurement data;
-      data.value = st->value;
-      steeringMeasurements.push_back(std::make_pair(st->header.stamp.toNSec(),
-        data));
-    }
-    if (it->isType<poslv::TimeTaggedDMIDataMsg>()) {
-      poslv::TimeTaggedDMIDataMsgConstPtr dmi(
-        it->instantiate<poslv::TimeTaggedDMIDataMsg>());
-      ApplanixDMIMeasurement data;
-      data.signedDistanceTraveled = dmi->signedDistanceTraveled;
-      data.unsignedDistanceTraveled = dmi->unsignedDistanceTraveled;
-      encoderMeasurements.push_back(
-        std::make_pair(round(timestampCorrector2.correctTimestamp(
-        secToNsec(dmi->timeDistance.time1), dmi->header.stamp.toNSec())),
-        data));
-    }
   }
+
+  std::cout << "Simulating data..." << std::endl;
+  DiscreteTrajectory discreteTrajectory;
+  generateTrajectory(navigationMeasurements, discreteTrajectory);
+  const double lambda = 0;
+  const int knotsPerSecond = 5;
+  const int splineOrder = 4;
+  SplineTrajectory splineTrajectory(splineOrder);
+  splineTrajectory.initialize(discreteTrajectory, knotsPerSecond, lambda);
+  Trajectory::NsecTimeList times;
+  discreteTrajectory.getSupportTimes(times);
+  const double freqW = 60;
+  const double sigma2_rl = 9.339204354469231e+03;
+  const double sigma2_rr = 1.099101100732849e+03;
+  const double e_r = 0.74;
+  const double k_rl = 1.0 / 3.6 / 100.0;
+  const double k_rr = 1.0 / 3.6 / 100.0;
+  const Transformation T_io_t(r2quat(Eigen::Matrix3d::Identity()),
+    Eigen::Vector3d(0, 0.0, -0.785));
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    trueRearWheelsSpeedMeasurements;
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    rearWheelsSpeedMeasurements;
+  simulateRearWheelsSpeedMeasurements(splineTrajectory, freqW, sigma2_rl,
+    sigma2_rr, e_r, k_rl, k_rr, T_io_t, trueRearWheelsSpeedMeasurements,
+    rearWheelsSpeedMeasurements);
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    trueFrontWheelsSpeedMeasurements;
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    frontWheelsSpeedMeasurements;
+  const double sigma2_fl = 1.322034505069044e+03;
+  const double sigma2_fr = 1.365297094304437e+03;
+  const double e_f = 0.755;
+  const double k_fl = 1.0 / 3.6 / 100.0;
+  const double k_fr = 1.0 / 3.6 / 100.0;
+  const double L = 2.7;
+  simulateFrontWheelsSpeedMeasurements(splineTrajectory, freqW, sigma2_fl,
+    sigma2_fr, e_f, L, k_fl, k_fr, T_io_t, trueFrontWheelsSpeedMeasurements,
+    frontWheelsSpeedMeasurements);
+  MeasurementsContainer<SteeringMeasurement>::Type trueSteeringMeasurements;
+  MeasurementsContainer<SteeringMeasurement>::Type steeringMeasurements;
+  const double sigma2_st = 1;
+  const double freqSt = 30;
+  const double a0 = 0;
+  const double a1 = (M_PI / 180 / 10);
+  const double a2 = 0;
+  const double a3 = 0;
+  simulateSteeringMeasurements(splineTrajectory, freqSt, sigma2_st, L, a0, a1,
+    a2, a3, T_io_t, trueSteeringMeasurements, steeringMeasurements);
+  const double sigma2_dmi = 1.080401896974195e-06;
+  const double freqDmi = 100;
+  MeasurementsContainer<ApplanixDMIMeasurement>::Type trueEncoderMeasurements;
+  MeasurementsContainer<ApplanixDMIMeasurement>::Type encoderMeasurements;
+  simulateDMIMeasurements(splineTrajectory, freqDmi, sigma2_dmi, e_r, T_io_t,
+    trueEncoderMeasurements, encoderMeasurements);
 
   std::cout << "Building spline..." << std::endl;
   const size_t numMeasurements = navigationMeasurements.size();
@@ -260,31 +265,27 @@ int main(int argc, char** argv) {
       it->second.z));
   }
   const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
-    (double)NsecTimePolicy::getOne();
+    (double)::NsecTimePolicy::getOne();
   const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
-  const double lambda = 0;
-  const int measPerSecDesired = 5;
-  if (measPerSec > measPerSecDesired)
-    numSegments = std::ceil(measPerSecDesired * elapsedTime);
+  if (measPerSec > knotsPerSecond)
+    numSegments = std::ceil(knotsPerSecond * elapsedTime);
   else
     numSegments = numMeasurements;
-  const int transSplineOrder = 4;
-  const int rotSplineOrder = 4;
-  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF>::BSpline
-    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
-    EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF::ManifoldConf(3),
-    transSplineOrder));
-  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::
-    CONF>::BSpline>::initUniformSplineSparse(translationSpline, timestamps,
-    transPoses, numSegments, lambda);
-  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF>::
-    BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
-    ::CONF(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF::
-    ManifoldConf(), rotSplineOrder));
-  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
-    ::CONF>::BSpline>::initUniformSplineSparse(rotationSpline, timestamps,
-    rotPoses, numSegments, lambda);
+  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, ::NsecTimePolicy>::CONF>::
+    BSpline translationSpline(EuclideanBSpline<Eigen::Dynamic, 3,
+    ::NsecTimePolicy>::CONF(EuclideanBSpline<Eigen::Dynamic, 3,
+    ::NsecTimePolicy>::CONF::ManifoldConf(3), splineOrder));
+  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3,
+    ::NsecTimePolicy>::CONF>::BSpline>::initUniformSplineSparse(
+    translationSpline, timestamps, transPoses, numSegments, lambda);
+  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, ::NsecTimePolicy>::CONF>::
+    BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic,
+    ::NsecTimePolicy>::CONF(UnitQuaternionBSpline<Eigen::Dynamic,
+    ::NsecTimePolicy>::CONF::ManifoldConf(), splineOrder));
+  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic,
+    ::NsecTimePolicy>::CONF>::BSpline>::initUniformSplineSparse(rotationSpline,
+    timestamps, rotPoses, numSegments, lambda);
 
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
@@ -314,11 +315,11 @@ int main(int argc, char** argv) {
   std::cout << "Building optimization problem..." << std::endl;
   auto problem = boost::make_shared<OptimizationProblem>();
   for (size_t i = 0; i < translationSpline.numDesignVariables(); ++i) {
-    translationSpline.designVariable(i)->setActive(true);
+//    translationSpline.designVariable(i)->setActive(true);
     problem->addDesignVariable(translationSpline.designVariable(i), false);
   }
   for (size_t i = 0; i < rotationSpline.numDesignVariables(); ++i) {
-    rotationSpline.designVariable(i)->setActive(true);
+//    rotationSpline.designVariable(i)->setActive(true);
     problem->addDesignVariable(rotationSpline.designVariable(i), false);
   }
   for (auto it = navigationMeasurements.cbegin();
@@ -345,29 +346,16 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getValueExpression()),
       translationExpressionFactory.getValueExpression()),
       xm, Q);
-    problem->addErrorTerm(e_pose);
+//    problem->addErrorTerm(e_pose);
   }
-  const double L = 2.7; // wheelbase [m]
-  const double e_r = 0.74; // half-track rear [m]
-  const double e_f = 0.755; // half-track front [m]
-  const double a0 = 0; // steering coefficient
-  const double a1 = (M_PI / 180 / 10); // steering coefficient
-  const double a2 = 0; // steering coefficient
-  const double a3 = 0; // steering coefficient
-  const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
-  const double k_rr = 1.0 / 3.6 / 100.0; // wheel coefficient
-  const double k_fl = 1.0 / 3.6 / 100.0; // wheel coefficient
-  const double k_fr = 1.0 / 3.6 / 100.0; // wheel coefficient
   auto cpdv = boost::make_shared<VectorDesignVariable<11> >(
     (VectorDesignVariable<11>::Container() <<
     L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr).finished());
   cpdv->setActive(true);
   problem->addDesignVariable(cpdv);
-  auto t_io_dv = boost::make_shared<EuclideanPoint>(
-    Eigen::Vector3d(0, 0, -0.785));
+  auto t_io_dv = boost::make_shared<EuclideanPoint>(T_io_t.t());
   t_io_dv->setActive(true);
-  auto C_io_dv = boost::make_shared<RotationQuaternion>(
-    ypr->parametersToRotationMatrix(Eigen::Vector3d(0, 0, 0)));
+  auto C_io_dv = boost::make_shared<RotationQuaternion>(T_io_t.q());
   C_io_dv->setActive(true);
   RotationExpression C_io(C_io_dv);
   EuclideanExpression t_io(t_io_dv);
@@ -379,15 +367,14 @@ int main(int argc, char** argv) {
   double lastDistance = -1;
   std::ofstream errorDmiPreFile("error_dmi_pre.txt");
   std::ofstream errorDmiPreChiFile("error_dmi_pre_chi.txt");
-  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
+  for (auto it = trueEncoderMeasurements.cbegin(); it != trueEncoderMeasurements.cend();
+//  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
       ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first)
       continue;
     const double displacement = it->second.signedDistanceTraveled -
       lastDistance;
-//    if (std::fabs(displacement) < 1e-2)
-//      continue;
     auto translationExpressionFactory =
       translationSpline.getExpressionFactoryAt<0>(it->first);
     auto rotationExpressionFactory =
@@ -405,8 +392,8 @@ int main(int argc, char** argv) {
       auto ypr_o_km1_o_k = C_o_km1_o_k.toParameters(ypr);
       auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
         cpdv.get(), meas,
-        (Eigen::Matrix<double, 1, 1>() << 1000).finished());
-//      problem->addErrorTerm(e_dmi);
+        (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
+      problem->addErrorTerm(e_dmi);
       errorDmiPreChiFile << std::fixed << std::setprecision(18)
         << e_dmi->evaluateError() << std::endl;
       errorDmiPreFile << std::fixed << std::setprecision(18)
@@ -418,8 +405,10 @@ int main(int argc, char** argv) {
   }
   std::ofstream errorFwsPreFile("error_fws_pre.txt");
   std::ofstream errorFwsPreChiFile("error_fws_pre_chi.txt");
-  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-      it != frontWheelsSpeedMeasurements.cend(); ++it) {
+  for (auto it = trueFrontWheelsSpeedMeasurements.cbegin();
+      it != trueFrontWheelsSpeedMeasurements.cend(); ++it) {
+//  for (auto it = frontWheelsSpeedMeasurements.cbegin();
+//      it != frontWheelsSpeedMeasurements.cend(); ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first || it->second.left == 0 || it->second.right == 0)
       continue;
@@ -445,7 +434,7 @@ int main(int argc, char** argv) {
       continue;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 2000, 0, 0, 2000).finished());
+      (Eigen::Matrix2d() << sigma2_fl, 0, 0, sigma2_fr).finished());
     problem->addErrorTerm(e_fws);
     errorFwsPreChiFile << std::fixed << std::setprecision(18)
       << e_fws->evaluateError() << std::endl;
@@ -454,8 +443,10 @@ int main(int argc, char** argv) {
   }
   std::ofstream errorRwsPreFile("error_rws_pre.txt");
   std::ofstream errorRwsPreChiFile("error_rws_pre_chi.txt");
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it) {
+  for (auto it = trueRearWheelsSpeedMeasurements.cbegin();
+      it != trueRearWheelsSpeedMeasurements.cend(); ++it) {
+//  for (auto it = rearWheelsSpeedMeasurements.cbegin();
+//      it != rearWheelsSpeedMeasurements.cend(); ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first || it->second.left == 0 || it->second.right == 0)
       continue;
@@ -479,7 +470,7 @@ int main(int argc, char** argv) {
       continue;
     auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 2000, 0, 0, 2000).finished());
+      (Eigen::Matrix2d() << sigma2_rl, 0, 0, sigma2_rr).finished());
     problem->addErrorTerm(e_rws);
     errorRwsPreChiFile << std::fixed << std::setprecision(18) <<
        e_rws->evaluateError() << std::endl;
@@ -488,8 +479,10 @@ int main(int argc, char** argv) {
   }
   std::ofstream errorStPreFile("error_st_pre.txt");
   std::ofstream errorStPreChiFile("error_st_pre_chi.txt");
-  for (auto it = steeringMeasurements.cbegin();
-      it != steeringMeasurements.cend(); ++it) {
+  for (auto it = trueSteeringMeasurements.cbegin();
+      it != trueSteeringMeasurements.cend(); ++it) {
+//  for (auto it = steeringMeasurements.cbegin();
+//      it != steeringMeasurements.cend(); ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first)
       continue;
@@ -510,7 +503,7 @@ int main(int argc, char** argv) {
     Eigen::Matrix<double, 1, 1> meas;
     meas << it->second.value;
     auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
-      meas, (Eigen::Matrix<double, 1, 1>() << 1000).finished());
+      meas, (Eigen::Matrix<double, 1, 1>() << sigma2_st).finished());
     problem->addErrorTerm(e_st);
     errorStPreChiFile << std::fixed << std::setprecision(18) <<
       e_st->evaluateError() << std::endl;
@@ -536,7 +529,7 @@ int main(int argc, char** argv) {
   options.linearSolver = "sparse_qr";
   SparseQRLinearSolverOptions linearSolverOptions;
   linearSolverOptions.colNorm = true;
-  linearSolverOptions.qrTol = 0.02;
+//  linearSolverOptions.qrTol = 0.02;
   Optimizer2 optimizer(options);
   optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
     linearSolverOptions);
@@ -553,153 +546,19 @@ int main(int argc, char** argv) {
   std::cout << std::fixed << std::setprecision(18)
     << ypr->rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
     << std::endl;
-//  const CompressedColumnMatrix<ssize_t>& RFactor =
-//    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
-//  const size_t numCols = RFactor.cols();
-//  std::cout << "Sigma: " << std::endl
-//    << computeCovariance(RFactor, numCols - cpdv->minimalDimensions() -
-//    t_io_dv->minimalDimensions() - C_io_dv->minimalDimensions(), numCols - 1)
-//    << std::endl;
-
-  std::cout << "Outputting errors after optimization..." << std::endl;
-  lastTimestamp = -1;
-  lastDistance = -1;
-  T_wi_km1 = TransformationExpression();
-  std::ofstream errorDmiPostFile("error_dmi_post.txt");
-  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
-      ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<0>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<0>(it->first);
-    auto t_wi = translationExpressionFactory.getValueExpression();
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto T_wi_k = TransformationExpression(C_wi, t_wi);
-    if (lastTimestamp != -1) {
-      const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-        << it->second.signedDistanceTraveled - lastDistance).finished());
-      auto T_o_km1_o_k = T_io.inverse() * T_wi_km1.inverse() * T_wi_k * T_io;
-      auto t_o_km1_o_k = T_o_km1_o_k.toEuclideanExpression();
-      auto C_o_km1_o_k = T_o_km1_o_k.toRotationExpression();
-      auto ypr_o_km1_o_k = C_o_km1_o_k.toParameters(ypr);
-      auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
-        cpdv.get(), meas,
-        (Eigen::Matrix<double, 1, 1>() << 0.018435).finished());
-      e_dmi->evaluateError();
-      errorDmiPostFile << std::fixed << std::setprecision(18)
-        << it->first << " " << e_dmi->error().transpose() << std::endl;
-    }
-    lastTimestamp = it->first;
-    lastDistance = it->second.signedDistanceTraveled;
-    T_wi_km1 = T_wi_k;
-  }
-  std::ofstream errorFwsPostFile("error_fws_post.txt");
-  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-      it != frontWheelsSpeedMeasurements.cend(); ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first || it->second.left == 0 || it->second.right == 0)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(it->first);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 1809.178907, 0, 0, 1889.837032).finished());
-    e_fws->evaluateError();
-    errorFwsPostFile << std::fixed << std::setprecision(18)
-      << it->first << " " << e_fws->error().transpose() << std::endl;
-  }
-  std::ofstream errorRwsPostFile("error_rws_post.txt");
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first || it->second.left == 0 || it->second.right == 0)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(it->first);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 1921.031351, 0, 0, 2021.77554).finished());
-    e_rws->evaluateError();
-    errorRwsPostFile << std::fixed << std::setprecision(18)
-      << it->first << " " << e_rws->error().transpose() << std::endl;
-  }
-  std::ofstream errorStPostFile("error_st_post.txt");
-  for (auto it = steeringMeasurements.cbegin();
-      it != steeringMeasurements.cend(); ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(it->first);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < 1e-1)
-      continue;
-    Eigen::Matrix<double, 1, 1> meas;
-    meas << it->second.value;
-    auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
-      meas, (Eigen::Matrix<double, 1, 1>() << 10).finished());
-    e_st->evaluateError();
-    errorStPostFile << std::fixed << std::setprecision(18)
-      << it->first << " " << e_st->error().transpose() << std::endl;
-  }
-
-  std::cout << "Outputting spline data after optimization..." << std::endl;
-  std::ofstream applanixSplineOptFile("applanix-spline-opt.txt");
-  for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<2>(*it);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(*it);
-    Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-    applanixSplineOptFile << std::fixed << std::setprecision(18)
-      << *it << " "
-      << translationExpressionFactory.getValueExpression().toValue().
-        transpose() << " "
-      << ypr->rotationMatrixToParameters(C_wi).transpose() << " "
-      << translationExpressionFactory.getValueExpression(1).toValue().
-        transpose() << " "
-      << -(C_wi.transpose() *
-        rotationExpressionFactory.getAngularVelocityExpression().toValue()).
-        transpose() << " "
-      << (C_wi.transpose() *
-        translationExpressionFactory.getValueExpression(2).toValue()).
-        transpose()
-      << std::endl;
-  }
+  const CompressedColumnMatrix<ssize_t>& RFactor =
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
+  const size_t numCols = RFactor.cols();
+  std::cout << "Sigma: " << std::endl
+    << computeCovariance(RFactor, numCols - cpdv->minimalDimensions() -
+    C_io_dv->minimalDimensions() - t_io_dv->minimalDimensions(), numCols - 1).
+    diagonal().transpose() << std::endl;
+  std::ofstream RFile("R.txt");
+  RFactor.writeMATLAB(RFile);
+  const CompressedColumnMatrix<ssize_t>& J =
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
+  std::ofstream JFile("J.txt");
+  J.writeMATLAB(JFile);
 
   std::cout << "Integrating odometry..." << std::endl;
   janeth::DifferentialOdometry::Parameters params = {0.285, 0.285, 0.285, 0.285,
@@ -707,11 +566,8 @@ int main(int argc, char** argv) {
   std::ofstream diffOdoFile("diffOdo.txt");
   janeth::DifferentialOdometry odometry(params);
   bool firstPose = true;
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first)
-      continue;
+  for (auto it = trueRearWheelsSpeedMeasurements.cbegin();
+      it != trueRearWheelsSpeedMeasurements.cend(); ++it) {
     if (firstPose) {
       auto translationExpressionFactory =
         translationSpline.getExpressionFactoryAt<0>(it->first);
@@ -731,6 +587,5 @@ int main(int argc, char** argv) {
     diffOdoFile << std::fixed << std::setprecision(18)
       << odometry.getPose().transpose() << std::endl;
   }
-
   return 0;
 }

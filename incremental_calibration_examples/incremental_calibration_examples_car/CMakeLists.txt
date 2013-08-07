@@ -38,6 +38,14 @@ pkg_check_modules(LIBCAN_PRIUS REQUIRED libcan-prius)
 include_directories(${LIBCAN_PRIUS_INCLUDE_DIRS})
 link_directories(${LIBCAN_PRIUS_LIBRARY_DIRS})
 
+# Find robot-odometry
+pkg_check_modules(ROBOT_ODOMETRY REQUIRED robot-odometry)
+include_directories(${ROBOT_ODOMETRY_INCLUDE_DIRS})
+link_directories(${ROBOT_ODOMETRY_LIBRARY_DIRS})
+pkg_check_modules(ROBOT_ODOMETRY REQUIRED robot-odometry-janeth)
+include_directories(${ROBOT_ODOMETRY_JANETH_INCLUDE_DIRS})
+link_directories(${ROBOT_ODOMETRY_JANETH_LIBRARY_DIRS})
+
 rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermPose.cpp
   src/car/ErrorTermOdometry.cpp
@@ -87,7 +95,7 @@ target_link_libraries(optimizeOldSpline ${PROJECT_NAME}
 rosbuild_add_executable(calibrateCarOdometryNewSplineBatch
   src/car/calibrateCarOdometryNewSplineBatch.cpp)
 target_link_libraries(calibrateCarOdometryNewSplineBatch ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES} ${ROBOT_ODOMETRY_LIBRARIES})
 
 rosbuild_add_executable(calibrateCarOdometryOldSplineBatch
   src/car/calibrateCarOdometryOldSplineBatch.cpp)
@@ -101,3 +109,9 @@ target_link_libraries(convertBinaryToBag ${PROJECT_NAME}
 rosbuild_add_executable(simulateCarOdometry src/car/simulateCarOdometry.cpp)
 target_link_libraries(simulateCarOdometry ${PROJECT_NAME}
   ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
+
+rosbuild_add_executable(calibrateCarOdometrySimulationBatch
+  src/car/calibrateCarOdometrySimulationBatch.cpp)
+target_link_libraries(calibrateCarOdometrySimulationBatch ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES} ${ROBOT_ODOMETRY_LIBRARIES}
+  ${ROBOT_ODOMETRY_JANETH_LIBRARIES})
