@@ -33,11 +33,14 @@
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/three_point_methods.hpp>
 
+#include <aslam/backend/CompressedColumnMatrix.hpp>
+
 #include <aslam/calibration/statistics/UniformDistribution.h>
 #include <aslam/calibration/statistics/NormalDistribution.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/geometry/Transformation.h>
 #include <aslam/calibration/core/IncrementalEstimator.h>
+#include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 #include <aslam/calibration/core/OptimizationProblem.h>
 #include <aslam/calibration/base/Timestamp.h>
 

@@ -101,6 +101,7 @@ int main(int argc, char** argv) {
     std::cerr << "Usage: " << argv[0] << " <ros_bag_file>" << std::endl;
     return -1;
   }
+
   rosbag::Bag bag(argv[1]);
   std::vector<std::string> topics;
   topics.push_back(std::string("/poslv/vehicle_navigation_solution"));
@@ -187,6 +188,7 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Simulating data..." << std::endl;
+  auto ypr = boost::make_shared<EulerAnglesYawPitchRoll>();
   DiscreteTrajectory discreteTrajectory;
   generateTrajectory(navigationMeasurements, discreteTrajectory);
   const double lambda = 0;
@@ -197,13 +199,14 @@ int main(int argc, char** argv) {
   Trajectory::NsecTimeList times;
   discreteTrajectory.getSupportTimes(times);
   const double freqW = 60;
-  const double sigma2_rl = 9.339204354469231e+03;
-  const double sigma2_rr = 1.099101100732849e+03;
+  const double sigma2_rl = 368;
+  const double sigma2_rr = 394;
   const double e_r = 0.74;
   const double k_rl = 1.0 / 3.6 / 100.0;
   const double k_rr = 1.0 / 3.6 / 100.0;
-  const Transformation T_io_t(r2quat(Eigen::Matrix3d::Identity()),
-    Eigen::Vector3d(0, 0.0, -0.785));
+  const Transformation T_io_t(r2quat(ypr->parametersToRotationMatrix(
+    Eigen::Vector3d(deg2rad(0), deg2rad(0), deg2rad(0)))),
+    Eigen::Vector3d(0.0, 0.0, -0.785));
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
     trueRearWheelsSpeedMeasurements;
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
@@ -215,8 +218,8 @@ int main(int argc, char** argv) {
     trueFrontWheelsSpeedMeasurements;
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
     frontWheelsSpeedMeasurements;
-  const double sigma2_fl = 1.322034505069044e+03;
-  const double sigma2_fr = 1.365297094304437e+03;
+  const double sigma2_fl = 775;
+  const double sigma2_fr = 964;
   const double e_f = 0.755;
   const double k_fl = 1.0 / 3.6 / 100.0;
   const double k_fr = 1.0 / 3.6 / 100.0;
@@ -249,7 +252,6 @@ int main(int argc, char** argv) {
   transPoses.reserve(numMeasurements);
   std::vector<Eigen::Vector4d> rotPoses;
   rotPoses.reserve(numMeasurements);
-  auto ypr = boost::make_shared<EulerAnglesYawPitchRoll>();
   for (auto it = navigationMeasurements.cbegin();
       it != navigationMeasurements.cend(); ++it) {
     Eigen::Vector4d quat = r2quat(
@@ -393,7 +395,7 @@ int main(int argc, char** argv) {
       auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
         cpdv.get(), meas,
         (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
-      problem->addErrorTerm(e_dmi);
+//      problem->addErrorTerm(e_dmi);
       errorDmiPreChiFile << std::fixed << std::setprecision(18)
         << e_dmi->evaluateError() << std::endl;
       errorDmiPreFile << std::fixed << std::setprecision(18)
@@ -528,7 +530,7 @@ int main(int argc, char** argv) {
   options.doLevenbergMarquardt = false;
   options.linearSolver = "sparse_qr";
   SparseQRLinearSolverOptions linearSolverOptions;
-  linearSolverOptions.colNorm = true;
+//  linearSolverOptions.colNorm = true;
 //  linearSolverOptions.qrTol = 0.02;
   Optimizer2 optimizer(options);
   optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
@@ -559,6 +561,33 @@ int main(int argc, char** argv) {
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
   std::ofstream JFile("J.txt");
   J.writeMATLAB(JFile);
+  std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
+    ->getRank() << std::endl;
+
+  std::cout << "Outputting spline data after optimization..." << std::endl;
+  std::ofstream applanixSplineOptFile("applanix-spline-opt.txt");
+  for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
+    auto translationExpressionFactory =
+      translationSpline.getExpressionFactoryAt<2>(*it);
+    auto rotationExpressionFactory =
+      rotationSpline.getExpressionFactoryAt<1>(*it);
+    Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+      rotationExpressionFactory.getValueExpression()).toRotationMatrix();
+    applanixSplineOptFile << std::fixed << std::setprecision(18)
+      << *it << " "
+      << translationExpressionFactory.getValueExpression().toValue().
+        transpose() << " "
+      << ypr->rotationMatrixToParameters(C_wi).transpose() << " "
+      << translationExpressionFactory.getValueExpression(1).toValue().
+        transpose() << " "
+      << -(C_wi.transpose() *
+        rotationExpressionFactory.getAngularVelocityExpression().toValue()).
+        transpose() << " "
+      << (C_wi.transpose() *
+        translationExpressionFactory.getValueExpression(2).toValue()).
+        transpose()
+      << std::endl;
+  }
 
   std::cout << "Integrating odometry..." << std::endl;
   janeth::DifferentialOdometry::Parameters params = {0.285, 0.285, 0.285, 0.285,

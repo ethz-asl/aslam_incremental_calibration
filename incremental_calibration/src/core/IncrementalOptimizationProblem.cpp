@@ -24,6 +24,7 @@
 
 #include <aslam/backend/DesignVariable.hpp>
 
+#include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
 #include "aslam/calibration/algorithms/permute.h"

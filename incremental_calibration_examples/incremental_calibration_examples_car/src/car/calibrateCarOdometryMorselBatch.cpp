@@ -497,15 +497,15 @@ int main(int argc, char** argv) {
 //  r_odo = aslam::calibration::NormalDistribution<3>(r_odo, S).getSample();
   boost::shared_ptr<aslam::backend::EuclideanPoint> t_io_dv(
     new aslam::backend::EuclideanPoint(t_odo));
-//  t_io_dv->setActive(true);
+  t_io_dv->setActive(true);
   boost::shared_ptr<aslam::backend::RotationQuaternion> C_io_dv(
     new aslam::backend::RotationQuaternion(
     zxy.parametersToRotationMatrix(r_odo)));
-//  C_io_dv->setActive(true);
+  C_io_dv->setActive(true);
   aslam::backend::RotationExpression C_io(C_io_dv);
   aslam::backend::EuclideanExpression t_io(t_io_dv);
-  problem->addDesignVariable(t_io_dv);
   problem->addDesignVariable(C_io_dv);
+  problem->addDesignVariable(t_io_dv);
 
   std::ofstream errorFile("errors.txt");
 
@@ -599,6 +599,15 @@ int main(int argc, char** argv) {
   std::cout << "SumLogDiagR: "
     << aslam::calibration::computeSumLogDiagR(RFactor, 0, numCols - 1)
     << std::endl;
+  std::ofstream RFile("R.txt");
+  RFactor.writeMATLAB(RFile);
+  const aslam::backend::CompressedColumnMatrix<ssize_t>& J =
+    optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()->
+    getJacobianTranspose();
+  std::ofstream JFile("J.txt");
+  J.writeMATLAB(JFile);
+  std::cout << "Rank: " << optimizer.getSolver<aslam::backend::
+    SparseQrLinearSystemSolver>()->getRank() << std::endl;
 
   // output poses from spline
   std::cout << "Outputting to file..." << std::endl;

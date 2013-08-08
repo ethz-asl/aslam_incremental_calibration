@@ -30,20 +30,19 @@
 
 #include <Eigen/Core>
 
-#include <aslam/backend/CompressedColumnMatrix.hpp>
-
-#include "aslam/calibration/core/IncrementalOptimizationProblem.h"
-
 namespace aslam {
   namespace backend {
 
     class SparseQrLinearSystemSolver;
     class Optimizer2;
+    template<typename I> class CompressedColumnMatrix;
+    struct SolutionReturnValue;
 
   }
   namespace calibration {
 
     class OptimizationProblem;
+    class IncrementalOptimizationProblem;
 
     /** The class IncrementalEstimator implements an incremental estimator
         for robotic calibration problems.

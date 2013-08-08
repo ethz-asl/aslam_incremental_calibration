@@ -27,7 +27,9 @@
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/Optimizer2.hpp>
+#include <aslam/backend/CompressedColumnMatrix.hpp>
 
+#include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 #include "aslam/calibration/base/Timestamp.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
 #include "aslam/calibration/algorithms/matrixOperations.h"

@@ -34,10 +34,16 @@
 
 #include <aslam/backend/OptimizationProblemBase.hpp>
 
-#include "aslam/calibration/core/OptimizationProblem.h"
-
 namespace aslam {
+  namespace backend {
+
+    class DesignVariable;
+    class ErrorTerm;
+
+  }
   namespace calibration {
+
+    class OptimizationProblem;
 
     /** The class IncrementalOptimizationProblem implements a container for
         optimization problems.
@@ -58,7 +64,7 @@ namespace aslam {
       /// Optimization problem container constant iteraror (shared pointer)
       typedef OptimizationProblemsSP::const_iterator OptimizationProblemsSPCIt;
       /// Design variable type
-      typedef OptimizationProblem::DesignVariable DesignVariable;
+      typedef aslam::backend::DesignVariable DesignVariable;
       /// Design variable (pointer) to count, group ID container
       typedef std::unordered_map<const DesignVariable*,
         std::pair<size_t, size_t> > DesignVariablesPCountId;
@@ -68,7 +74,7 @@ namespace aslam {
       typedef std::unordered_map<size_t, DesignVariablesP>
         DesignVariablePGroups;
       /// Error term type
-      typedef OptimizationProblem::ErrorTerm ErrorTerm;
+      typedef aslam::backend::ErrorTerm ErrorTerm;
       /// Error term type (shared pointer)
       typedef boost::shared_ptr<ErrorTerm> ErrorTermSP;
       /// Container for error terms (shared pointer)

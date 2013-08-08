@@ -314,11 +314,11 @@ int main(int argc, char** argv) {
   std::cout << "Building optimization problem..." << std::endl;
   auto problem = boost::make_shared<OptimizationProblem>();
   for (size_t i = 0; i < translationSpline.numDesignVariables(); ++i) {
-    translationSpline.designVariable(i)->setActive(true);
+//    translationSpline.designVariable(i)->setActive(true);
     problem->addDesignVariable(translationSpline.designVariable(i), false);
   }
   for (size_t i = 0; i < rotationSpline.numDesignVariables(); ++i) {
-    rotationSpline.designVariable(i)->setActive(true);
+//    rotationSpline.designVariable(i)->setActive(true);
     problem->addDesignVariable(rotationSpline.designVariable(i), false);
   }
   for (auto it = navigationMeasurements.cbegin();
@@ -345,7 +345,7 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getValueExpression()),
       translationExpressionFactory.getValueExpression()),
       xm, Q);
-    problem->addErrorTerm(e_pose);
+//    problem->addErrorTerm(e_pose);
   }
   const double L = 2.7; // wheelbase [m]
   const double e_r = 0.74; // half-track rear [m]
@@ -536,7 +536,7 @@ int main(int argc, char** argv) {
   options.linearSolver = "sparse_qr";
   SparseQRLinearSolverOptions linearSolverOptions;
   linearSolverOptions.colNorm = true;
-  linearSolverOptions.qrTol = 0.02;
+//  linearSolverOptions.qrTol = 0.02;
   Optimizer2 optimizer(options);
   optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
     linearSolverOptions);
@@ -553,128 +553,24 @@ int main(int argc, char** argv) {
   std::cout << std::fixed << std::setprecision(18)
     << ypr->rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
     << std::endl;
-//  const CompressedColumnMatrix<ssize_t>& RFactor =
-//    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
-//  const size_t numCols = RFactor.cols();
+  const CompressedColumnMatrix<ssize_t>& RFactor =
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
+  const size_t numCols = RFactor.cols();
 //  std::cout << "Sigma: " << std::endl
 //    << computeCovariance(RFactor, numCols - cpdv->minimalDimensions() -
-//    t_io_dv->minimalDimensions() - C_io_dv->minimalDimensions(), numCols - 1)
-//    << std::endl;
-
-  std::cout << "Outputting errors after optimization..." << std::endl;
-  lastTimestamp = -1;
-  lastDistance = -1;
-  T_wi_km1 = TransformationExpression();
-  std::ofstream errorDmiPostFile("error_dmi_post.txt");
-  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
-      ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<0>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<0>(it->first);
-    auto t_wi = translationExpressionFactory.getValueExpression();
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto T_wi_k = TransformationExpression(C_wi, t_wi);
-    if (lastTimestamp != -1) {
-      const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-        << it->second.signedDistanceTraveled - lastDistance).finished());
-      auto T_o_km1_o_k = T_io.inverse() * T_wi_km1.inverse() * T_wi_k * T_io;
-      auto t_o_km1_o_k = T_o_km1_o_k.toEuclideanExpression();
-      auto C_o_km1_o_k = T_o_km1_o_k.toRotationExpression();
-      auto ypr_o_km1_o_k = C_o_km1_o_k.toParameters(ypr);
-      auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
-        cpdv.get(), meas,
-        (Eigen::Matrix<double, 1, 1>() << 0.018435).finished());
-      e_dmi->evaluateError();
-      errorDmiPostFile << std::fixed << std::setprecision(18)
-        << it->first << " " << e_dmi->error().transpose() << std::endl;
-    }
-    lastTimestamp = it->first;
-    lastDistance = it->second.signedDistanceTraveled;
-    T_wi_km1 = T_wi_k;
-  }
-  std::ofstream errorFwsPostFile("error_fws_post.txt");
-  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-      it != frontWheelsSpeedMeasurements.cend(); ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first || it->second.left == 0 || it->second.right == 0)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(it->first);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 1809.178907, 0, 0, 1889.837032).finished());
-    e_fws->evaluateError();
-    errorFwsPostFile << std::fixed << std::setprecision(18)
-      << it->first << " " << e_fws->error().transpose() << std::endl;
-  }
-  std::ofstream errorRwsPostFile("error_rws_post.txt");
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first || it->second.left == 0 || it->second.right == 0)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(it->first);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << 1921.031351, 0, 0, 2021.77554).finished());
-    e_rws->evaluateError();
-    errorRwsPostFile << std::fixed << std::setprecision(18)
-      << it->first << " " << e_rws->error().transpose() << std::endl;
-  }
-  std::ofstream errorStPostFile("error_st_post.txt");
-  for (auto it = steeringMeasurements.cbegin();
-      it != steeringMeasurements.cend(); ++it) {
-    if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
-        < it->first)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(it->first);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < 1e-1)
-      continue;
-    Eigen::Matrix<double, 1, 1> meas;
-    meas << it->second.value;
-    auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
-      meas, (Eigen::Matrix<double, 1, 1>() << 10).finished());
-    e_st->evaluateError();
-    errorStPostFile << std::fixed << std::setprecision(18)
-      << it->first << " " << e_st->error().transpose() << std::endl;
-  }
+//    C_io_dv->minimalDimensions() - t_io_dv->minimalDimensions(), numCols - 1).
+//    diagonal().transpose() << std::endl;
+//  std::cout << "Sigma: " << std::endl
+//    << computeCovariance(RFactor, numCols - cpdv->minimalDimensions(), numCols - 1).
+//    diagonal().transpose() << std::endl;
+  std::ofstream RFile("R.txt");
+  RFactor.writeMATLAB(RFile);
+  const CompressedColumnMatrix<ssize_t>& J =
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
+  std::ofstream JFile("J.txt");
+  J.writeMATLAB(JFile);
+  std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
+    ->getRank() << std::endl;
 
   std::cout << "Outputting spline data after optimization..." << std::endl;
   std::ofstream applanixSplineOptFile("applanix-spline-opt.txt");
