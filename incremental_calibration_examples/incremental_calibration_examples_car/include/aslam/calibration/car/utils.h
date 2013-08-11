@@ -25,19 +25,27 @@
 
 #include <Eigen/Core>
 
-#include <aslam/DiscreteTrajectory.hpp>
-#include <aslam/SplineTrajectory.hpp>
-
-#include <sm/kinematics/Transformation.hpp>
-
 #include "aslam/calibration/car/MeasurementsContainer.h"
-#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
-#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
-#include "aslam/calibration/car/SteeringMeasurement.h"
-#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
+
+namespace sm {
+  namespace kinematics {
+
+    class Transformation;
+
+  }
+}
 
 namespace aslam {
+
+  class DiscreteTrajectory;
+  class SplineTrajectory;
+
   namespace calibration {
+
+    struct ApplanixNavigationMeasurement;
+    struct ApplanixDMIMeasurement;
+    struct WheelsSpeedMeasurement;
+    struct SteeringMeasurement;
 
     /** \name Methods
       @{

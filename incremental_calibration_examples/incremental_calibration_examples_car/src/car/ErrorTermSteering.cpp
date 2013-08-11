@@ -122,7 +122,7 @@ namespace aslam {
       error_t error;
       error(0) = a0 + a1 * _odo(0) + a2 * _odo(0) * _odo(0) +
         a3 * _odo(0) * _odo(0) * _odo(0) - phi;
-//      error(0) = sm::kinematics::angleMod(error(0));
+      error(0) = sm::kinematics::angleMod(error(0));
       setError(error);
       return evaluateChiSquaredError();
     }

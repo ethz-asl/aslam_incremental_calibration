@@ -20,6 +20,9 @@
 
 #include <cmath>
 
+#include <aslam/DiscreteTrajectory.hpp>
+#include <aslam/SplineTrajectory.hpp>
+
 #include <sm/kinematics/Transformation.hpp>
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 #include <sm/kinematics/rotations.hpp>
@@ -29,6 +32,11 @@
 #include <sm/timing/NsecTimeUtilities.hpp>
 
 #include <aslam/calibration/statistics/NormalDistribution.h>
+
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
+#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
+#include "aslam/calibration/car/SteeringMeasurement.h"
+#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
 
 namespace aslam {
   namespace calibration {

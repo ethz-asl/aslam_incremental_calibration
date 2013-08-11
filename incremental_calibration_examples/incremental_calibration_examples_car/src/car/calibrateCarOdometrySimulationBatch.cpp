@@ -536,6 +536,13 @@ int main(int argc, char** argv) {
   optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
     linearSolverOptions);
   optimizer.setProblem(problem);
+  optimizer.initialize();
+  optimizer.getSolver<SparseQrLinearSystemSolver>()->buildSystem(
+    optimizer.options().nThreads, true);
+  const CompressedColumnMatrix<ssize_t>& JInit =
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
+  std::ofstream JInitFile("JInit.txt");
+  JInit.writeMATLAB(JInitFile);
   optimizer.optimize();
 
   std::cout << "Calibration after optimization: " << std::endl;
@@ -557,10 +564,10 @@ int main(int argc, char** argv) {
     diagonal().transpose() << std::endl;
   std::ofstream RFile("R.txt");
   RFactor.writeMATLAB(RFile);
-  const CompressedColumnMatrix<ssize_t>& J =
+  const CompressedColumnMatrix<ssize_t>& JOpt =
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
-  std::ofstream JFile("J.txt");
-  J.writeMATLAB(JFile);
+  std::ofstream JOptFile("JOpt.txt");
+  JOpt.writeMATLAB(JOptFile);
   std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
     ->getRank() << std::endl;
 

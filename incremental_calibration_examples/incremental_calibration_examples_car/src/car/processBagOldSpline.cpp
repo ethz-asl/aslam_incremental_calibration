@@ -26,6 +26,8 @@
 
 #include <boost/make_shared.hpp>
 
+#include <Eigen/Dense>
+
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <rosbag/message_instance.h>
