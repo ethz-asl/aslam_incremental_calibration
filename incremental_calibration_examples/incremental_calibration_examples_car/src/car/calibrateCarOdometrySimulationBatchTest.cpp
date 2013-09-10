@@ -123,11 +123,11 @@ int main(int argc, char** argv) {
   const double a1 = (M_PI / 180 / 10);
   const double a2 = 0;
   const double a3 = 0;
-  const double sigma2_rl = 1000;
-  const double sigma2_rr = 1000;
-  const double sigma2_fl = 1000;
-  const double sigma2_fr = 1000;
-  const double sigma2_st = 10;
+  const double sigma2_rl = 1;
+  const double sigma2_rr = 1;
+  const double sigma2_fl = 1;
+  const double sigma2_fr = 1;
+  const double sigma2_st = 1;
   const double sigma2_dmi = 1;
   const Eigen::Vector3d t_io_t(0.0, 0.0, -0.785);
   const Eigen::Matrix3d C_io_t(ypr->parametersToRotationMatrix(
@@ -230,13 +230,16 @@ int main(int argc, char** argv) {
       const double rr = (v_oo_x + e_r * om_oo_z) / k_rr;
       const double phi = atan(L * om_oo_z / v_oo_x);
       const double st = (phi - a0) / a1;
-      WheelsSpeedMeasurement fws = {fl + NormalDistribution<1>(0, sigma2_fl).getSample(), fr + NormalDistribution<1>(0, sigma2_fr).getSample()};
+//      WheelsSpeedMeasurement fws = {fl + NormalDistribution<1>(0, sigma2_fl).getSample(), fr + NormalDistribution<1>(0, sigma2_fr).getSample()};
+      WheelsSpeedMeasurement fws = {fl, fr};
       frontWheelsSpeedMeasurements.push_back(
         std::make_pair(navigationMeasurements.back().first, fws));
-      WheelsSpeedMeasurement rws = {rl + NormalDistribution<1>(0, sigma2_rl).getSample(), rr + NormalDistribution<1>(0, sigma2_rr).getSample()};
+//      WheelsSpeedMeasurement rws = {rl + NormalDistribution<1>(0, sigma2_rl).getSample(), rr + NormalDistribution<1>(0, sigma2_rr).getSample()};
+      WheelsSpeedMeasurement rws = {rl, rr};
       rearWheelsSpeedMeasurements.push_back(
         std::make_pair(navigationMeasurements.back().first, rws));
-      SteeringMeasurement steering = {st + NormalDistribution<1>(0, sigma2_st).getSample()};
+//      SteeringMeasurement steering = {st + NormalDistribution<1>(0, sigma2_st).getSample()};
+      SteeringMeasurement steering = {st};
       steeringMeasurements.push_back(
         std::make_pair(navigationMeasurements.back().first, steering));
       const Eigen::Matrix4d T_wi_k(Transformation(r2quat(C_wi),
@@ -341,8 +344,8 @@ int main(int argc, char** argv) {
   options.doLevenbergMarquardt = false;
   options.linearSolver = "sparse_qr";
   SparseQRLinearSolverOptions linearSolverOptions;
-  linearSolverOptions.colNorm = true;
-  linearSolverOptions.qrTol = 0.5;
+//  linearSolverOptions.colNorm = true;
+//  linearSolverOptions.qrTol = 0.5;
   Optimizer2 optimizer(options);
   optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
     linearSolverOptions);

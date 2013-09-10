@@ -266,11 +266,11 @@ namespace aslam {
       else
         numSegments = numMeasurements;
       _translationSpline = boost::make_shared<TranslationSpline>();
-      BSplineFitter<TranslationSpline>::initUniformSplineSparse(
+      BSplineFitter<TranslationSpline>::initUniformSpline(
         *_translationSpline, timestamps, transPoses, numSegments,
         _options.poseSplineLambda);
       _rotationSpline = boost::make_shared<RotationSpline>();
-      BSplineFitter<RotationSpline>::initUniformSplineSparse(
+      BSplineFitter<RotationSpline>::initUniformSpline(
         *_rotationSpline, timestamps, rotPoses, numSegments,
         _options.poseSplineLambda);
       batch->addSpline(_translationSpline, 0);

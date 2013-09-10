@@ -253,11 +253,9 @@ int main(int argc, char** argv) {
   UnitQuaternionBSpline<Eigen::Dynamic, ::NsecTimePolicy>::TYPE rotSpline(
     splineOrder);
   BSplineFitter<EuclideanBSpline<Eigen::Dynamic, 3, ::NsecTimePolicy>::TYPE>::
-    initUniformSplineSparse(transSpline, timestamps, transPoses, numSegments,
-    lambda);
+    initUniformSpline(transSpline, timestamps, transPoses, numSegments, lambda);
   BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic, ::NsecTimePolicy>::TYPE>::
-    initUniformSplineSparse(rotSpline, timestamps, rotPoses, numSegments,
-    lambda);
+    initUniformSpline(rotSpline, timestamps, rotPoses, numSegments, lambda);
   std::cout << "Outputting raw data to MATLAB..." << std::endl;
   std::ofstream applanixRawMATLABFile("applanix-raw.txt");
   for (auto it = navigationMeasurements.cbegin();

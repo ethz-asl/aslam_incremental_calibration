@@ -208,15 +208,15 @@ int main(int argc, char** argv) {
     EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF::ManifoldConf(3),
     transSplineOrder));
   BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::
-    CONF>::BSpline>::initUniformSplineSparse(translationSpline, timestamps,
+    CONF>::BSpline>::initUniformSpline(translationSpline, timestamps,
     transPoses, numSegments, lambda);
   OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF>::
     BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
     ::CONF(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF::
     ManifoldConf(), rotSplineOrder));
   BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
-    ::CONF>::BSpline>::initUniformSplineSparse(rotationSpline, timestamps,
-    rotPoses, numSegments, lambda);
+    ::CONF>::BSpline>::initUniformSpline(rotationSpline, timestamps, rotPoses,
+    numSegments, lambda);
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {

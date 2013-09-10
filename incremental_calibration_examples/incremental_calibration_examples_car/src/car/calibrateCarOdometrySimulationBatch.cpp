@@ -279,14 +279,14 @@ int main(int argc, char** argv) {
     ::NsecTimePolicy>::CONF(EuclideanBSpline<Eigen::Dynamic, 3,
     ::NsecTimePolicy>::CONF::ManifoldConf(3), splineOrder));
   BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3,
-    ::NsecTimePolicy>::CONF>::BSpline>::initUniformSplineSparse(
-    translationSpline, timestamps, transPoses, numSegments, lambda);
+    ::NsecTimePolicy>::CONF>::BSpline>::initUniformSpline(translationSpline,
+    timestamps, transPoses, numSegments, lambda);
   OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, ::NsecTimePolicy>::CONF>::
     BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic,
     ::NsecTimePolicy>::CONF(UnitQuaternionBSpline<Eigen::Dynamic,
     ::NsecTimePolicy>::CONF::ManifoldConf(), splineOrder));
   BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic,
-    ::NsecTimePolicy>::CONF>::BSpline>::initUniformSplineSparse(rotationSpline,
+    ::NsecTimePolicy>::CONF>::BSpline>::initUniformSpline(rotationSpline,
     timestamps, rotPoses, numSegments, lambda);
 
   std::cout << "Outputting spline data before optimization..." << std::endl;
