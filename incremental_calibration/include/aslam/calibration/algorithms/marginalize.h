@@ -48,9 +48,17 @@ namespace aslam {
      * \param[in] j index from where to marginalize
      * \param[in] normTol tolerance for a zero norm column
      * \param[in] epsTol tolerance for SVD tolerance computation
+     * \param[out] NS null space of the marginalized system
+     * \param[out] CS column space of the marginalized system
+     * \param[out] Sigma covariance of the marginalized system
+     * \param[out] SigmaP projected covariance of the marginalized system
+     * \param[out] Omega marginalized Jacobian
+     * \return sum of the log of the singular values of the marginalized system
      */
-    void marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>& Jt,
-      size_t j, double normTol = 1e-8, double epsTol = 1e-4);
+    double marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>& Jt,
+      size_t j, Eigen::MatrixXd& NS, Eigen::MatrixXd& CS,
+      Eigen::MatrixXd& Sigma, Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega,
+      double normTol = 1e-8, double epsTol = 1e-4);
 
     /** 
      * This function returns the marginal Jacobian from two submatrices.

@@ -36,6 +36,7 @@
 
 #include "aslam/calibration/algorithms/permute.h"
 #include "aslam/calibration/algorithms/matrixOperations.h"
+#include "aslam/calibration/algorithms/marginalize.h"
 #include "aslam/calibration/statistics/UniformDistribution.h"
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 
@@ -88,4 +89,10 @@ TEST(AslamCalibrationTestSuite, testAlgorithms) {
   const double JCov1Det = JCov1.determinant();
   ASSERT_NEAR(sumLogDiagR1, std::fabs(std::log2(std::fabs(JCov1Det))) / 2,
     1e-9);
+  Eigen::MatrixXd NS, CS, Sigma, SigmaP, Omega;
+  const double svLogSum = marginalize(JTransposeSparse, 0, NS, CS, Sigma,
+    SigmaP, Omega);
+  sm::eigen::assertNear(JCov1, Sigma, 1e-6, SM_SOURCE_FILE_POS,
+    "SVD covariance recovery failed");
+  ASSERT_NEAR(svLogSum,  std::fabs(std::log2(std::fabs(JCov1Det))), 1e-9);
 }

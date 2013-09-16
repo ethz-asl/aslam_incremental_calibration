@@ -107,8 +107,10 @@ namespace aslam {
       return OmegaDense;
     }
 
-    void marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>& Jt,
-        size_t j, double normTol, double epsTol) {
+    double marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>&
+        Jt, size_t j, Eigen::MatrixXd& NS, Eigen::MatrixXd& CS, Eigen::MatrixXd&
+        Sigma, Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega, double normTol,
+        double epsTol) {
       // init cholmod
       cholmod_common cholmod;
       cholmod_l_start(&cholmod);
@@ -149,7 +151,7 @@ namespace aslam {
           "cholmod_l_transpose failed");
 
       // compute the marginal Jacobian
-      const Eigen::MatrixXd Omega = marginalJacobian(J_x, J_thetat, &cholmod);
+      Omega = marginalJacobian(J_x, J_thetat, &cholmod);
 
       // scale J_x
       cholmod_dense* G_x = cholmod_l_allocate_dense(J_x->ncol, 1, J_x->ncol,
@@ -221,15 +223,14 @@ namespace aslam {
       const Eigen::MatrixXd& V = svd.matrixV();
 
       // compute the numerical column space
-      const Eigen::MatrixXd CS = V.block(0, 0, V.rows(), nrank);
+      CS = V.block(0, 0, V.rows(), nrank);
 
       // compute the numerical null space
-      const Eigen::MatrixXd NS = V.block(0, nrank, V.rows(),
-        Omega.cols() - nrank);
+      NS = V.block(0, nrank, V.rows(), Omega.cols() - nrank);
 
       // compute the projected covariance matrix
       Eigen::MatrixXd invS(Eigen::MatrixXd::Zero(Omega.cols(), Omega.cols()));
-      Eigen::MatrixXd SigmaP(Eigen::MatrixXd::Zero(nrank, nrank));
+      SigmaP = Eigen::MatrixXd::Zero(nrank, nrank);
       double svLogSum = 0;
       const Eigen::VectorXd& S = svd.singularValues();
       for (size_t i = 0; i < nrank; ++i) {
@@ -239,7 +240,8 @@ namespace aslam {
       }
 
       // compute the covariance matrix
-      const Eigen::MatrixXd Sigma = V * invS * V.transpose();
+      Sigma = V * invS * V.transpose();
+      return svLogSum;
     }
 
   }
