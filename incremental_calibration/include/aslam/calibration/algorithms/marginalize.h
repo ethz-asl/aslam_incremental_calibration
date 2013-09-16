@@ -41,7 +41,9 @@ namespace aslam {
       @{
       */
     /** 
-     * This function marginalizes variables from a sparse Jacobian.
+     * This function marginalizes variables from a sparse Jacobian. The Jacobian
+     * is assumed to be ordered in such a way that the variables to be
+     * marginalized are located to the right and start with index j.
      * \brief Variables marginalization
      * 
      * \param[in] Jt Jacobian transpose as outputted by linear solvers
@@ -55,9 +57,9 @@ namespace aslam {
      * \param[out] Omega marginalized Jacobian
      * \return sum of the log of the singular values of the marginalized system
      */
-    double marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>& Jt,
-      size_t j, Eigen::MatrixXd& NS, Eigen::MatrixXd& CS,
-      Eigen::MatrixXd& Sigma, Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega,
+    double marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>&
+      Jt, size_t j, Eigen::MatrixXd& NS, Eigen::MatrixXd& CS, Eigen::MatrixXd&
+      Sigma, Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega,
       double normTol = 1e-8, double epsTol = 1e-4);
 
     /** 

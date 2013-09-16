@@ -41,7 +41,7 @@
 #include <aslam/calibration/statistics/NormalDistribution.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/geometry/Transformation.h>
-#include <aslam/calibration/algorithms/matrixOperations.h>
+#include <aslam/calibration/algorithms/marginalize.h>
 #include <aslam/calibration/base/Timestamp.h>
 
 #include "aslam/calibration/2dlrf/utils.h"
@@ -259,11 +259,13 @@ int main(int argc, char** argv) {
     optimizer.optimize();
 
     // Sigma computation
-    const CompressedColumnMatrix<ssize_t>& RFactor =
-      optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
-    const size_t numCols = RFactor.cols();
-    Eigen::MatrixXd Sigma = computeCovariance(RFactor,
-      numCols - dv_Theta->minimalDimensions(), numCols - 1);
+    const size_t dim = 3;
+    const size_t numCols = optimizer.getSolver<SparseQrLinearSystemSolver>()->
+      getJacobianTranspose().rows();
+    Eigen::MatrixXd NS, CS, Sigma, SigmaP, Omega;
+    marginalize(
+      optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose(),
+      numCols - dim, NS, CS, Sigma, SigmaP, Omega);
     const double SigmaDet = Sigma.determinant();
 
     std::cout << "Calibration after: " << *dv_Theta << std::endl;

@@ -255,16 +255,6 @@ int main(int argc, char** argv) {
   std::ofstream jacobianFile("J.txt");
   incrementalEstimator.getJacobianTranspose().writeMATLAB(jacobianFile);
 
-  // for debugging purpose, output the current permutation vector
-  std::ofstream PFile("P.txt");
-  std::vector<ssize_t> P = incrementalEstimator.getPermutationVector();
-  for (auto it = P.cbegin(); it != P.cend(); ++it)
-    PFile << *it << std::endl;
-
-  // for debugging purpose, output the R matrix
-  std::ofstream RFile("R.txt");
-  incrementalEstimator.getR().writeMATLAB(RFile);
-
   // for debugging purpose, output some infos
   std::cout << "MI: " << incrementalEstimator.getMutualInformation()
     << std::endl;

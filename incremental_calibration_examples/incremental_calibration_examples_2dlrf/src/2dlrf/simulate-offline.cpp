@@ -21,6 +21,7 @@
   */
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <vector>
 
@@ -44,7 +45,7 @@
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/geometry/Transformation.h>
 #include <aslam/calibration/base/Timestamp.h>
-#include <aslam/calibration/algorithms/matrixOperations.h>
+#include <aslam/calibration/algorithms/marginalize.h>
 
 #include "aslam/calibration/2dlrf/utils.h"
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
@@ -223,12 +224,21 @@ int main(int argc, char** argv) {
   const double after = Timestamp::now();
   std::cout << "Elapsed time [s]: " << after - before << std::endl;
   std::cout << "Calibration after: " << *dv_Theta << std::endl;
-  const CompressedColumnMatrix<ssize_t>& RFactor =
-    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
-  const size_t numCols = RFactor.cols();
-  std::cout << "Sigma: " << std::endl
-    << computeCovariance(RFactor, numCols - dv_Theta->minimalDimensions(),
-    numCols - 1) << std::endl;
+  const size_t dim = problem->getGroupDim(2);
+  const size_t numCols = optimizer.getSolver<SparseQrLinearSystemSolver>()->
+    getJacobianTranspose().rows();
+  Eigen::MatrixXd NS, CS, Sigma, SigmaP, Omega;
+  marginalize(
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose(),
+    numCols - dim, NS, CS, Sigma, SigmaP, Omega);
+  std::cout << "Sigma: " << std::endl << std::fixed << std::setprecision(18)
+    << Sigma << std::endl;
+  std::cout << "SigmaP: " << std::endl << std::fixed << std::setprecision(18)
+    << SigmaP << std::endl;
+  std::cout << "NS: " << std::endl << std::fixed << std::setprecision(18)
+    << NS << std::endl;
+  std::cout << "CS: " << std::endl << std::fixed << std::setprecision(18)
+    << CS << std::endl;
 
   // output results to file
   std::ofstream x_true_log("x_true.txt");

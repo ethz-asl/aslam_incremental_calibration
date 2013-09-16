@@ -34,6 +34,7 @@ namespace aslam {
   namespace backend {
 
     class SparseQrLinearSystemSolver;
+    class GaussNewtonTrustRegionPolicy;
     class Optimizer2;
     template<typename I> class CompressedColumnMatrix;
     struct SolutionReturnValue;
@@ -64,6 +65,8 @@ namespace aslam {
       typedef IncrementalEstimator Self;
       /// Solver type
       typedef aslam::backend::SparseQrLinearSystemSolver LinearSolver;
+      /// Trust region type
+      typedef aslam::backend::GaussNewtonTrustRegionPolicy TrustRegionPolicy;
       /// Optimizer type
       typedef aslam::backend::Optimizer2 Optimizer;
       /// Optimizer type (shared_ptr)
@@ -108,6 +111,16 @@ namespace aslam {
         double _elapsedTime;
         /// Current memory usage in bytes for the linear solver
         size_t _cholmodMemoryUsage;
+        /// Null space of the marginalized system
+        Eigen::MatrixXd _NS;
+        /// Column space of the marginalized system
+        Eigen::MatrixXd _CS;
+        /// Covariance of the marginalized system
+        Eigen::MatrixXd _Sigma;
+        /// Projected covariance of the marginalized system
+        Eigen::MatrixXd _SigmaP;
+        /// Marginalized Jacobian
+        Eigen::MatrixXd _Omega;
       };
       /** @}
         */
@@ -141,8 +154,6 @@ namespace aslam {
       void removeBatch(const BatchSP& batch);
       /// The number of batches
       size_t getNumBatches() const;
-      /// Returns the covariance matrix of the marginalized variables
-      Eigen::MatrixXd getMarginalizedCovariance() const;
       /// Re-runs the optimizer
       ReturnValue reoptimize();
       /** @}
@@ -168,12 +179,16 @@ namespace aslam {
       size_t getRank() const;
       /// Returns the current tolerance for the QR decomposition
       double getQRTol() const;
-      /// Returns the current permutation vector used in QR decomposition
-      std::vector<ssize_t> getPermutationVector() const;
-      /// Returns the R factor from the QR decomposition
-      const aslam::backend::CompressedColumnMatrix<ssize_t>& getR() const;
       /// Returns the current memory usage for the linear solver
       size_t getCholmodMemoryUsage() const;
+      /// Returns the current null space
+      const Eigen::MatrixXd& getNullSpace() const;
+      /// Returns the current column space
+      const Eigen::MatrixXd& getColumnSpace() const;
+      /// Returns the current marginalized covariance
+      const Eigen::MatrixXd& getMarginalizedCovariance() const;
+      /// Returns the current projected marginalized covariance
+      const Eigen::MatrixXd& getProjectedMarginalizedCovariance() const;
       /** @}
         */
 
@@ -185,8 +200,6 @@ namespace aslam {
       aslam::backend::SolutionReturnValue optimize();
       /// Ensures the marginalized variables are well located
       void orderMarginalizedDesignVariables();
-      /// Returns the sum of the log of the diagonal elements of R
-      double getSumLogDiagR() const;
       /// Inits the linear solver
       void initLinearSolver();
       /// Restores the linear solver
@@ -203,14 +216,22 @@ namespace aslam {
       size_t _margGroupId;
       /// Mutual information
       double _mi;
-      /// Sum of the log of the diagonal elements of R
-      double _sumLogDiagR;
+      /// Sum of the log of the singular values up to the numerical rank
+      double _svLogSum;
       /// Options
       Options _options;
-      /// Default options
-      static const struct Options _defaultOptions;
       /// Underlying optimizer
       OptimizerSP _optimizer;
+      /// Null space of the marginalized system
+      Eigen::MatrixXd _NS;
+      /// Column space of the marginalized system
+      Eigen::MatrixXd _CS;
+      /// Covariance of the marginalized system
+      Eigen::MatrixXd _Sigma;
+      /// Projected covariance of the marginalized system
+      Eigen::MatrixXd _SigmaP;
+      /// Marginalized Jacobian
+      Eigen::MatrixXd _Omega;
       /** @}
         */
 

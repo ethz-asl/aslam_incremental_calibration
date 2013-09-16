@@ -33,7 +33,7 @@
 #include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 #include "aslam/calibration/base/Timestamp.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
-#include "aslam/calibration/algorithms/matrixOperations.h"
+#include "aslam/calibration/algorithms/marginalize.h"
 
 namespace aslam {
   namespace calibration {
@@ -47,17 +47,15 @@ namespace aslam {
         _problem(boost::make_shared<IncrementalOptimizationProblem>()),
         _margGroupId(groupId),
         _mi(0),
-        _sumLogDiagR(0),
+        _svLogSum(0),
         _options(options),
         _optimizer(boost::make_shared<Optimizer>()) {
       // optimization options
       aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
       optOptions.verbose = _options._verbose;
       optOptions.maxIterations = _options._maxIterations;
-      optOptions.linearSystemSolver =
-        boost::make_shared<aslam::backend::SparseQrLinearSystemSolver>();
-      optOptions.trustRegionPolicy =
-        boost::make_shared<aslam::backend::GaussNewtonTrustRegionPolicy>();
+      optOptions.linearSystemSolver = boost::make_shared<LinearSolver>();
+      optOptions.trustRegionPolicy = boost::make_shared<TrustRegionPolicy>();
 
       // attach the problem to the optimizer
       _optimizer->setProblem(_problem);
@@ -105,17 +103,26 @@ namespace aslam {
       return _optimizer->getSolver<LinearSolver>()->getTol();
     }
 
-    std::vector<ssize_t> IncrementalEstimator::getPermutationVector() const {
-      return _optimizer->getSolver<LinearSolver>()->getPermutationVector();
-    }
-
-    const aslam::backend::CompressedColumnMatrix<ssize_t>&
-        IncrementalEstimator::getR() const {
-      return _optimizer->getSolver<LinearSolver>()->getR();
-    }
-
     size_t IncrementalEstimator::getCholmodMemoryUsage() const {
       return _optimizer->getSolver<LinearSolver>()->getMemoryUsage();
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getNullSpace() const {
+      return _NS;
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getColumnSpace() const {
+      return _CS;
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedCovariance()
+        const {
+      return _Sigma;
+    }
+
+    const Eigen::MatrixXd&
+        IncrementalEstimator::getProjectedMarginalizedCovariance() const {
+      return _SigmaP;
     }
 
 /******************************************************************************/
@@ -139,6 +146,16 @@ namespace aslam {
 
       // return value
       ReturnValue ret;
+
+      // analyze marginalized system
+      const size_t dim = _problem->getGroupDim(_margGroupId);
+      const size_t numCols = getJacobianTranspose().rows();
+      _svLogSum =  marginalize(getJacobianTranspose(), numCols - dim, ret._NS,
+        ret._CS, ret._Sigma, ret._SigmaP, ret._Omega);
+      _NS = ret._NS;
+      _CS = ret._CS;
+      _Sigma = ret._Sigma;
+      _SigmaP = ret._SigmaP;
 
       // update output structure
       ret._batchAccepted = false;
@@ -175,31 +192,49 @@ namespace aslam {
           srv.JFinal >= srv.JStart)
         solutionValid = false;
 
-      // compute the sum log diag R
-      const double sumLogDiagR = getSumLogDiagR();
-
       // batch is kept?
       bool keepBatch = false;
 
       // return value
       ReturnValue ret;
 
+      // analyze marginalized system
+      const size_t dim = _problem->getGroupDim(_margGroupId);
+      const size_t numCols = getJacobianTranspose().rows();
+      const double svLogSum = marginalize(getJacobianTranspose(), numCols - dim,
+        ret._NS, ret._CS, ret._Sigma, ret._SigmaP, ret._Omega);
+
       // first round of estimation?
-      if (!_sumLogDiagR && solutionValid) {
-        _sumLogDiagR = sumLogDiagR;
+      if (!_svLogSum && solutionValid) {
+        _svLogSum = svLogSum;
         keepBatch = true;
         ret._mi = 0;
+        _NS = ret._NS;
+        _CS = ret._CS;
+        _Sigma = ret._Sigma;
+        _SigmaP = ret._SigmaP;
+        _Omega = ret._Omega;
       }
       else {
         // compute MI
-        const double mi = sumLogDiagR - _sumLogDiagR;
+        const double mi = 0.5 * (svLogSum - _svLogSum);
         ret._mi = mi;
 
-        // MI improvement
-        if (mi > _options._miTol && solutionValid) {
-          _sumLogDiagR = sumLogDiagR;
+        // warning for rank going down
+        if (ret._CS.cols() < _CS.cols() && _options._verbose)
+          std::cerr << "WARNING: RANK GOING DOWN!" << std::endl;
+
+        // MI improvement or rank goes up
+        if ((mi > _options._miTol || ret._CS.cols() > _CS.cols())
+            && solutionValid) {
+          _svLogSum = svLogSum;
           keepBatch = true;
           _mi = mi;
+          _NS = ret._NS;
+          _CS = ret._CS;
+          _Sigma = ret._Sigma;
+          _SigmaP = ret._SigmaP;
+          _Omega = ret._Omega;
         }
       }
 
@@ -244,9 +279,12 @@ namespace aslam {
       optimize();
 
       // update mutual information
-      const double sumLogDiagR = getSumLogDiagR();
-      _mi = sumLogDiagR - _sumLogDiagR;
-      _sumLogDiagR = sumLogDiagR;
+      const size_t dim = _problem->getGroupDim(_margGroupId);
+      const size_t numCols = getJacobianTranspose().rows();
+      const double svLogSum = marginalize(getJacobianTranspose(), numCols - dim,
+        _NS, _CS, _Sigma, _SigmaP, _Omega);
+      _mi = svLogSum - _svLogSum;
+      _svLogSum = svLogSum;
     }
 
     void IncrementalEstimator::removeBatch(const BatchSP& batch) {
@@ -258,13 +296,6 @@ namespace aslam {
     size_t IncrementalEstimator::getNumBatches() const
     {
       return _problem->getNumOptimizationProblems();
-    }
-
-    Eigen::MatrixXd IncrementalEstimator::getMarginalizedCovariance() const {
-      const size_t dim = _problem->getGroupDim(_margGroupId);
-      const aslam::backend::CompressedColumnMatrix<ssize_t>& R = getR();
-      const size_t numCols = R.cols();
-      return computeCovariance(R, numCols - dim, numCols - 1);
     }
 
     void IncrementalEstimator::orderMarginalizedDesignVariables() {
@@ -283,13 +314,6 @@ namespace aslam {
       }
     }
 
-    double IncrementalEstimator::getSumLogDiagR() const {
-      const size_t dim = _problem->getGroupDim(_margGroupId);
-      const aslam::backend::CompressedColumnMatrix<ssize_t>& R = getR();
-      const size_t numCols = R.cols();
-      return computeSumLogDiagR(R, numCols - dim, numCols - 1);
-    }
-
     void IncrementalEstimator::initLinearSolver() {
       // linear solver options
       aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
@@ -297,7 +321,13 @@ namespace aslam {
       linearSolverOptions.qrTol = _options._qrTol;
 
       // reset the linear solver
+      aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
+      optOptions.verbose = _options._verbose;
+      optOptions.maxIterations = _options._maxIterations;
+      optOptions.linearSystemSolver = boost::make_shared<LinearSolver>();
+      optOptions.trustRegionPolicy = boost::make_shared<TrustRegionPolicy>();
       _optimizer->initializeLinearSolver();
+      _optimizer->initializeTrustRegionPolicy();
 
       // set options to the linear solver
       _optimizer->getSolver<LinearSolver>()->setOptions(linearSolverOptions);
