@@ -49,6 +49,7 @@
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
+#include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
@@ -277,8 +278,9 @@ int main(int argc, char** argv) {
   }
   Optimizer2Options options;
   options.verbose = true;
-  options.doLevenbergMarquardt = false;
-  options.linearSolver = "sparse_qr";
+  options.linearSystemSolver = boost::make_shared<SparseQrLinearSystemSolver>();
+  options.trustRegionPolicy =
+    boost::make_shared<GaussNewtonTrustRegionPolicy>();
   SparseQRLinearSolverOptions linearSolverOptions;
   linearSolverOptions.colNorm = true;
   Optimizer2 optimizer(options);

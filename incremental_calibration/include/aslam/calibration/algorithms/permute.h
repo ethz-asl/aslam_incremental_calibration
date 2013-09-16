@@ -20,20 +20,32 @@
     \brief This file defines the permute function, which permutes containers.
   */
 
-#ifndef ASLAM_CALIBRATION_PERMUTE_H
-#define ASLAM_CALIBRATION_PERMUTE_H
+#ifndef ASLAM_CALIBRATION_ALGORITHMS_PERMUTE_H
+#define ASLAM_CALIBRATION_ALGORITHMS_PERMUTE_H
 
 #include <vector>
 
 namespace aslam {
   namespace calibration {
-    /// Permutes an stl vector
+
+    /** \name Methods
+      @{
+      */
+    /** 
+     * This function permutes an STL vector.
+     * \brief STL vector permutation
+     * 
+     * \param[in, out] container vector to be permuted
+     * \param[in] permutation permutation vector
+     */
     template <typename T> void permute(std::vector<T>& container,
       const std::vector<size_t>& permutation);
+    /** @}
+      */
 
   }
 }
 
 #include "aslam/calibration/algorithms/permute.tpp"
 
-#endif // ASLAM_CALIBRATION_PERMUTE_H
+#endif // ASLAM_CALIBRATION_ALGORITHMS_PERMUTE_H

@@ -26,6 +26,7 @@
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
+#include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 #include <aslam/backend/CompressedColumnMatrix.hpp>
 
@@ -52,9 +53,11 @@ namespace aslam {
       // optimization options
       aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
       optOptions.verbose = _options._verbose;
-      optOptions.doLevenbergMarquardt = false;
-      optOptions.linearSolver = "sparse_qr";
       optOptions.maxIterations = _options._maxIterations;
+      optOptions.linearSystemSolver =
+        boost::make_shared<aslam::backend::SparseQrLinearSystemSolver>();
+      optOptions.trustRegionPolicy =
+        boost::make_shared<aslam::backend::GaussNewtonTrustRegionPolicy>();
 
       // attach the problem to the optimizer
       _optimizer->setProblem(_problem);

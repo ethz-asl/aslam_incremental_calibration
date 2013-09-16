@@ -42,6 +42,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/core/IncrementalEstimator.cpp
   src/core/OptimizationProblem.cpp
   src/core/IncrementalOptimizationProblem.cpp
+  src/algorithms/marginalize.cpp
 )
 
 rosbuild_add_gtest(${PROJECT_NAME}_test

@@ -34,6 +34,7 @@
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
+#include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 
 #include <aslam/calibration/statistics/UniformDistribution.h>
@@ -244,8 +245,10 @@ int main(int argc, char** argv) {
     // optimization round
     Optimizer2Options options;
     options.verbose = true;
-    options.doLevenbergMarquardt = false;
-    options.linearSolver = "sparse_qr";
+    options.linearSystemSolver =
+      boost::make_shared<SparseQrLinearSystemSolver>();
+    options.trustRegionPolicy =
+      boost::make_shared<GaussNewtonTrustRegionPolicy>();
     SparseQRLinearSolverOptions linearSolverOptions;
     linearSolverOptions.colNorm = true;
     linearSolverOptions.qrTol = 0.02;

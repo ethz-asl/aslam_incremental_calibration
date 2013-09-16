@@ -48,6 +48,7 @@
 #include <aslam/backend/Optimizer2.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
+#include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
@@ -341,11 +342,12 @@ int main(int argc, char** argv) {
   std::cout << "Optimizing..." << std::endl;
   Optimizer2Options options;
   options.verbose = true;
-  options.doLevenbergMarquardt = false;
-  options.linearSolver = "sparse_qr";
+  options.linearSystemSolver = boost::make_shared<SparseQrLinearSystemSolver>();
+  options.trustRegionPolicy =
+    boost::make_shared<GaussNewtonTrustRegionPolicy>();
   SparseQRLinearSolverOptions linearSolverOptions;
-//  linearSolverOptions.colNorm = true;
-//  linearSolverOptions.qrTol = 0.5;
+  linearSolverOptions.colNorm = true;
+  linearSolverOptions.qrTol = 0.02;
   Optimizer2 optimizer(options);
   optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
     linearSolverOptions);

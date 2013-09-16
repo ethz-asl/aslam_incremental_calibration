@@ -46,6 +46,7 @@
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/TransformationExpression.hpp>
 #include <aslam/backend/MEstimatorPolicies.hpp>
+#include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 
 #include <aslam/calibration/statistics/NormalDistribution.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
@@ -560,11 +561,12 @@ int main(int argc, char** argv) {
   std::cout << "Optimizing..." << std::endl;
   aslam::backend::Optimizer2Options options;
   options.verbose = true;
-  options.doLevenbergMarquardt = false;
-  options.linearSolver = "sparse_qr";
+  options.linearSystemSolver = boost::make_shared<SparseQrLinearSystemSolver>();
+  options.trustRegionPolicy =
+    boost::make_shared<GaussNewtonTrustRegionPolicy>();
   aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
   linearSolverOptions.colNorm = true;
-//  linearSolverOptions.qrTol = -1;
+  linearSolverOptions.qrTol = 0.02;
   aslam::backend::Optimizer2 optimizer(options);
   optimizer.getSolver<aslam::backend::SparseQrLinearSystemSolver>()
     ->setOptions(linearSolverOptions);
