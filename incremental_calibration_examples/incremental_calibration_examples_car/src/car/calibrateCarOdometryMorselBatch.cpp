@@ -26,6 +26,8 @@
 #include <string>
 #include <sstream>
 
+#include <boost/make_shared.hpp>
+
 #include <Eigen/Core>
 
 #include <sm/kinematics/rotations.hpp>
@@ -561,9 +563,10 @@ int main(int argc, char** argv) {
   std::cout << "Optimizing..." << std::endl;
   aslam::backend::Optimizer2Options options;
   options.verbose = true;
-  options.linearSystemSolver = boost::make_shared<SparseQrLinearSystemSolver>();
+  options.linearSystemSolver =
+    boost::make_shared<aslam::backend::SparseQrLinearSystemSolver>();
   options.trustRegionPolicy =
-    boost::make_shared<GaussNewtonTrustRegionPolicy>();
+    boost::make_shared<aslam::backend::GaussNewtonTrustRegionPolicy>();
   aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
   linearSolverOptions.colNorm = true;
   linearSolverOptions.qrTol = 0.02;
