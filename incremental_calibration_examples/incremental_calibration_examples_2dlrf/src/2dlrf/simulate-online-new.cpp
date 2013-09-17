@@ -243,6 +243,13 @@ int main(int argc, char** argv) {
     std::cout << "Time [s]: " << ret._elapsedTime << std::endl;
     std::cout << "Cholmod memory [MB]: " <<
       ret._cholmodMemoryUsage / 1024.0 / 1024.0 << std::endl;
+    std::cout << "rank: " << incrementalEstimator.getRank() << std::endl;
+    std::cout << "rank deficiency: " << incrementalEstimator.getRankDeficiency()
+      << std::endl;
+    std::cout << "marginal rank: " << incrementalEstimator.getMarginalRank()
+      << std::endl;
+    std::cout << "marginal rank deficiency: "
+      << incrementalEstimator.getMarginalRankDeficiency() << std::endl;
     ret._batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
     std::cout << std::endl;
   }

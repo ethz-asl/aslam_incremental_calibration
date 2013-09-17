@@ -176,7 +176,8 @@ namespace aslam {
       const size_t dim = _problem->getGroupDim(_margGroupId);
       const size_t numCols = getJacobianTranspose().rows();
       _svLogSum =  marginalize(getJacobianTranspose(), numCols - dim, ret._NS,
-        ret._CS, ret._Sigma, ret._SigmaP, ret._Omega);
+        ret._CS, ret._Sigma, ret._SigmaP, ret._Omega, _options._normTol,
+        _options._epsTolSVD);
       _NS = ret._NS;
       _CS = ret._CS;
       _Sigma = ret._Sigma;
@@ -232,7 +233,8 @@ namespace aslam {
       const size_t dim = _problem->getGroupDim(_margGroupId);
       const size_t numCols = getJacobianTranspose().rows();
       const double svLogSum = marginalize(getJacobianTranspose(), numCols - dim,
-        ret._NS, ret._CS, ret._Sigma, ret._SigmaP, ret._Omega);
+        ret._NS, ret._CS, ret._Sigma, ret._SigmaP, ret._Omega,
+        _options._normTol, _options._epsTolSVD);
 
       // first round of estimation?
       if (!_svLogSum && solutionValid) {
@@ -316,7 +318,8 @@ namespace aslam {
       const size_t dim = _problem->getGroupDim(_margGroupId);
       const size_t numCols = getJacobianTranspose().rows();
       const double svLogSum = marginalize(getJacobianTranspose(), numCols - dim,
-        _NS, _CS, _Sigma, _SigmaP, _Omega);
+        _NS, _CS, _Sigma, _SigmaP, _Omega, _options._normTol,
+        _options._epsTolSVD);
       _mi = svLogSum - _svLogSum;
       _svLogSum = svLogSum;
       _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
@@ -355,6 +358,7 @@ namespace aslam {
         _optimizer->getSolver<LinearSolver>()->getOptions();
       linearSolverOptions.colNorm = _options._colNorm;
       linearSolverOptions.qrTol = _options._qrTol;
+      linearSolverOptions.normTol = _options._normTol;
 
       // optimizer options
       aslam::backend::Optimizer2Options& optOptions = _optimizer->options();

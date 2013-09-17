@@ -78,7 +78,9 @@ namespace aslam {
             _qrTol(0.02),
             _verbose(true),
             _colNorm(true),
-            _maxIterations(20) {
+            _maxIterations(20),
+            _normTol(1e-8),
+            _epsTolSVD(1e-4) {
         }
         /// Mutual information threshold
         double _miTol;
@@ -88,8 +90,12 @@ namespace aslam {
         bool _verbose;
         /// Perform column normalization
         bool _colNorm;
-        /// maximum number of iterations for the optimizer
+        /// Maximum number of iterations for the optimizer
         size_t _maxIterations;
+        /// Tolerance for zero 2-norm column
+        double _normTol;
+        /// EPS tolerance for SVD tolerance computation
+        double _epsTolSVD;
       };
       /// Return value when adding a batch
       struct ReturnValue {
