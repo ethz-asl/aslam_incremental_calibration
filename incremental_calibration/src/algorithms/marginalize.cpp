@@ -61,36 +61,56 @@ namespace aslam {
       // compute the Jacobian of the reduced system
       cholmod_sparse* J_thetatQFull = SuiteSparseQR_qmult<double>(SPQR_XQ, QR,
         J_thetat, cholmod);
-      if (J_thetatQFull == NULL)
+      if (J_thetatQFull == NULL) {
+        SuiteSparseQR_free(&QR, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
           "SuiteSparseQR_qmult failed");
+      }
       ssize_t* colIndices = new ssize_t[J_x->ncol];
       for (size_t i = 0; i < J_x->ncol; ++i)
        colIndices[i] = i;
       cholmod_sparse* J_thetatQ = cholmod_l_submatrix(J_thetatQFull, NULL, -1,
         colIndices, J_x->ncol, 1, 0, cholmod);
-      if (J_thetatQ == NULL)
+      delete [] colIndices;
+      if (J_thetatQ == NULL) {
+        SuiteSparseQR_free(&QR, cholmod);
+        cholmod_l_free_sparse(&J_thetatQFull, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
           "cholmod_l_submatrix failed");
-      delete [] colIndices;
+      }
       cholmod_sparse* J_thetat2 = cholmod_l_aat(J_thetat, NULL, 0, 1, cholmod);
-      if (J_thetat2 == NULL)
+      if (J_thetat2 == NULL) {
+        SuiteSparseQR_free(&QR, cholmod);
+        cholmod_l_free_sparse(&J_thetatQFull, cholmod);
+        cholmod_l_free_sparse(&J_thetatQ, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
           "cholmod_l_aat failed");
+      }
       cholmod_sparse* J_thetatQ2 = cholmod_l_aat(J_thetatQ, NULL, 0, 1,
         cholmod);
-      if (J_thetatQ2 == NULL)
+      if (J_thetatQ2 == NULL) {
+        SuiteSparseQR_free(&QR, cholmod);
+        cholmod_l_free_sparse(&J_thetatQFull, cholmod);
+        cholmod_l_free_sparse(&J_thetatQ, cholmod);
+        cholmod_l_free_sparse(&J_thetat2, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
           "cholmod_l_aat failed");
+      }
       double alpha[2];
       alpha[0] = 1;
       double beta[2];
       beta[0] = -1;
       cholmod_sparse* Omega = cholmod_l_add(J_thetat2, J_thetatQ2, alpha, beta,
         1, 0, cholmod);
-      if (Omega == NULL)
+      if (Omega == NULL) {
+        SuiteSparseQR_free(&QR, cholmod);
+        cholmod_l_free_sparse(&J_thetatQFull, cholmod);
+        cholmod_l_free_sparse(&J_thetatQ, cholmod);
+        cholmod_l_free_sparse(&J_thetat2, cholmod);
+        cholmod_l_free_sparse(&J_thetatQ2, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
           "cholmod_l_add failed");
+      }
       aslam::backend::CompressedColumnMatrix<ssize_t> OmegaCCM;
       OmegaCCM.fromCholmodSparse(Omega);
       Eigen::MatrixXd OmegaDense(Omega->nrow, Omega->ncol);
@@ -120,9 +140,11 @@ namespace aslam {
       const_cast<aslam::backend::CompressedColumnMatrix<ssize_t>&>(Jt).
         getView(&JtCs);
       cholmod_sparse* J = cholmod_l_transpose(&JtCs, 1, &cholmod);
-      if (J == NULL)
+      if (J == NULL) {
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_transpose failed");
+      }
 
       // extract the part corresponding to the state/landmarks/...
       ssize_t* colIndices = new ssize_t[j];
@@ -130,10 +152,13 @@ namespace aslam {
        colIndices[i] = i;
       cholmod_sparse* J_x = cholmod_l_submatrix(J, NULL, -1, colIndices, j, 1,
         0, &cholmod);
-      if (J_x == NULL)
+      delete [] colIndices;
+      if (J_x == NULL) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_submatrix failed");
-      delete [] colIndices;
+      }
 
       // extract the part corresponding to the calibration parameters
       colIndices = new ssize_t[J->ncol - j];
@@ -141,59 +166,136 @@ namespace aslam {
        colIndices[i - j] = i;
       cholmod_sparse* J_theta = cholmod_l_submatrix(J, NULL, -1, colIndices,
         J->ncol - j, 1, 0, &cholmod);
-      if (J_theta == NULL)
+      delete [] colIndices;
+      if (J_theta == NULL) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_submatrix failed");
-      delete [] colIndices;
+      }
       cholmod_sparse* J_thetat = cholmod_l_transpose(J_theta, 1, &cholmod);
-      if (J_thetat == NULL)
+      if (J_thetat == NULL) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_transpose failed");
+      }
 
       // compute the marginal Jacobian
-      Omega = marginalJacobian(J_x, J_thetat, &cholmod);
+      try {
+        Omega = marginalJacobian(J_x, J_thetat, &cholmod);
+      }
+      catch (const InvalidOperationException& e) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_finish(&cholmod);
+        throw;
+      }
 
       // scale J_x
       cholmod_dense* G_x = cholmod_l_allocate_dense(J_x->ncol, 1, J_x->ncol,
         CHOLMOD_REAL, &cholmod);
-      if (G_x == NULL)
+      if (G_x == NULL) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_allocate_dense failed");
-      double* values = reinterpret_cast<double*>(G_x->x);
-      for (size_t j = 0; j < J_x->ncol; ++j) {
-        const double normCol = colNorm(J_x, j);
-        if (normCol < normTol)
-          values[j] = 0.0;
-        else
-          values[j] = 1.0 / normCol;
       }
-      if (cholmod_l_scale(G_x, CHOLMOD_COL, J_x, &cholmod) == 0)
+      try {
+        double* values = reinterpret_cast<double*>(G_x->x);
+        for (size_t j = 0; j < J_x->ncol; ++j) {
+          const double normCol = colNorm(J_x, j);
+          if (normCol < normTol)
+            values[j] = 0.0;
+          else
+            values[j] = 1.0 / normCol;
+        }
+      }
+      catch (const OutOfBoundException<size_t>& e) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_free_dense(&G_x, &cholmod) ;
+        cholmod_l_finish(&cholmod);
+        throw;
+      }
+      if (cholmod_l_scale(G_x, CHOLMOD_COL, J_x, &cholmod) == 0) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_free_dense(&G_x, &cholmod) ;
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_scale failed");
+      }
       cholmod_l_free_dense(&G_x, &cholmod) ;
 
       // scale J_thetat
       cholmod_dense* G_theta = cholmod_l_allocate_dense(J_theta->ncol, 1,
         J_theta->ncol, CHOLMOD_REAL, &cholmod);
-      if (G_theta == NULL)
+      if (G_theta == NULL) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_allocate_dense failed");
-      values = reinterpret_cast<double*>(G_theta->x);
-      for (size_t j = 0; j < J_theta->ncol; ++j) {
-        const double normCol = colNorm(J_theta, j);
-        if (normCol < normTol)
-          values[j] = 0.0;
-        else
-          values[j] = 1.0 / normCol;
       }
-      if (cholmod_l_scale(G_theta, CHOLMOD_ROW, J_thetat, &cholmod) == 0)
+      try {
+        double* values = reinterpret_cast<double*>(G_theta->x);
+        for (size_t j = 0; j < J_theta->ncol; ++j) {
+          const double normCol = colNorm(J_theta, j);
+          if (normCol < normTol)
+            values[j] = 0.0;
+          else
+            values[j] = 1.0 / normCol;
+        }
+      }
+      catch (const OutOfBoundException<size_t>& e) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_free_dense(&G_theta, &cholmod) ;
+        cholmod_l_finish(&cholmod);
+        throw;
+      }
+      if (cholmod_l_scale(G_theta, CHOLMOD_ROW, J_thetat, &cholmod) == 0) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_free_dense(&G_theta, &cholmod) ;
+        cholmod_l_finish(&cholmod);
         throw InvalidOperationException("marginalize(): "
           "cholmod_l_scale failed");
+      }
       cholmod_l_free_dense(&G_theta, &cholmod) ;
 
       // compute the scaled marginal Jacobian
-      const Eigen::MatrixXd OmegaScaled = marginalJacobian(J_x, J_thetat,
-        &cholmod);
+      Eigen::MatrixXd OmegaScaled;
+      try {
+        OmegaScaled = marginalJacobian(J_x, J_thetat, &cholmod);
+      }
+      catch (const InvalidOperationException& e) {
+        cholmod_l_free_sparse(&J, &cholmod);
+        cholmod_l_free_sparse(&J_x, &cholmod);
+        cholmod_l_free_sparse(&J_theta, &cholmod);
+        cholmod_l_free_sparse(&J_thetat, &cholmod);
+        cholmod_l_finish(&cholmod);
+        throw;
+      }
 
       // clean cholmod
       cholmod_l_free_sparse(&J, &cholmod);

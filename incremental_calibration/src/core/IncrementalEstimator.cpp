@@ -49,13 +49,15 @@ namespace aslam {
         _mi(0),
         _svLogSum(0),
         _options(options),
-        _optimizer(boost::make_shared<Optimizer>()) {
-      // optimization options
+        _optimizer(boost::make_shared<Optimizer>()),
+        _nRank(0),
+        _qrTol(0) {
+      // create linear solver and trust region policy for the optimizer
       aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
-      optOptions.verbose = _options._verbose;
-      optOptions.maxIterations = _options._maxIterations;
       optOptions.linearSystemSolver = boost::make_shared<LinearSolver>();
       optOptions.trustRegionPolicy = boost::make_shared<TrustRegionPolicy>();
+      _optimizer->initializeLinearSolver();
+      _optimizer->initializeTrustRegionPolicy();
 
       // attach the problem to the optimizer
       _optimizer->setProblem(_problem);
@@ -96,22 +98,37 @@ namespace aslam {
     }
 
     size_t IncrementalEstimator::getRank() const {
-      return _optimizer->getSolver<LinearSolver>()->getRank();
+      return _nRank;
+    }
+
+    size_t IncrementalEstimator::getRankDeficiency() const {
+      return _optimizer->getSolver<LinearSolver>()->
+        getJacobianTranspose().rows() - _nRank;
+    }
+
+    size_t IncrementalEstimator::getMarginalRank() const {
+      return _CS.cols();
+    }
+
+    size_t IncrementalEstimator::getMarginalRankDeficiency() const {
+      return _NS.cols();
     }
 
     double IncrementalEstimator::getQRTol() const {
-      return _optimizer->getSolver<LinearSolver>()->getTol();
+      return _qrTol;
     }
 
     size_t IncrementalEstimator::getCholmodMemoryUsage() const {
       return _optimizer->getSolver<LinearSolver>()->getMemoryUsage();
     }
 
-    const Eigen::MatrixXd& IncrementalEstimator::getNullSpace() const {
+    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedNullSpace()
+        const {
       return _NS;
     }
 
-    const Eigen::MatrixXd& IncrementalEstimator::getColumnSpace() const {
+    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedColumnSpace()
+        const {
       return _CS;
     }
 
@@ -125,19 +142,27 @@ namespace aslam {
       return _SigmaP;
     }
 
+    const Eigen::MatrixXd&
+        IncrementalEstimator::getMarginalizedInformationMatrix() const {
+      return _Omega;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
 
     aslam::backend::SolutionReturnValue IncrementalEstimator::optimize() {
-      // init the linear solver
-      initLinearSolver();
+      // init the optimizer
+      initOptimizer();
 
       // optimize
       return _optimizer->optimize();
     }
 
     IncrementalEstimator::ReturnValue IncrementalEstimator::reoptimize() {
+      // query the time
+      const double timeStart = Timestamp::now();
+
       // ensure marginalized design variables are well located
       orderMarginalizedDesignVariables();
 
@@ -156,15 +181,20 @@ namespace aslam {
       _CS = ret._CS;
       _Sigma = ret._Sigma;
       _SigmaP = ret._SigmaP;
+      _Omega = ret._Omega;
+      _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
+      _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
 
       // update output structure
       ret._batchAccepted = false;
       ret._mi = 0.0;
-      ret._rank = getRank();
-      ret._qrTol = getQRTol();
+      ret._rank = _nRank;
+      ret._qrTol = _qrTol;
       ret._numIterations = srv.iterations;
       ret._JStart = srv.JStart;
       ret._JFinal = srv.JFinal;
+      ret._elapsedTime = Timestamp::now() - timeStart;
+      ret._cholmodMemoryUsage = getCholmodMemoryUsage();
 
       return ret;
     }
@@ -206,14 +236,16 @@ namespace aslam {
 
       // first round of estimation?
       if (!_svLogSum && solutionValid) {
-        _svLogSum = svLogSum;
         keepBatch = true;
+        _svLogSum = svLogSum;
         ret._mi = 0;
         _NS = ret._NS;
         _CS = ret._CS;
         _Sigma = ret._Sigma;
         _SigmaP = ret._SigmaP;
         _Omega = ret._Omega;
+        _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
+        _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
       }
       else {
         // compute MI
@@ -227,21 +259,23 @@ namespace aslam {
         // MI improvement or rank goes up
         if ((mi > _options._miTol || ret._CS.cols() > _CS.cols())
             && solutionValid) {
-          _svLogSum = svLogSum;
           keepBatch = true;
+          _svLogSum = svLogSum;
           _mi = mi;
           _NS = ret._NS;
           _CS = ret._CS;
           _Sigma = ret._Sigma;
           _SigmaP = ret._SigmaP;
           _Omega = ret._Omega;
+          _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
+          _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
         }
       }
 
       // update output structure
       ret._batchAccepted = keepBatch || force;
-      ret._rank = getRank();
-      ret._qrTol = getQRTol();
+      ret._rank = _optimizer->getSolver<LinearSolver>()->getRank();
+      ret._qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
       ret._numIterations = srv.iterations;
       ret._JStart = srv.JStart;
       ret._JFinal = srv.JFinal;
@@ -285,6 +319,7 @@ namespace aslam {
         _NS, _CS, _Sigma, _SigmaP, _Omega);
       _mi = svLogSum - _svLogSum;
       _svLogSum = svLogSum;
+      _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
     }
 
     void IncrementalEstimator::removeBatch(const BatchSP& batch) {
@@ -314,29 +349,20 @@ namespace aslam {
       }
     }
 
-    void IncrementalEstimator::initLinearSolver() {
+    void IncrementalEstimator::initOptimizer() {
       // linear solver options
-      aslam::backend::SparseQRLinearSolverOptions linearSolverOptions;
+      aslam::backend::SparseQRLinearSolverOptions& linearSolverOptions =
+        _optimizer->getSolver<LinearSolver>()->getOptions();
       linearSolverOptions.colNorm = _options._colNorm;
       linearSolverOptions.qrTol = _options._qrTol;
 
-      // reset the linear solver
+      // optimizer options
       aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
       optOptions.verbose = _options._verbose;
       optOptions.maxIterations = _options._maxIterations;
-      optOptions.linearSystemSolver = boost::make_shared<LinearSolver>();
-      optOptions.trustRegionPolicy = boost::make_shared<TrustRegionPolicy>();
-      _optimizer->initializeLinearSolver();
-      _optimizer->initializeTrustRegionPolicy();
-
-      // set options to the linear solver
-      _optimizer->getSolver<LinearSolver>()->setOptions(linearSolverOptions);
     }
 
     void IncrementalEstimator::restoreLinearSolver() {
-      // init the solver
-      initLinearSolver();
-
       // init the matrix structure
       std::vector<aslam::backend::DesignVariable*> dvs;
       const size_t numDVS = _problem->numDesignVariables();
@@ -367,9 +393,6 @@ namespace aslam {
       // build the system
       _optimizer->getSolver<LinearSolver>()->buildSystem(
         _optimizer->options().nThreads, true);
-
-      // run the QR analysis
-      _optimizer->getSolver<LinearSolver>()->analyzeSystem();
     }
 
   }

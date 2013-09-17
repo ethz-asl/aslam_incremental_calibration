@@ -260,6 +260,20 @@ int main(int argc, char** argv) {
     << std::endl;
   std::cout << "QR tol: " << incrementalEstimator.getQRTol() << std::endl;
   std::cout << "rank: " << incrementalEstimator.getRank() << std::endl;
+  std::cout << "rank deficiency: " << incrementalEstimator.getRankDeficiency()
+    << std::endl;
+  std::cout << "marginal rank: " << incrementalEstimator.getMarginalRank()
+    << std::endl;
+  std::cout << "marginal rank deficiency: "
+    << incrementalEstimator.getMarginalRankDeficiency() << std::endl;
+  std::cout << "null space: " << std::endl
+    << incrementalEstimator.getMarginalizedNullSpace() << std::endl;
+  std::cout << "column space: " << std::endl
+    << incrementalEstimator.getMarginalizedColumnSpace() << std::endl;
+  std::cout << "projected covariance: " << std::endl
+    << incrementalEstimator.getProjectedMarginalizedCovariance() << std::endl;
+  std::cout << "information matrix: " << std::endl
+    << incrementalEstimator.getMarginalizedInformationMatrix() << std::endl;
   std::cout << "Cholmod memory [MB]: "
     << incrementalEstimator.getCholmodMemoryUsage() / 1024.0 / 1024.0
     << std::endl;

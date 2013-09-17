@@ -54,7 +54,7 @@ namespace aslam {
      * \param[out] CS column space of the marginalized system
      * \param[out] Sigma covariance of the marginalized system
      * \param[out] SigmaP projected covariance of the marginalized system
-     * \param[out] Omega marginalized Jacobian
+     * \param[out] Omega marginalized Fisher information matrix
      * \return sum of the log of the singular values of the marginalized system
      */
     double marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>&

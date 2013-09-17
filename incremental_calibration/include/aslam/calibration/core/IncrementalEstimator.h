@@ -119,7 +119,7 @@ namespace aslam {
         Eigen::MatrixXd _Sigma;
         /// Projected covariance of the marginalized system
         Eigen::MatrixXd _SigmaP;
-        /// Marginalized Jacobian
+        /// Marginalized Fisher information matrix
         Eigen::MatrixXd _Omega;
       };
       /** @}
@@ -177,18 +177,26 @@ namespace aslam {
         getJacobianTranspose() const;
       /// Returns the current estimated numerical rank
       size_t getRank() const;
+      /// Returns the current estimated numerical rank deficiency
+      size_t getRankDeficiency() const;
+      /// Returns the current estimated marginal numerical rank
+      size_t getMarginalRank() const;
+      /// Returns the current estimated marginal numerical rank deficiency
+      size_t getMarginalRankDeficiency() const;
       /// Returns the current tolerance for the QR decomposition
       double getQRTol() const;
       /// Returns the current memory usage for the linear solver
       size_t getCholmodMemoryUsage() const;
-      /// Returns the current null space
-      const Eigen::MatrixXd& getNullSpace() const;
-      /// Returns the current column space
-      const Eigen::MatrixXd& getColumnSpace() const;
+      /// Returns the current marginalized null space
+      const Eigen::MatrixXd& getMarginalizedNullSpace() const;
+      /// Returns the current marginalized column space
+      const Eigen::MatrixXd& getMarginalizedColumnSpace() const;
       /// Returns the current marginalized covariance
       const Eigen::MatrixXd& getMarginalizedCovariance() const;
       /// Returns the current projected marginalized covariance
       const Eigen::MatrixXd& getProjectedMarginalizedCovariance() const;
+      /// Returns the current marginalized Fisher information matrix
+      const Eigen::MatrixXd& getMarginalizedInformationMatrix() const;
       /** @}
         */
 
@@ -200,8 +208,8 @@ namespace aslam {
       aslam::backend::SolutionReturnValue optimize();
       /// Ensures the marginalized variables are well located
       void orderMarginalizedDesignVariables();
-      /// Inits the linear solver
-      void initLinearSolver();
+      /// Inits the optimizer
+      void initOptimizer();
       /// Restores the linear solver
       void restoreLinearSolver();
       /** @}
@@ -230,8 +238,12 @@ namespace aslam {
       Eigen::MatrixXd _Sigma;
       /// Projected covariance of the marginalized system
       Eigen::MatrixXd _SigmaP;
-      /// Marginalized Jacobian
+      /// Marginalized Fisher information matrix
       Eigen::MatrixXd _Omega;
+      /// Current estimated numerical rank
+      size_t _nRank;
+      /// Current QR tolerance
+      double _qrTol;
       /** @}
         */
 
