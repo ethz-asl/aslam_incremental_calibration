@@ -16,27 +16,26 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file ErrorTermMotion.h
-    \brief This file defines the ErrorTermMotion class, which implements
-           a motion model for the 2D-LRF problem.
+/** \file ErrorTermVehicleModel.h
+    \brief This file defines the ErrorTermVehicleModel class, which implements
+           an error term for the vehicle model.
   */
 
-#ifndef ASLAM_CALIBRATION_2DLRF_ERROR_TERM_MOTION_H
-#define ASLAM_CALIBRATION_2DLRF_ERROR_TERM_MOTION_H
+#ifndef ASLAM_CALIBRATION_CAR_ERROR_TERM_VEHICLE_MODEL_H
+#define ASLAM_CALIBRATION_CAR_ERROR_TERM_VEHICLE_MODEL_H
 
 #include <aslam/backend/ErrorTerm.hpp>
+#include <aslam/backend/EuclideanExpression.hpp>
 
 namespace aslam {
   namespace calibration {
 
-    template <int M> class VectorDesignVariable;
-
-    /** The class ErrorTermMotion implements a motion model for the 2D-LRF
-        problem.
-        \brief 2D-LRF motion model
+    /** The class ErrorTermVehicleModel implements an error term for the vehicle
+        model.
+        \brief Vehicle model error term
       */
-    class ErrorTermMotion :
-      public aslam::backend::ErrorTermFs<3> {
+    class ErrorTermVehicleModel :
+      public aslam::backend::ErrorTermFs<4> {
     public:
       // Required by Eigen for fixed-size matrices members
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -45,46 +44,41 @@ namespace aslam {
         @{
         */
       /// Covariance type
-      typedef Eigen::Matrix<double, 3, 3> Covariance;
-      /// Input type
-      typedef Eigen::Matrix<double, 3, 1> Input;
+      typedef Eigen::Matrix4d Covariance;
       /** @}
         */
 
       /** \name Constructors/destructor
         @{
         */
-      /// Constructor
-      ErrorTermMotion(VectorDesignVariable<3>* xkm1,
-        VectorDesignVariable<3>* xk, double T, const Input& uk,
-        const Covariance& Q);
+      /** 
+       * Constructs the error term from input data and design variables
+       * \brief Constructs the error term
+       * 
+       * @param v_oo \f$\mathbf{v}_{oo}\f$ linear velocity in odometry frame
+       * @param om_oo \f$\boldsymbol{\omega}_{oo}\f$ angular velocity in
+       *              odometry frame
+       * @param Q Covariance matrix of the pseudo-measurement
+       */
+      ErrorTermVehicleModel(const aslam::backend::EuclideanExpression& v_oo,
+        const aslam::backend::EuclideanExpression& om_oo, const Covariance& Q);
       /// Copy constructor
-      ErrorTermMotion(const ErrorTermMotion& other);
+      ErrorTermVehicleModel(const ErrorTermVehicleModel& other);
       /// Assignment operator
-      ErrorTermMotion& operator = (const ErrorTermMotion& other);
+      ErrorTermVehicleModel& operator = (const ErrorTermVehicleModel& other);
       /// Destructor
-      virtual ~ErrorTermMotion();
+      virtual ~ErrorTermVehicleModel();
       /** @}
         */
 
       /** \name Accessors
         @{
         */
-      /// Returns the timestep
-      double getTimestep() const;
-      /// Sets the timestep
-      void setTimestep(double T);
-      /// Returns the input
-      const Input& getInput() const;
-      /// Returns the input
-      Input& getInput();
-      /// Sets the input
-      void setInput(const Input& uk);
-      /// Returns the covariance
+      /// Returns the covariance of the measurement
       const Covariance& getCovariance() const;
-      /// Returns the covariance
+      /// Returns the covariance of the measurement
       Covariance& getCovariance();
-      /// Sets the covariance
+      /// Sets the covariance of the measurement
       void setCovariance(const Covariance& Q);
       /** @}
         */
@@ -97,22 +91,18 @@ namespace aslam {
       virtual double evaluateErrorImplementation();
       /// Evaluate the Jacobians
       virtual void evaluateJacobiansImplementation(
-        aslam::backend::JacobianContainer & J);
+        aslam::backend::JacobianContainer & _jacobians);
       /** @}
         */
 
       /** \name Protected members
         @{
         */
-      /// State at time k-1
-      VectorDesignVariable<3>* _xkm1;
-      /// State at time k
-      VectorDesignVariable<3>* _xk;
-      /// Timestep size
-      double _T;
-      /// Input at time k
-      Input _uk;
-      /// Covariance matrix
+      /// Estimated vehicle linear velocity in odometry frame
+      aslam::backend::EuclideanExpression _v_oo;
+      /// Estimated vehicle angular velocity in odometry frame
+      aslam::backend::EuclideanExpression _om_oo;
+      /// Covariance matrix of the pseudo-measurement
       Covariance _Q;
       /** @}
         */
@@ -122,4 +112,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_2DLRF_ERROR_TERM_MOTION_H
+#endif // ASLAM_CALIBRATION_CAR_ERROR_TERM_VEHICLE_MODEL_H

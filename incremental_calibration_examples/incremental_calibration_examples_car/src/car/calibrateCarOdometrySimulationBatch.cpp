@@ -68,7 +68,7 @@
 #include <aslam/SplineTrajectory.hpp>
 
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
-#include <aslam/calibration/algorithms/matrixOperations.h>
+#include <aslam/calibration/algorithms/marginalize.h>
 
 #include "aslam/calibration/car/MeasurementsContainer.h"
 #include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
@@ -200,8 +200,8 @@ int main(int argc, char** argv) {
   Trajectory::NsecTimeList times;
   discreteTrajectory.getSupportTimes(times);
   const double freqW = 60;
-  const double sigma2_rl = 368;
-  const double sigma2_rr = 394;
+  const double sigma2_rl = 100;
+  const double sigma2_rr = 100;
   const double e_r = 0.74;
   const double k_rl = 1.0 / 3.6 / 100.0;
   const double k_rr = 1.0 / 3.6 / 100.0;
@@ -219,8 +219,8 @@ int main(int argc, char** argv) {
     trueFrontWheelsSpeedMeasurements;
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
     frontWheelsSpeedMeasurements;
-  const double sigma2_fl = 775;
-  const double sigma2_fr = 964;
+  const double sigma2_fl = 100;
+  const double sigma2_fr = 100;
   const double e_f = 0.755;
   const double k_fl = 1.0 / 3.6 / 100.0;
   const double k_fr = 1.0 / 3.6 / 100.0;
@@ -233,12 +233,12 @@ int main(int argc, char** argv) {
   const double sigma2_st = 1;
   const double freqSt = 30;
   const double a0 = 0;
-  const double a1 = (M_PI / 180 / 10);
+  const double a1 = 1.0 / (M_PI / 180 / 10);
   const double a2 = 0;
   const double a3 = 0;
   simulateSteeringMeasurements(splineTrajectory, freqSt, sigma2_st, L, a0, a1,
     a2, a3, T_io_t, trueSteeringMeasurements, steeringMeasurements);
-  const double sigma2_dmi = 1.080401896974195e-06;
+  const double sigma2_dmi = 1e-9;
   const double freqDmi = 100;
   MeasurementsContainer<ApplanixDMIMeasurement>::Type trueEncoderMeasurements;
   MeasurementsContainer<ApplanixDMIMeasurement>::Type encoderMeasurements;
@@ -318,11 +318,11 @@ int main(int argc, char** argv) {
   std::cout << "Building optimization problem..." << std::endl;
   auto problem = boost::make_shared<OptimizationProblem>();
   for (size_t i = 0; i < translationSpline.numDesignVariables(); ++i) {
-//    translationSpline.designVariable(i)->setActive(true);
+    translationSpline.designVariable(i)->setActive(true);
     problem->addDesignVariable(translationSpline.designVariable(i), false);
   }
   for (size_t i = 0; i < rotationSpline.numDesignVariables(); ++i) {
-//    rotationSpline.designVariable(i)->setActive(true);
+    rotationSpline.designVariable(i)->setActive(true);
     problem->addDesignVariable(rotationSpline.designVariable(i), false);
   }
   for (auto it = navigationMeasurements.cbegin();
@@ -349,7 +349,7 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getValueExpression()),
       translationExpressionFactory.getValueExpression()),
       xm, Q);
-//    problem->addErrorTerm(e_pose);
+    problem->addErrorTerm(e_pose);
   }
   auto cpdv = boost::make_shared<VectorDesignVariable<11> >(
     (VectorDesignVariable<11>::Container() <<
@@ -370,8 +370,7 @@ int main(int argc, char** argv) {
   double lastDistance = -1;
   std::ofstream errorDmiPreFile("error_dmi_pre.txt");
   std::ofstream errorDmiPreChiFile("error_dmi_pre_chi.txt");
-  for (auto it = trueEncoderMeasurements.cbegin(); it != trueEncoderMeasurements.cend();
-//  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
+  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
       ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first)
@@ -396,7 +395,7 @@ int main(int argc, char** argv) {
       auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
         cpdv.get(), meas,
         (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
-//      problem->addErrorTerm(e_dmi);
+      problem->addErrorTerm(e_dmi);
       errorDmiPreChiFile << std::fixed << std::setprecision(18)
         << e_dmi->evaluateError() << std::endl;
       errorDmiPreFile << std::fixed << std::setprecision(18)
@@ -408,10 +407,8 @@ int main(int argc, char** argv) {
   }
   std::ofstream errorFwsPreFile("error_fws_pre.txt");
   std::ofstream errorFwsPreChiFile("error_fws_pre_chi.txt");
-  for (auto it = trueFrontWheelsSpeedMeasurements.cbegin();
-      it != trueFrontWheelsSpeedMeasurements.cend(); ++it) {
-//  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-//      it != frontWheelsSpeedMeasurements.cend(); ++it) {
+  for (auto it = frontWheelsSpeedMeasurements.cbegin();
+      it != frontWheelsSpeedMeasurements.cend(); ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first || it->second.left == 0 || it->second.right == 0)
       continue;
@@ -435,6 +432,8 @@ int main(int argc, char** argv) {
       continue;
     if ((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr < 0)
       continue;
+    if (fabs(cos(phi_L)) < 1e-6 || fabs(cos(phi_R)) < 1e-6)
+      continue;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
       (Eigen::Matrix2d() << sigma2_fl, 0, 0, sigma2_fr).finished());
@@ -446,10 +445,8 @@ int main(int argc, char** argv) {
   }
   std::ofstream errorRwsPreFile("error_rws_pre.txt");
   std::ofstream errorRwsPreChiFile("error_rws_pre_chi.txt");
-  for (auto it = trueRearWheelsSpeedMeasurements.cbegin();
-      it != trueRearWheelsSpeedMeasurements.cend(); ++it) {
-//  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-//      it != rearWheelsSpeedMeasurements.cend(); ++it) {
+  for (auto it = rearWheelsSpeedMeasurements.cbegin();
+      it != rearWheelsSpeedMeasurements.cend(); ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first || it->second.left == 0 || it->second.right == 0)
       continue;
@@ -482,10 +479,8 @@ int main(int argc, char** argv) {
   }
   std::ofstream errorStPreFile("error_st_pre.txt");
   std::ofstream errorStPreChiFile("error_st_pre_chi.txt");
-  for (auto it = trueSteeringMeasurements.cbegin();
-      it != trueSteeringMeasurements.cend(); ++it) {
-//  for (auto it = steeringMeasurements.cbegin();
-//      it != steeringMeasurements.cend(); ++it) {
+  for (auto it = steeringMeasurements.cbegin();
+      it != steeringMeasurements.cend(); ++it) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first)
       continue;
@@ -557,21 +552,25 @@ int main(int argc, char** argv) {
   std::cout << std::fixed << std::setprecision(18)
     << ypr->rotationMatrixToParameters(C_io.toRotationMatrix()).transpose()
     << std::endl;
-  const CompressedColumnMatrix<ssize_t>& RFactor =
-    optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
-  const size_t numCols = RFactor.cols();
-  std::cout << "Sigma: " << std::endl
-    << computeCovariance(RFactor, numCols - cpdv->minimalDimensions() -
-    C_io_dv->minimalDimensions() - t_io_dv->minimalDimensions(), numCols - 1).
-    diagonal().transpose() << std::endl;
-  std::ofstream RFile("R.txt");
-  RFactor.writeMATLAB(RFile);
   const CompressedColumnMatrix<ssize_t>& JOpt =
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
+  const size_t numCols = JOpt.rows();
   std::ofstream JOptFile("JOpt.txt");
   JOpt.writeMATLAB(JOptFile);
   std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
     ->getRank() << std::endl;
+  std::cout << "Rank deficiency: " << numCols -
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getRank() << std::endl;
+  Eigen::MatrixXd NS, CS, Sigma, SigmaP, Omega;
+  marginalize(JOpt, numCols - 17, NS, CS, Sigma, SigmaP, Omega, 1e-8, 1e-9);
+  std::cout << "Sigma (SVD): " << std::endl << std::fixed
+    << std::setprecision(18) << Sigma.diagonal().transpose() << std::endl;
+  std::cout << "SigmaP: " << std::endl << std::fixed << std::setprecision(18)
+    << SigmaP.diagonal().transpose() << std::endl;
+  std::cout << "NS: " << std::endl << std::fixed << std::setprecision(18)
+    << NS << std::endl;
+  std::cout << "Marginal rank: " << CS.cols() << std::endl;
+  std::cout << "Marginal rank deficiency: " << NS.cols() << std::endl;
 
   std::cout << "Outputting spline data after optimization..." << std::endl;
   std::ofstream applanixSplineOptFile("applanix-spline-opt.txt");

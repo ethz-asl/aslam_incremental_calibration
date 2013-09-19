@@ -16,8 +16,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file optimizeNewSpline.cpp
-    \brief This file optimizes the splines from a ROS bag file.
+/** \file odometryVelocities.cpp
+    \brief This file outputs the odometry velocities from Applanix data.
   */
 
 #include <iostream>
@@ -39,24 +39,9 @@
 #include <sm/timing/TimestampCorrector.hpp>
 #include <sm/timing/NsecTimeUtilities.hpp>
 
-#include <aslam/backend/EuclideanPoint.hpp>
-#include <aslam/backend/RotationQuaternion.hpp>
-#include <aslam/backend/OptimizationProblem.hpp>
-#include <aslam/backend/Optimizer2Options.hpp>
-#include <aslam/backend/SparseQrLinearSystemSolver.hpp>
-#include <aslam/backend/SparseQRLinearSolverOptions.h>
-#include <aslam/backend/Optimizer2.hpp>
-#include <aslam/backend/EuclideanExpression.hpp>
-#include <aslam/backend/RotationExpression.hpp>
-#include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
-#include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
-
-#include <aslam/splines/OPTBSpline.hpp>
-#include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
-
-#include <bsplines/BSplineFitter.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
+#include <bsplines/BSplineFitter.hpp>
 #include <bsplines/SimpleTypeTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
@@ -64,14 +49,12 @@
 
 #include <libposlv/geo-tools/Geo.h>
 
-#include "aslam/calibration/car/ErrorTermPose.h"
 #include "aslam/calibration/car/MeasurementsContainer.h"
 #include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
 #include "aslam/calibration/car/utils.h"
+#include "aslam/calibration/car/CovarianceEstimator.h"
 
 using namespace aslam::calibration;
-using namespace aslam::splines;
-using namespace aslam::backend;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace bsplines;
@@ -204,119 +187,53 @@ int main(int argc, char** argv) {
     numSegments = numMeasurements;
   const int transSplineOrder = 4;
   const int rotSplineOrder = 4;
-  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF>::BSpline
-    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
-    EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF::ManifoldConf(3),
-    transSplineOrder));
-  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::
-    CONF>::BSpline>::initUniformSpline(translationSpline, timestamps,
-    transPoses, numSegments, lambda);
-  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF>::
-    BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
-    ::CONF(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF::
-    ManifoldConf(), rotSplineOrder));
-  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
-    ::CONF>::BSpline>::initUniformSpline(rotationSpline, timestamps, rotPoses,
-    numSegments, lambda);
-  std::cout << "Outputting spline data before optimization..." << std::endl;
-  std::ofstream applanixSplineFile("applanix-spline.txt");
-  for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<2>(*it);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(*it);
-    Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-    applanixSplineFile << std::fixed << std::setprecision(18)
-      << *it << " "
-      << translationExpressionFactory.getValueExpression().toValue().
-        transpose() << " "
-      << ypr.rotationMatrixToParameters(C_wi).transpose() << " "
-      << translationExpressionFactory.getValueExpression(1).toValue().
-        transpose() << " "
-      << -(C_wi.transpose() *
-        rotationExpressionFactory.getAngularVelocityExpression().toValue()).
-        transpose() << " "
-      << (C_wi.transpose() *
-        translationExpressionFactory.getValueExpression(2).toValue()).
-        transpose()
-      << std::endl;
-  }
-  auto problem = boost::make_shared<OptimizationProblem>();
-  for (size_t i = 0; i < translationSpline.numDesignVariables(); ++i) {
-    translationSpline.designVariable(i)->setActive(true);
-    problem->addDesignVariable(translationSpline.designVariable(i), false);
-  }
-  for (size_t i = 0; i < rotationSpline.numDesignVariables(); ++i) {
-    rotationSpline.designVariable(i)->setActive(true);
-    problem->addDesignVariable(rotationSpline.designVariable(i), false);
-  }
+  EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::TYPE transSpline(
+    transSplineOrder);
+  UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE rotSpline(
+    rotSplineOrder);
+  BSplineFitter<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::TYPE>::
+    initUniformSpline(transSpline, timestamps, transPoses, numSegments, lambda);
+  BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE>::
+    initUniformSpline(rotSpline, timestamps, rotPoses, numSegments, lambda);
+
+  std::cout << "Generating odometry velocities..." << std::endl;
+  const Eigen::Vector3d t_io(0, 0.0, -0.785);
+  const Eigen::Matrix3d C_io = Eigen::Matrix3d::Identity();
+  std::ofstream odometryVelocitiesFile("odometryVelocities.txt");
+  CovarianceEstimator<1> v_yEst;
+  CovarianceEstimator<1> v_zEst;
+  CovarianceEstimator<1> om_xEst;
+  CovarianceEstimator<1> om_yEst;
   for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-    ErrorTermPose::Input xm;
-    xm.head<3>() = Eigen::Vector3d(it->second.x, it->second.y,
-      it->second.z);
-    xm.tail<3>() = Eigen::Vector3d(it->second.yaw, it->second.pitch,
-      it->second.roll);
-    ErrorTermPose::Covariance Q = ErrorTermPose::Covariance::Zero();
-    Q(0, 0) = it->second.x_sigma2;
-    Q(1, 1) = it->second.y_sigma2;
-    Q(2, 2) = it->second.z_sigma2;
-    Q(3, 3) = it->second.yaw_sigma2;
-    Q(4, 4) = it->second.pitch_sigma2;
-    Q(5, 5) = it->second.roll_sigma2;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<0>(it->first);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<0>(it->first);
-    auto e_pose = boost::make_shared<ErrorTermPose>(
-      TransformationExpression(
-      Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression()),
-      translationExpressionFactory.getValueExpression()),
-      xm, Q);
-    problem->addErrorTerm(e_pose);
+    const NsecTime timestamp = it->first;
+    auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
+    auto rotEvaluator = rotSpline.getEvaluatorAt<1>(timestamp);
+    const Eigen::Matrix3d C_wi = quat2r(rotEvaluator.evalD(0));
+    const Eigen::Vector3d v_ii = C_wi.transpose() * transEvaluator.evalD(1);
+    const Eigen::Vector3d om_ii =
+      -C_wi.transpose() * rotEvaluator.evalAngularVelocity();
+    const Eigen::Vector3d v_oo = C_io.transpose() *
+      (v_ii + om_ii.cross(t_io));
+    const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
+    odometryVelocitiesFile << std::fixed << std::setprecision(18) << timestamp
+      << " " << v_oo.transpose() << " " << om_oo.transpose() << std::endl;
+    v_yEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
+      << v_oo(1)).finished());
+    v_zEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
+      << v_oo(2)).finished());
+    om_xEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
+      << om_oo(0)).finished());
+    om_yEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
+      << om_oo(1)).finished());
   }
-  Optimizer2Options options;
-  options.verbose = true;
-  options.linearSystemSolver = boost::make_shared<SparseQrLinearSystemSolver>();
-  options.trustRegionPolicy =
-    boost::make_shared<GaussNewtonTrustRegionPolicy>();
-  SparseQRLinearSolverOptions linearSolverOptions;
-  linearSolverOptions.colNorm = true;
-  Optimizer2 optimizer(options);
-  optimizer.getSolver<SparseQrLinearSystemSolver>()->setOptions(
-    linearSolverOptions);
-  optimizer.setProblem(problem);
-  optimizer.optimize();
-  std::cout << "Outputting spline data after optimization..." << std::endl;
-  std::ofstream applanixSplineOptFile("applanix-spline-opt.txt");
-  for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<2>(*it);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(*it);
-    Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-    applanixSplineOptFile << std::fixed << std::setprecision(18)
-      << *it << " "
-      << translationExpressionFactory.getValueExpression().toValue().
-        transpose() << " "
-      << ypr.rotationMatrixToParameters(C_wi).transpose() << " "
-      << translationExpressionFactory.getValueExpression(1).toValue().
-        transpose() << " "
-      << -(C_wi.transpose() *
-        rotationExpressionFactory.getAngularVelocityExpression().toValue()).
-        transpose() << " "
-      << (C_wi.transpose() *
-        translationExpressionFactory.getValueExpression(2).toValue()).
-        transpose()
-      << std::endl;
-  }
-  std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
-    ->getRank() << std::endl;
-  const size_t numCols = optimizer.getSolver<SparseQrLinearSystemSolver>()->
-    getJacobianTranspose().rows();
-  std::cout << "Rank deficiency: " << numCols -
-    optimizer.getSolver<SparseQrLinearSystemSolver>()->getRank() << std::endl;
+  std::cout << "v_y variance: " << std::fixed << std::setprecision(18)
+    << v_yEst.getCovariance() << std::endl;
+  std::cout << "v_z variance: " << std::fixed << std::setprecision(18)
+    << v_zEst.getCovariance() << std::endl;
+  std::cout << "om_x variance: " << std::fixed << std::setprecision(18)
+    << om_xEst.getCovariance() << std::endl;
+  std::cout << "om_y variance: " << std::fixed << std::setprecision(18)
+    << om_yEst.getCovariance() << std::endl;
+
   return 0;
 }

@@ -16,8 +16,10 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrateCarOdometrySimulationBatch.cpp
-    \brief This file calibrates the car parameters from simulated data.
+/** \file calibrateCarOdometrySimulationBatchTest.cpp
+    \brief This file calibrates the car parameters from simulated data. The aim
+           of this file is to analyze the system without the splines and
+           with floating points measurements.
   */
 
 #include <iostream>
@@ -57,6 +59,7 @@
 
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/algorithms/matrixOperations.h>
+#include <aslam/calibration/algorithms/marginalize.h>
 #include <aslam/calibration/statistics/NormalDistribution.h>
 
 #include "aslam/calibration/car/MeasurementsContainer.h"
@@ -124,12 +127,12 @@ int main(int argc, char** argv) {
   const double a1 = (M_PI / 180 / 10);
   const double a2 = 0;
   const double a3 = 0;
-  const double sigma2_rl = 1;
-  const double sigma2_rr = 1;
-  const double sigma2_fl = 1;
-  const double sigma2_fr = 1;
-  const double sigma2_st = 1;
-  const double sigma2_dmi = 1;
+  const double sigma2_rl = 1000;
+  const double sigma2_rr = 1000;
+  const double sigma2_fl = 1000;
+  const double sigma2_fr = 1000;
+  const double sigma2_st = 10;
+  const double sigma2_dmi = 1e-3;
   const Eigen::Vector3d t_io_t(0.0, 0.0, -0.785);
   const Eigen::Matrix3d C_io_t(ypr->parametersToRotationMatrix(
     Eigen::Vector3d(deg2rad(0), deg2rad(0), deg2rad(0))));
@@ -231,16 +234,18 @@ int main(int argc, char** argv) {
       const double rr = (v_oo_x + e_r * om_oo_z) / k_rr;
       const double phi = atan(L * om_oo_z / v_oo_x);
       const double st = (phi - a0) / a1;
-//      WheelsSpeedMeasurement fws = {fl + NormalDistribution<1>(0, sigma2_fl).getSample(), fr + NormalDistribution<1>(0, sigma2_fr).getSample()};
-      WheelsSpeedMeasurement fws = {fl, fr};
+      WheelsSpeedMeasurement fws = {fl +
+        NormalDistribution<1>(0, sigma2_fl).getSample(), fr +
+        NormalDistribution<1>(0, sigma2_fr).getSample()};
       frontWheelsSpeedMeasurements.push_back(
         std::make_pair(navigationMeasurements.back().first, fws));
-//      WheelsSpeedMeasurement rws = {rl + NormalDistribution<1>(0, sigma2_rl).getSample(), rr + NormalDistribution<1>(0, sigma2_rr).getSample()};
-      WheelsSpeedMeasurement rws = {rl, rr};
+      WheelsSpeedMeasurement rws = {rl +
+        NormalDistribution<1>(0, sigma2_rl).getSample(), rr +
+        NormalDistribution<1>(0, sigma2_rr).getSample()};
       rearWheelsSpeedMeasurements.push_back(
         std::make_pair(navigationMeasurements.back().first, rws));
-//      SteeringMeasurement steering = {st + NormalDistribution<1>(0, sigma2_st).getSample()};
-      SteeringMeasurement steering = {st};
+      SteeringMeasurement steering = {st +
+        NormalDistribution<1>(0, sigma2_st).getSample()};
       steeringMeasurements.push_back(
         std::make_pair(navigationMeasurements.back().first, steering));
       const Eigen::Matrix4d T_wi_k(Transformation(r2quat(C_wi),
@@ -253,6 +258,8 @@ int main(int argc, char** argv) {
         const double delta = t_o_km1_o_k(0);
         const double omega = (ypr->rotationMatrixToParameters(C_o_km1_o_k))(0);
         const double displacement = (delta - e_r * omega);
+//        traveledDistance += displacement +
+//          NormalDistribution<1>(0, sigma2_dmi).getSample();
         traveledDistance += displacement;
         ApplanixDMIMeasurement dmi = {traveledDistance, 0};
         encoderMeasurements.push_back(
@@ -322,7 +329,7 @@ int main(int argc, char** argv) {
       auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
         cpdv.get(), meas,
         (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
-//      problem->addErrorTerm(e_dmi);
+      problem->addErrorTerm(e_dmi);
     }
     T_wi_km1 = T_wi_k;
     lastDistance = encoderMeasurements[i - 1].second.signedDistanceTraveled;
@@ -374,7 +381,7 @@ int main(int argc, char** argv) {
   const CompressedColumnMatrix<ssize_t>& RFactor =
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getR();
   const size_t numCols = RFactor.cols();
-  std::cout << "Sigma: " << std::endl
+  std::cout << "Sigma (QR): " << std::endl
     << computeCovariance(RFactor, 0, numCols - 1).
     diagonal().transpose() << std::endl;
   std::ofstream RFile("R.txt");
@@ -385,6 +392,19 @@ int main(int argc, char** argv) {
   JOpt.writeMATLAB(JOptFile);
   std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
     ->getRank() << std::endl;
+  std::cout << "Rank deficiency: "
+    << JOpt.rows() -
+    optimizer.getSolver<SparseQrLinearSystemSolver>()->getRank() << std::endl;
+  Eigen::MatrixXd NS, CS, Sigma, SigmaP, Omega;
+  marginalize(JOpt, 0, NS, CS, Sigma, SigmaP, Omega, 1e-8, 1e-9);
+  std::cout << "Sigma (SVD): " << std::endl << std::fixed
+    << std::setprecision(18) << Sigma.diagonal().transpose() << std::endl;
+  std::cout << "SigmaP: " << std::endl << std::fixed << std::setprecision(18)
+    << SigmaP.diagonal().transpose() << std::endl;
+  std::cout << "NS: " << std::endl << std::fixed << std::setprecision(18)
+    << NS << std::endl;
+  std::cout << "Marginal rank: " << CS.cols() << std::endl;
+  std::cout << "Marginal rank deficiency: " << NS.cols() << std::endl;
 
   return 0;
 }

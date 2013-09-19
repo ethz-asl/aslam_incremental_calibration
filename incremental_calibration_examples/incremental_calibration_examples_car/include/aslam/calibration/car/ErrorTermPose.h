@@ -97,7 +97,8 @@ namespace aslam {
       /// Evaluate the error term and return the weighted squared error
       virtual double evaluateErrorImplementation();
       /// Evaluate the Jacobians
-      virtual void evaluateJacobiansImplementation(aslam::backend::JacobianContainer & _jacobians);
+      virtual void evaluateJacobiansImplementation(
+        aslam::backend::JacobianContainer & _jacobians);
       /** @}
         */
 

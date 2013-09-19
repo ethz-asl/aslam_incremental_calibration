@@ -201,7 +201,9 @@ namespace aslam {
         if (std::fabs(v_oo_x) > 1e-1) {
           const double phi = atan(L * om_oo_z / v_oo_x);
           SteeringMeasurement trueData;
-          trueData.value = round((phi - a0) / a1);
+//          trueData.value = round((phi - a0) / a1);
+          trueData.value = round(a0 + a1 * phi + a2 * phi * phi + a3 * phi
+            * phi * phi);
           trueMeasurements.push_back(std::make_pair(t, trueData));
           SteeringMeasurement noisyData;
           noisyData.value = round(trueData.value + stDist.getSample());

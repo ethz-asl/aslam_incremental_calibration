@@ -54,6 +54,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermRws.cpp
   src/car/ErrorTermSteering.cpp
   src/car/ErrorTermDMI.cpp
+  src/car/ErrorTermVehicleModel.cpp
   src/car/CarCalibrator.cpp
   src/car/OptimizationProblemSpline.cpp
   src/car/CovarianceEstimator1v.cpp
@@ -63,6 +64,7 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
   test/ErrorTermPoseTest.cpp
   test/ErrorTermOdometryTest.cpp
+  test/ErrorTermVehicleModelTest.cpp
   test/CarCalibratorTest.cpp
   test/CovarianceEstimatorTest.cpp
 )
@@ -121,3 +123,7 @@ rosbuild_add_executable(calibrateCarOdometrySimulationBatchTest
 target_link_libraries(calibrateCarOdometrySimulationBatchTest ${PROJECT_NAME}
   ${LIBPOSLV_GEO_TOOLS_LIBRARIES} ${ROBOT_ODOMETRY_LIBRARIES}
   ${ROBOT_ODOMETRY_JANETH_LIBRARIES})
+
+rosbuild_add_executable(odometryVelocities src/car/odometryVelocities.cpp)
+target_link_libraries(odometryVelocities ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
