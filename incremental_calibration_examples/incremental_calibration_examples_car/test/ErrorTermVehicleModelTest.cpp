@@ -50,14 +50,14 @@ TEST(AslamCalibrationTestSuite, testErrorTermVehicleModel) {
   Q(1, 1) = 1e-4;
   Q(2, 2) = 1e-4;
   Q(3, 3) = 1e-4;
-  Q(4, 4) = 1e-4;
 
   // build the error term
   aslam::calibration::ErrorTermVehicleModel e(v_e, om_e, Q);
 
   // test the error term
   try {
-    aslam::backend::ErrorTermTestHarness<4> harness(&e);
+//    aslam::backend::ErrorTermTestHarness<4> harness(&e);
+    aslam::backend::ErrorTermTestHarness<3> harness(&e);
     harness.testAll();
   }
   catch (const std::exception& e) {

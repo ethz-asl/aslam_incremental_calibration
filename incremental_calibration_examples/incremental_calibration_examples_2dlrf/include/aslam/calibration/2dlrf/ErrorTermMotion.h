@@ -97,7 +97,7 @@ namespace aslam {
       virtual double evaluateErrorImplementation();
       /// Evaluate the Jacobians
       virtual void evaluateJacobiansImplementation(
-        aslam::backend::JacobianContainer & J);
+        aslam::backend::JacobianContainer& J);
       /** @}
         */
 

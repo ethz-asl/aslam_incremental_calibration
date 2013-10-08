@@ -484,10 +484,10 @@ int main(int argc, char** argv) {
     aslam::calibration::NormalDistribution<1>(r_FL, 1e-12).getSample();
   const double k_fr =
     aslam::calibration::NormalDistribution<1>(r_FR, 1e-12).getSample();
-  boost::shared_ptr<aslam::calibration::VectorDesignVariable<11> > cpdv(
-    new aslam::calibration::VectorDesignVariable<11>(
-    (aslam::calibration::VectorDesignVariable<11>::Container() <<
-    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr).finished()));
+  boost::shared_ptr<aslam::calibration::VectorDesignVariable<12> > cpdv(
+    new aslam::calibration::VectorDesignVariable<12>(
+    (aslam::calibration::VectorDesignVariable<12>::Container() <<
+    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr, 1.0).finished()));
   cpdv->setActive(true);
   problem->addDesignVariable(cpdv);
 

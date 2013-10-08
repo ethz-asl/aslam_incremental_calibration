@@ -34,7 +34,7 @@ namespace aslam {
     ErrorTermOdometry::ErrorTermOdometry(
         const aslam::backend::EuclideanExpression& v_oo,
         const aslam::backend::EuclideanExpression& om_oo,
-        VectorDesignVariable<11>* params,
+        VectorDesignVariable<12>* params,
         const Input& odo, const Covariance& Q) :
         _v_oo(v_oo),
         _om_oo(om_oo),
@@ -163,7 +163,7 @@ namespace aslam {
       const double phi = atan(L * om_oo_z / v_oo_x);
 
       // Jacobian with respect to odometry parameters
-      Eigen::Matrix<double, 5, 11> Ht = Eigen::Matrix<double, 5, 11>::Zero();
+      Eigen::Matrix<double, 5, 12> Ht = Eigen::Matrix<double, 5, 12>::Zero();
 
       // Jacobian with respect to v_oo
       Eigen::Matrix<double, 5, 3> Hv = Eigen::Matrix<double, 5, 3>::Zero();

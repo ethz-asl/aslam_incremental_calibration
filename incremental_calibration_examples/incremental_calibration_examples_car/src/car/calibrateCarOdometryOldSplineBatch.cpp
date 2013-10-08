@@ -245,7 +245,7 @@ int main(int argc, char** argv) {
     timestamps[numMeasurements - 1] - timestamps[0];
   const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
-  const double lambda = 1e-1;
+  const double lambda = 0;
   const int measPerSecDesired = 5;
   if (measPerSec > measPerSecDesired)
     numSegments = std::ceil(measPerSecDesired * elapsedTime);
@@ -303,9 +303,10 @@ int main(int argc, char** argv) {
   const double k_rr = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_fl = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_fr = 1.0 / 3.6 / 100.0; // wheel coefficient
-  auto cpdv = boost::make_shared<VectorDesignVariable<11> >(
-    (VectorDesignVariable<11>::Container() <<
-    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr).finished());
+  const double k_dmi = 1.0; // DMI coefficient
+  auto cpdv = boost::make_shared<VectorDesignVariable<12> >(
+    (VectorDesignVariable<12>::Container() <<
+    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr, k_dmi).finished());
   cpdv->setActive(true);
   problem->addDesignVariable(cpdv);
   auto t_io_dv = boost::make_shared<EuclideanPoint>(
@@ -318,7 +319,6 @@ int main(int argc, char** argv) {
   EuclideanExpression t_io(t_io_dv);
   problem->addDesignVariable(t_io_dv);
   problem->addDesignVariable(C_io_dv);
-  auto T_io = TransformationExpression(C_io, t_io);
   TransformationExpression T_wi_km1;
   double lastTimestamp = -1;
   double lastDistance = -1;
@@ -327,26 +327,23 @@ int main(int argc, char** argv) {
     if (timestamps[0] > it->first || timestamps[numMeasurements - 1]
         < it->first)
       continue;
-    const double displacement = it->second.signedDistanceTraveled -
-      lastDistance;
-    if (std::fabs(displacement) < 1e-3)
-      continue;
-    auto T_wi_k = bspdv->transformation(it->first);
     if (lastTimestamp != -1) {
+      const double displacement = it->second.signedDistanceTraveled -
+        lastDistance;
       const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-        << displacement).finished());
-      auto T_o_km1_o_k = T_io.inverse() * T_wi_km1.inverse() * T_wi_k * T_io;
-      auto t_o_km1_o_k = T_o_km1_o_k.toEuclideanExpression();
-      auto C_o_km1_o_k = T_o_km1_o_k.toRotationExpression();
-      auto ypr_o_km1_o_k = C_o_km1_o_k.toParameters(ypr);
-      auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
-        cpdv.get(), meas,
-        (Eigen::Matrix<double, 1, 1>() << 0.018435).finished());
+        << displacement / (it->first - lastTimestamp) * 1e9).finished());
+      EuclideanExpression v_iw = bspdv->linearVelocity(it->first);
+      EuclideanExpression om_ii = bspdv->angularVelocityBodyFrame(it->first);
+      RotationExpression C_wi = bspdv->orientation(it->first);
+      EuclideanExpression v_ii = C_wi.inverse() * v_iw;
+      EuclideanExpression v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      EuclideanExpression om_oo = C_io.inverse() * om_ii;
+      auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
+        meas, (Eigen::Matrix<double, 1, 1>() << 1.0).finished());
 //      problem->addErrorTerm(e_dmi);
     }
     lastTimestamp = it->first;
     lastDistance = it->second.signedDistanceTraveled;
-    T_wi_km1 = T_wi_k;
   }
   for (auto it = frontWheelsSpeedMeasurements.cbegin();
       it != frontWheelsSpeedMeasurements.cend(); ++it) {

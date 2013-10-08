@@ -19,6 +19,7 @@
 #include "aslam/calibration/car/utils.h"
 
 #include <cmath>
+#include <limits>
 
 #include <aslam/DiscreteTrajectory.hpp>
 #include <aslam/SplineTrajectory.hpp>
@@ -157,16 +158,19 @@ namespace aslam {
         const double om_oo_z = om_oo(2);
         const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
         const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-        WheelsSpeedMeasurement trueData;
-        trueData.left = fabs(round((v_oo_x - e_f * om_oo_z) / cos(phi_L) /
-          k_fl));
-        trueData.right = fabs(round((v_oo_x + e_f * om_oo_z) / cos(phi_R) /
-          k_fr));
-        trueMeasurements.push_back(std::make_pair(t, trueData));
-        WheelsSpeedMeasurement noisyData;
-        noisyData.left = fabs(round(trueData.left + flDist.getSample()));
-        noisyData.right = fabs(round(trueData.right + frDist.getSample()));
-        noisyMeasurements.push_back(std::make_pair(t, noisyData));
+        if (fabs(cos(phi_L)) > std::numeric_limits<double>::epsilon() ||
+            fabs(cos(phi_R) > std::numeric_limits<double>::epsilon())) {
+          WheelsSpeedMeasurement trueData;
+          trueData.left = fabs(round((v_oo_x - e_f * om_oo_z) / cos(phi_L) /
+            k_fl));
+          trueData.right = fabs(round((v_oo_x + e_f * om_oo_z) / cos(phi_R) /
+            k_fr));
+          trueMeasurements.push_back(std::make_pair(t, trueData));
+          WheelsSpeedMeasurement noisyData;
+          noisyData.left = fabs(round(trueData.left + flDist.getSample()));
+          noisyData.right = fabs(round(trueData.right + frDist.getSample()));
+          noisyMeasurements.push_back(std::make_pair(t, noisyData));
+        }
         t += T;
       }
     }
@@ -201,9 +205,7 @@ namespace aslam {
         if (std::fabs(v_oo_x) > 1e-1) {
           const double phi = atan(L * om_oo_z / v_oo_x);
           SteeringMeasurement trueData;
-//          trueData.value = round((phi - a0) / a1);
-          trueData.value = round(a0 + a1 * phi + a2 * phi * phi + a3 * phi
-            * phi * phi);
+          trueData.value = round((phi - a0) / a1);
           trueMeasurements.push_back(std::make_pair(t, trueData));
           SteeringMeasurement noisyData;
           noisyData.value = round(trueData.value + stDist.getSample());

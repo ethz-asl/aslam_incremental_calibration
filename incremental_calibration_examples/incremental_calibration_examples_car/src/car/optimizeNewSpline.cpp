@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
     transPoses.push_back(Eigen::Vector3d(it->second.x, it->second.y,
       it->second.z));
   }
-  const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
+  const double elapsedTime = (timestamps.back() - timestamps.front()) /
     (double)NsecTimePolicy::getOne();
   const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;

@@ -32,7 +32,7 @@ namespace aslam {
     ErrorTermDMI::ErrorTermDMI(
         const aslam::backend::EuclideanExpression& v_oo,
         const aslam::backend::EuclideanExpression& om_oo,
-        VectorDesignVariable<11>* params,
+        VectorDesignVariable<12>* params,
         const Input& odo, const Covariance& Q) :
         _v_oo(v_oo),
         _om_oo(om_oo),
@@ -106,12 +106,13 @@ namespace aslam {
     double ErrorTermDMI::evaluateErrorImplementation() {
       // useful pre-computations
       const double v_oo_x = _v_oo.toValue()(0);
-      const double om_oo_z = _om_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double e_r = _params->getValue()(1);
+      const double k_dmi = _params->getValue()(11);
 
       // build the error term
       error_t error;
-      error(0) = _odo(0) - (v_oo_x - e_r * om_oo_z);
+      error(0) = _odo(0) - (v_oo_x - e_r * om_oo_z) * k_dmi;
       setError(error);
       return evaluateChiSquaredError();
     }
@@ -119,11 +120,13 @@ namespace aslam {
     void ErrorTermDMI::evaluateJacobiansImplementation(
         aslam::backend::JacobianContainer& jacobians) {
       // useful pre-computations
-      const double om_oo_z = _om_oo.toValue()(0);
+      const double v_oo_x = _v_oo.toValue()(0);
+      const double om_oo_z = _om_oo.toValue()(2);
       const double e_r = _params->getValue()(1);
+      const double k_dmi = _params->getValue()(11);
 
       // Jacobian with respect to odometry parameters
-      Eigen::Matrix<double, 1, 11> Ht = Eigen::Matrix<double, 1, 11>::Zero();
+      Eigen::Matrix<double, 1, 12> Ht = Eigen::Matrix<double, 1, 12>::Zero();
 
       // Jacobian with respect to v_oo
       Eigen::Matrix<double, 1, 3> Hv = Eigen::Matrix<double, 1, 3>::Zero();
@@ -132,9 +135,10 @@ namespace aslam {
       Eigen::Matrix<double, 1, 3> Ho = Eigen::Matrix<double, 1, 3>::Zero();
 
       // v_rl measurement
-      Ht(0, 1) = -om_oo_z;
-      Hv(0, 0) = 1.0;
-      Ho(0, 0) = -e_r;
+      Ht(0, 1) = -om_oo_z * k_dmi;
+      Ht(0, 11) = v_oo_x - e_r * om_oo_z;
+      Hv(0, 0) = k_dmi;
+      Ho(0, 2) = -e_r * k_dmi;
 
       // pass the Jacobians with the chain rule
       _v_oo.evaluateJacobians(jacobians, -Hv);

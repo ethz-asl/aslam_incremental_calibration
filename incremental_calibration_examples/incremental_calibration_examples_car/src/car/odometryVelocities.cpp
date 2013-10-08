@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
     transPoses.push_back(Eigen::Vector3d(it->second.x, it->second.y,
       it->second.z));
   }
-  const double elapsedTime = (timestamps[numMeasurements - 1] - timestamps[0]) /
+  const double elapsedTime = (timestamps.back() - timestamps.front()) /
     (double)NsecTimePolicy::getOne();
   const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
@@ -226,12 +226,20 @@ int main(int argc, char** argv) {
     om_yEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
       << om_oo(1)).finished());
   }
+  std::cout << "v_y mean: " << std::fixed << std::setprecision(18)
+    << v_yEst.getMean() << std::endl;
   std::cout << "v_y variance: " << std::fixed << std::setprecision(18)
     << v_yEst.getCovariance() << std::endl;
+  std::cout << "v_z mean: " << std::fixed << std::setprecision(18)
+    << v_zEst.getMean() << std::endl;
   std::cout << "v_z variance: " << std::fixed << std::setprecision(18)
     << v_zEst.getCovariance() << std::endl;
+  std::cout << "om_x mean: " << std::fixed << std::setprecision(18)
+    << om_xEst.getMean() << std::endl;
   std::cout << "om_x variance: " << std::fixed << std::setprecision(18)
     << om_xEst.getCovariance() << std::endl;
+  std::cout << "om_y mean: " << std::fixed << std::setprecision(18)
+    << om_yEst.getMean() << std::endl;
   std::cout << "om_y variance: " << std::fixed << std::setprecision(18)
     << om_yEst.getCovariance() << std::endl;
 

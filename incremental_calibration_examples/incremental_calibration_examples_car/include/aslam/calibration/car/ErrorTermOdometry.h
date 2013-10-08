@@ -63,14 +63,15 @@ namespace aslam {
        * @param om_oo \f$\boldsymbol{\omega}_{oo}\f$ angular velocity in
        *              odometry frame
        * @param params odometry parameters (\f$[L,e_r,e_f,a_0,a_1,a_2,a_3,
-       *        \kappa_{rl},\kappa_{rr},\kappa_{fl},\kappa_{fr}]\f$)
+       *        \kappa_{rl},\kappa_{rr},\kappa_{fl},\kappa_{fr},
+       *        \kappa_{dmi}]\f$)
        * @param odo odometry measurement
        *        (\f$[\theta,v_{rl},v_{rr},v_{fl},v_{fr}]\f$)
        * @param Q Covariance matrix of the odometry measurement
        */
       ErrorTermOdometry(const aslam::backend::EuclideanExpression& v_oo,
         const aslam::backend::EuclideanExpression& om_oo,
-        VectorDesignVariable<11>* params,
+        VectorDesignVariable<12>* params,
         const Input& odo, const Covariance& Q);
       /// Copy constructor
       ErrorTermOdometry(const ErrorTermOdometry& other);
@@ -107,7 +108,7 @@ namespace aslam {
       virtual double evaluateErrorImplementation();
       /// Evaluate the Jacobians
       virtual void evaluateJacobiansImplementation(
-        aslam::backend::JacobianContainer & _jacobians);
+        aslam::backend::JacobianContainer& _jacobians);
       /** @}
         */
 
@@ -119,7 +120,7 @@ namespace aslam {
       /// Estimated vehicle angular velocity in odometry frame
       aslam::backend::EuclideanExpression _om_oo;
       /// Estimated odometry parameters
-      VectorDesignVariable<11>* _params;
+      VectorDesignVariable<12>* _params;
       /// Measured odometry
       Input _odo;
       /// Covariance matrix of the odometry measurement

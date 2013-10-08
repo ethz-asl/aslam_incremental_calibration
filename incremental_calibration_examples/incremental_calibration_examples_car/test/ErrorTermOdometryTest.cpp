@@ -52,9 +52,10 @@ TEST(AslamCalibrationTestSuite, testErrorTermOdometry) {
   const double k_rr = 1.0;
   const double k_fl = 1.0;
   const double k_fr = 1.0;
-  aslam::calibration::VectorDesignVariable<11> Theta(
-    (aslam::calibration::VectorDesignVariable<11>::Container() <<
-    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr).finished());
+  const double k_dmi = 1.0;
+  aslam::calibration::VectorDesignVariable<12> Theta(
+    (aslam::calibration::VectorDesignVariable<12>::Container() <<
+    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr, k_dmi).finished());
 
   // linear velocity
   const Eigen::Matrix<double, 3, 1> v(1.5, 0, 0);

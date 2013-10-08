@@ -25,6 +25,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <limits>
 
 #include <boost/make_shared.hpp>
 
@@ -70,6 +71,7 @@
 #include "aslam/calibration/car/ErrorTermRws.h"
 #include "aslam/calibration/car/ErrorTermSteering.h"
 #include "aslam/calibration/car/ErrorTermDMI.h"
+#include "aslam/calibration/car/ErrorTermVehicleModel.h"
 
 struct WheelsSpeedMeasurement {
   double left;
@@ -132,7 +134,8 @@ int main(int argc, char** argv) {
   const double sigma2_fl = 1000;
   const double sigma2_fr = 1000;
   const double sigma2_st = 10;
-  const double sigma2_dmi = 1e-3;
+  const double sigma2_dmi = 1;
+  const double k_dmi = 1.0;
   const Eigen::Vector3d t_io_t(0.0, 0.0, -0.785);
   const Eigen::Matrix3d C_io_t(ypr->parametersToRotationMatrix(
     Eigen::Vector3d(deg2rad(0), deg2rad(0), deg2rad(0))));
@@ -270,9 +273,9 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Building optimization problem..." << std::endl;
-  auto cpdv = boost::make_shared<VectorDesignVariable<11> >(
-    (VectorDesignVariable<11>::Container() <<
-    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr).finished());
+  auto cpdv = boost::make_shared<VectorDesignVariable<12> >(
+    (VectorDesignVariable<12>::Container() <<
+    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr, k_dmi).finished());
   cpdv->setActive(true);
   auto t_io_dv = boost::make_shared<EuclideanPoint>(t_io_t);
   t_io_dv->setActive(true);
@@ -283,9 +286,12 @@ int main(int argc, char** argv) {
   problem->addDesignVariable(t_io_dv);
   problem->addDesignVariable(C_io_dv);
   problem->addDesignVariable(cpdv);
-  auto T_io = TransformationExpression(C_io, t_io);
-  TransformationExpression T_wi_km1;
-  double lastDistance = -1;
+  double lastDMIDistance = -1;
+  NsecTime lastDMITimestamp = -1;
+  ErrorTermVehicleModel::Covariance Q(
+    ErrorTermVehicleModel::Covariance::Zero());
+  Q(0, 0) = 0.004596591725444151; Q(1, 1) = 0.011755743477522000;
+  Q(2, 2) = 0.000298272446420575; Q(3, 3) = 0.000312150452565723;
   for (size_t i = 0; i < linearVelocities.size(); ++i) {
     auto v_ii = EuclideanExpression(linearVelocities[i]);
     auto om_ii = EuclideanExpression(angularVelocities[i]);
@@ -295,7 +301,8 @@ int main(int argc, char** argv) {
     const double om_oo_z = om_oo.toValue()(2);
     const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
     const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-    if (fabs(cos(phi_L)) > 1e-6 && fabs(cos(phi_R)) > 1e-6) {
+    if (fabs(cos(phi_L)) > std::numeric_limits<double>::epsilon() &&
+        fabs(cos(phi_R)) > std::numeric_limits<double>::epsilon()) {
       auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
         Eigen::Vector2d(frontWheelsSpeedMeasurements[i].second.left,
         frontWheelsSpeedMeasurements[i].second.right),
@@ -314,25 +321,21 @@ int main(int argc, char** argv) {
         meas, (Eigen::Matrix<double, 1, 1>() << sigma2_st).finished());
       problem->addErrorTerm(e_st);
     }
-    auto t_wi = EuclideanExpression(translations[i]);
-    auto C_wi = RotationExpression(rotations[i]);
-    auto T_wi_k = TransformationExpression(C_wi, t_wi);
+    auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
+    problem->addErrorTerm(e_vm);
     if (i > 0) {
       const double displacement =
-        encoderMeasurements[i - 1].second.signedDistanceTraveled - lastDistance;
+        encoderMeasurements[i - 1].second.signedDistanceTraveled -
+        lastDMIDistance;
       const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-        << displacement).finished());
-      auto T_o_km1_o_k = T_io.inverse() * T_wi_km1.inverse() * T_wi_k * T_io;
-      auto t_o_km1_o_k = T_o_km1_o_k.toEuclideanExpression();
-      auto C_o_km1_o_k = T_o_km1_o_k.toRotationExpression();
-      auto ypr_o_km1_o_k = C_o_km1_o_k.toParameters(ypr);
-      auto e_dmi = boost::make_shared<ErrorTermDMI>(t_o_km1_o_k, ypr_o_km1_o_k,
-        cpdv.get(), meas,
-        (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
+        << displacement / (encoderMeasurements[i - 1].first - lastDMITimestamp)
+        * 1e9).finished());
+      auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
+        meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
       problem->addErrorTerm(e_dmi);
     }
-    T_wi_km1 = T_wi_k;
-    lastDistance = encoderMeasurements[i - 1].second.signedDistanceTraveled;
+    lastDMIDistance = encoderMeasurements[i - 1].second.signedDistanceTraveled;
+    lastDMITimestamp = encoderMeasurements[i - 1].first;
   }
 
   std::cout << "Calibration before optimization: " << std::endl;
@@ -384,8 +387,6 @@ int main(int argc, char** argv) {
   std::cout << "Sigma (QR): " << std::endl
     << computeCovariance(RFactor, 0, numCols - 1).
     diagonal().transpose() << std::endl;
-  std::ofstream RFile("R.txt");
-  RFactor.writeMATLAB(RFile);
   const CompressedColumnMatrix<ssize_t>& JOpt =
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
   std::ofstream JOptFile("JOpt.txt");
