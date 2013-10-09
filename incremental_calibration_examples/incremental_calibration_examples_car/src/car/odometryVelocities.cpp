@@ -42,7 +42,7 @@
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 #include <bsplines/BSplineFitter.hpp>
-#include <bsplines/SimpleTypeTimePolicy.hpp>
+#include <bsplines/NsecTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
@@ -58,13 +58,6 @@ using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace bsplines;
-
-struct NsecTimePolicy :
-  public SimpleTypeTimePolicy<NsecTime> {
-  inline static NsecTime getOne() {
-    return NsecTime(1e9);
-  }
-};
 
 int main(int argc, char** argv) {
   if (argc != 2) {

@@ -33,6 +33,7 @@
 
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
+
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 
@@ -62,19 +63,14 @@ namespace aslam {
       struct Options {
         Options() :
             windowDuration(10.0),
-            poseSplineLambda(1e-3),
+            poseSplineLambda(0),
             poseMeasPerSecDesired(10),
             linearVelocityTolerance(1e-1),
-            dmiCovariance((Eigen::Matrix<double, 1, 1>()
-              << 0.018435).finished()),
-            fwsCovariance((Eigen::Matrix2d() <<
-              1909.275246, 0,
-              0, 1990.308315).finished()),
-            rwsCovariance((Eigen::Matrix2d() <<
-              2000.698921, 0,
-              0, 2113.749140).finished()),
+            dmiCovariance((Eigen::Matrix<double, 1, 1>() << 10).finished()),
+            fwsCovariance((Eigen::Matrix2d() << 2000, 0, 0, 2000).finished()),
+            rwsCovariance((Eigen::Matrix2d() << 2000, 0, 0, 2000).finished()),
             steeringCovariance((Eigen::Matrix<double, 1, 1>()
-              << 0.014407).finished()),
+              << 10).finished()),
             verbose(true) {
         }
         /// Window duration in seconds
@@ -96,85 +92,6 @@ namespace aslam {
         /// Verbose option
         bool verbose;
       };
-      /// Applanix vehicle navigation measurement in local ENU system
-      struct ApplanixNavigationMeasurement {
-        /// x pose [m]
-        double x;
-        /// y pose [m]
-        double y;
-        /// z pose [m]
-        double z;
-        /// roll [rad]
-        double roll;
-        /// pitch [rad]
-        double pitch;
-        /// yaw [rad]
-        double yaw;
-        /// body linear velocity in x in world frame [m/s]
-        double v_x;
-        /// body linear velocity in y in world frame [m/s]
-        double v_y;
-        /// body linear velocity in z in world frame [m/s]
-        double v_z;
-        /// body angular velocity in x in body frame [rad/s]
-        double om_x;
-        /// body angular velocity in y in body frame [rad/s]
-        double om_y;
-        /// body angular velocity in z in body frame [rad/s]
-        double om_z;
-        /// body linear acceleration in x in body frame [m/s^2]
-        double a_x;
-        /// body linear acceleration in y in body frame [m/s^2]
-        double a_y;
-        /// body linear acceleration in z in body frame [m/s^2]
-        double a_z;
-        /// linear velocity [m/s]
-        double v;
-        /// x pose sigma^2
-        double x_sigma2;
-        /// y pose sigma^2
-        double y_sigma2;
-        /// z pose sigma^2
-        double z_sigma2;
-        /// roll sigma^2
-        double roll_sigma2;
-        /// pitch sigma^2
-        double pitch_sigma2;
-        /// yaw sigma^2
-        double yaw_sigma2;
-        /// linear velocity in x sigma^2
-        double v_x_sigma2;
-        /// linear velocity in y sigma^2
-        double v_y_sigma2;
-        /// linear velocity in z sigma^2
-        double v_z_sigma2;
-      };
-      /// Applanix encoder measurement
-      struct ApplanixEncoderMeasurement {
-        /// Signed distance traveled
-        double signedDistanceTraveled;
-        /// Unsigned distance traveled
-        double unsignedDistanceTraveled;
-      };
-      /// CAN front wheels speed measurement
-      struct CANFrontWheelsSpeedMeasurement {
-        /// Left speed measurement
-        uint16_t left;
-        /// Right speed measurement
-        uint16_t right;
-      };
-      /// CAN rear wheels speed measurement
-      struct CANRearWheelsSpeedMeasurement {
-        /// Left speed measurement
-        uint16_t left;
-        /// Right speed measurement
-        uint16_t right;
-      };
-      /// CAN steering measurement
-      struct CANSteeringMeasurement {
-        /// Measurement
-        int16_t value;
-      };
       /// Shared pointer to incremental estimator
       typedef boost::shared_ptr<IncrementalEstimator> IncrementalEstimatorSP;
       /// Shared pointer to euclidean point
@@ -183,36 +100,17 @@ namespace aslam {
       /// Shared pointer to rotation quaternion
       typedef boost::shared_ptr<aslam::backend::RotationQuaternion>
         RotationQuaternionSP;
-      /// Shared pointer to CAN intrinsic design variable
-      typedef boost::shared_ptr<VectorDesignVariable<11> > CANDesignVariableSP;
-      /// Shared pointer to Applanix DMI intrinsic design variable
-      typedef boost::shared_ptr<VectorDesignVariable<1> > DMIDesignVariableSP;
+      /// Shared pointer to odometry intrinsic design variable
+      typedef boost::shared_ptr<VectorDesignVariable<12> > OdoDesignVariableSP;
       /// Calibration design variables
       struct CalibrationDesignVariables {
-        /// Intrinsic CAN odometry design variable
-        CANDesignVariableSP intrinsicCANDesignVariable;
-        /// Intrinsic Applanix DMI odometry design variable
-        DMIDesignVariableSP intrinsicDMIDesignVariable;
+        /// Intrinsic odometry design variable
+        OdoDesignVariableSP intrinsicOdoDesignVariable;
         /// Extrinsic odometry center translation design variable
         EuclideanPointSP extrinsicOdometryTranslationDesignVariable;
         /// Extrinsic odometry center rotation design variable
         RotationQuaternionSP extrinsicOdometryRotationDesignVariable;
       };
-      /// Applanix vehicle navigation measurement container
-      typedef std::vector<std::pair<double, ApplanixNavigationMeasurement> >
-        ApplanixNavigationMeasurements;
-      /// Applanix encoder measurement container
-      typedef std::vector<std::pair<double, ApplanixEncoderMeasurement> >
-        ApplanixEncoderMeasurements;
-      /// CAN front wheels speed measurement container
-      typedef std::vector<std::pair<double, CANFrontWheelsSpeedMeasurement> >
-        CANFrontWheelsSpeedMeasurements;
-      /// CAN rear wheels speed measurement container
-      typedef std::vector<std::pair<double, CANRearWheelsSpeedMeasurement> >
-        CANRearWheelsSpeedMeasurements;
-      /// CAN steering measurement container
-      typedef std::vector<std::pair<double, CANSteeringMeasurement> >
-        CANSteeringMeasurements;
       /// Rotation spline
       typedef typename aslam::splines::OPTBSpline<typename bsplines::
         UnitQuaternionBSpline<4>::CONF>::BSpline RotationSpline;

@@ -57,7 +57,7 @@
 #include <bsplines/BSplineFitter.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
-#include <bsplines/SimpleTypeTimePolicy.hpp>
+#include <bsplines/NsecTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
@@ -93,13 +93,6 @@ using namespace sm::timing;
 using namespace bsplines;
 using namespace aslam::splines;
 using namespace aslam::backend;
-
-struct NsecTimePolicy :
-  public SimpleTypeTimePolicy<NsecTime> {
-  inline static NsecTime getOne() {
-    return NsecTime(1e9);
-  }
-};
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -458,7 +451,8 @@ int main(int argc, char** argv) {
       continue;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << sigma2_fl, 0, 0, sigma2_fr).finished());
+//      (Eigen::Matrix2d() << sigma2_fl, 0, 0, sigma2_fr).finished());
+      (Eigen::Matrix2d() << (it->second.left * 0.1) * (it->second.left * 0.1), 0, 0, (it->second.right * 0.1) * (it->second.right * 0.1)).finished());
     problem->addErrorTerm(e_fws);
 //    e_fws->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
 //      e_fws->dimension(), 0.999, 0.1));
@@ -495,7 +489,8 @@ int main(int argc, char** argv) {
       continue;
     auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << sigma2_rl, 0, 0, sigma2_rr).finished());
+//      (Eigen::Matrix2d() << sigma2_rl, 0, 0, sigma2_rr).finished());
+      (Eigen::Matrix2d() << (it->second.left * 0.1) * (it->second.left * 0.1), 0, 0, (it->second.right * 0.1) * (it->second.right * 0.1)).finished());
     problem->addErrorTerm(e_rws);
 //    e_rws->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
 //      e_rws->dimension(), 0.999, 0.1));
@@ -559,7 +554,7 @@ int main(int argc, char** argv) {
 //    Q(0, 0) = 0.0046; Q(1, 1) = 0.0105; Q(2, 2) = 0.0003; Q(3, 3) = 0.0003;
     Q(0, 0) = 0.1; Q(1, 1) = 0.1; Q(2, 2) = 0.1; Q(3, 3) = 0.1;
     auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
-//    problem->addErrorTerm(e_vm);
+    problem->addErrorTerm(e_vm);
 //    e_vm->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
 //      e_vm->dimension(), 0.999, 0.1));
     errorVmPreChiFile << std::fixed << std::setprecision(18) <<

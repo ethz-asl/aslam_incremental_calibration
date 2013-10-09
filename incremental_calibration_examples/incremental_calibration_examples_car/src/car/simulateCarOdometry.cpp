@@ -43,7 +43,7 @@
 #include <bsplines/BSplineFitter.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
-#include <bsplines/SimpleTypeTimePolicy.hpp>
+#include <bsplines/NsecTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
@@ -66,13 +66,6 @@ using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace bsplines;
-
-struct NsecTimePolicy :
-  public SimpleTypeTimePolicy<NsecTime> {
-  inline static NsecTime getOne() {
-    return NsecTime(1e9);
-  }
-};
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -244,20 +237,20 @@ int main(int argc, char** argv) {
       it->second.z));
   }
   const double elapsedTime = (timestamps.back() - timestamps.front()) /
-    (double)::NsecTimePolicy::getOne();
+    (double)NsecTimePolicy::getOne();
   const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
   if (measPerSec > knotsPerSecond)
     numSegments = std::ceil(knotsPerSecond * elapsedTime);
   else
     numSegments = numMeasurements;
-  EuclideanBSpline<Eigen::Dynamic, 3, ::NsecTimePolicy>::TYPE transSpline(
+  EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::TYPE transSpline(
     splineOrder);
-  UnitQuaternionBSpline<Eigen::Dynamic, ::NsecTimePolicy>::TYPE rotSpline(
+  UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE rotSpline(
     splineOrder);
-  BSplineFitter<EuclideanBSpline<Eigen::Dynamic, 3, ::NsecTimePolicy>::TYPE>::
+  BSplineFitter<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::TYPE>::
     initUniformSpline(transSpline, timestamps, transPoses, numSegments, lambda);
-  BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic, ::NsecTimePolicy>::TYPE>::
+  BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE>::
     initUniformSpline(rotSpline, timestamps, rotPoses, numSegments, lambda);
   std::cout << "Outputting raw data to MATLAB..." << std::endl;
   std::ofstream applanixRawMATLABFile("applanix-raw.txt");
@@ -413,7 +406,7 @@ int main(int argc, char** argv) {
       const double om_oo_z = om_oo(2);
       const double predDMI = (v_oo_x - e_r * om_oo_z) * k_dmi;
       const double measDMI = displacement / (timestamp - lastDMITimestamp) *
-        (double)::NsecTimePolicy::getOne();
+        (double)NsecTimePolicy::getOne();
       dmiPredMATLABFile << std::fixed << std::setprecision(18)
         << timestamp << " " << predDMI << std::endl;
       dmiRawMATLABFile << std::fixed << std::setprecision(18)

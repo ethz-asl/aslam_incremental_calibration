@@ -261,8 +261,6 @@ int main(int argc, char** argv) {
         const double delta = t_o_km1_o_k(0);
         const double omega = (ypr->rotationMatrixToParameters(C_o_km1_o_k))(0);
         const double displacement = (delta - e_r * omega);
-//        traveledDistance += displacement +
-//          NormalDistribution<1>(0, sigma2_dmi).getSample();
         traveledDistance += displacement;
         ApplanixDMIMeasurement dmi = {traveledDistance, 0};
         encoderMeasurements.push_back(
@@ -290,8 +288,7 @@ int main(int argc, char** argv) {
   NsecTime lastDMITimestamp = -1;
   ErrorTermVehicleModel::Covariance Q(
     ErrorTermVehicleModel::Covariance::Zero());
-  Q(0, 0) = 0.004596591725444151; Q(1, 1) = 0.011755743477522000;
-  Q(2, 2) = 0.000298272446420575; Q(3, 3) = 0.000312150452565723;
+  Q(0, 0) = 0.1; Q(1, 1) = 0.1; Q(2, 2) = 0.1; Q(3, 3) = 0.1;
   for (size_t i = 0; i < linearVelocities.size(); ++i) {
     auto v_ii = EuclideanExpression(linearVelocities[i]);
     auto om_ii = EuclideanExpression(angularVelocities[i]);
