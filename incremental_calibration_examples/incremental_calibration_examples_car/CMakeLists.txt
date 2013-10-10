@@ -55,7 +55,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/car/ErrorTermSteering.cpp
   src/car/ErrorTermDMI.cpp
   src/car/ErrorTermVehicleModel.cpp
-#  src/car/CarCalibrator.cpp
+  src/car/CarCalibrator.cpp
   src/car/OptimizationProblemSpline.cpp
   src/car/CovarianceEstimator1v.cpp
 )
@@ -65,7 +65,7 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/ErrorTermPoseTest.cpp
   test/ErrorTermOdometryTest.cpp
   test/ErrorTermVehicleModelTest.cpp
-#  test/CarCalibratorTest.cpp
+  test/CarCalibratorTest.cpp
   test/CovarianceEstimatorTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
@@ -82,9 +82,9 @@ rosbuild_add_executable(processBagOldSpline src/car/processBagOldSpline.cpp)
 target_link_libraries(processBagOldSpline ${PROJECT_NAME}
   ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
-#rosbuild_add_executable(calibrateCar src/car/calibrateCar.cpp)
-#target_link_libraries(calibrateCar ${PROJECT_NAME}
-#  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
+rosbuild_add_executable(calibrateCar src/car/calibrateCar.cpp)
+target_link_libraries(calibrateCar ${PROJECT_NAME}
+  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
 
 rosbuild_add_executable(optimizeNewSpline src/car/optimizeNewSpline.cpp)
 target_link_libraries(optimizeNewSpline ${PROJECT_NAME}

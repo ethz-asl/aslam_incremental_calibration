@@ -30,11 +30,17 @@
 
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
+
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 
 #include <aslam/calibration/core/OptimizationProblem.h>
 
+namespace bsplines {
+
+  struct NsecTimePolicy;
+
+}
 namespace aslam {
   namespace calibration {
 
@@ -49,15 +55,17 @@ namespace aslam {
         @{
         */
       /// Rotation spline
-      typedef typename aslam::splines::OPTBSpline<typename bsplines::
-        UnitQuaternionBSpline<4>::CONF>::BSpline RotationSpline;
+      typedef typename aslam::splines::OPTBSpline<typename
+        bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
+        bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
       /// Rotation spline shared pointer
       typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
       /// Rotation splines container
       typedef std::vector<RotationSplineSP> RotationSplinesSP;
       /// Translation spline
-      typedef typename aslam::splines::OPTBSpline<typename bsplines::
-        EuclideanBSpline<4, 3>::CONF>::BSpline TranslationSpline;
+      typedef typename aslam::splines::OPTBSpline<typename
+        bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
+        bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
       /// Euclidean spline shared pointer
       typedef boost::shared_ptr<TranslationSpline> TranslationSplineSP;
       /// Translation splines container

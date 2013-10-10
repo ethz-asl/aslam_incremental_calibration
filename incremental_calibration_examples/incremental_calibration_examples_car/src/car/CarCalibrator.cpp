@@ -19,6 +19,7 @@
 #include "aslam/calibration/car/CarCalibrator.h"
 
 #include <cmath>
+#include <limits>
 
 #include <boost/make_shared.hpp>
 
@@ -26,6 +27,7 @@
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 
 #include <bsplines/BSplineFitter.hpp>
+#include <bsplines/NsecTimePolicy.hpp>
 
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
@@ -42,8 +44,15 @@
 #include "aslam/calibration/car/ErrorTermRws.h"
 #include "aslam/calibration/car/ErrorTermSteering.h"
 #include "aslam/calibration/car/ErrorTermDMI.h"
+#include "aslam/calibration/car/ErrorTermVehicleModel.h"
 #include "aslam/calibration/car/OptimizationProblemSpline.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
+#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
+#include "aslam/calibration/car/SteeringMeasurement.h"
+#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
+#include "aslam/calibration/car/utils.h"
 
+using namespace sm::timing;
 using namespace sm::kinematics;
 using namespace bsplines;
 using namespace aslam::splines;
@@ -65,11 +74,9 @@ namespace aslam {
         _currentBatchStartTimestamp(-1),
         _lastTimestamp(-1) {
       if (!estimator ||
-          !calibrationDesignVariables.intrinsicCANDesignVariable ||
-          !calibrationDesignVariables.intrinsicDMIDesignVariable ||
-          !calibrationDesignVariables.
-            extrinsicOdometryTranslationDesignVariable ||
-          !calibrationDesignVariables.extrinsicOdometryRotationDesignVariable)
+          !calibrationDesignVariables.intrinsicOdoDesignVariable ||
+          !calibrationDesignVariables.extrinsicOdoTranslationDesignVariable ||
+          !calibrationDesignVariables.extrinsicOdoRotationDesignVariable)
         throw InvalidOperationException("CarCalibrator::CarCalibrator(): "
           "all pointers must be initialized");
     }
@@ -112,48 +119,40 @@ namespace aslam {
 /* Methods                                                                    */
 /******************************************************************************/
 
-    void CarCalibrator::addMeasurement(const ApplanixNavigationMeasurement&
-        data, double timestamp) {
+    void CarCalibrator::addNavigationMeasurement(const
+        ApplanixNavigationMeasurement& data, NsecTime timestamp) {
       addMeasurement(timestamp);
-      _applanixNavigationMeasurements.push_back(
-        std::make_pair(timestamp, data));
+      _navigationMeasurements.push_back(std::make_pair(timestamp, data));
     }
 
-    void CarCalibrator::addMeasurement(const ApplanixEncoderMeasurement& data,
-        double timestamp) {
+    void CarCalibrator::addDMIMeasurement(const ApplanixDMIMeasurement& data,
+        NsecTime timestamp) {
       addMeasurement(timestamp);
-      _applanixEncoderMeasurements.push_back(
-        std::make_pair(timestamp, data));
+      _dmiMeasurements.push_back(std::make_pair(timestamp, data));
     }
 
-    void CarCalibrator::addMeasurement(const CANFrontWheelsSpeedMeasurement&
-        data, double timestamp) {
+    void CarCalibrator::addFrontWheelsMeasurement(const WheelsSpeedMeasurement&
+        data, NsecTime timestamp) {
       addMeasurement(timestamp);
-      _canFrontWheelsSpeedMeasurements.push_back(
-        std::make_pair(timestamp, data));
+      _frontWheelsSpeedMeasurements.push_back(std::make_pair(timestamp, data));
     }
 
-    void CarCalibrator::addMeasurement(const CANRearWheelsSpeedMeasurement&
-        data, double timestamp) {
+    void CarCalibrator::addRearWheelsMeasurement(const WheelsSpeedMeasurement&
+        data, NsecTime timestamp) {
       addMeasurement(timestamp);
-      _canRearWheelsSpeedMeasurements.push_back(
-        std::make_pair(timestamp, data));
+      _rearWheelsSpeedMeasurements.push_back(std::make_pair(timestamp, data));
     }
 
-    void CarCalibrator::addMeasurement(const CANSteeringMeasurement& data,
-        double timestamp) {
+    void CarCalibrator::addSteeringMeasurement(const SteeringMeasurement& data,
+        NsecTime timestamp) {
       addMeasurement(timestamp);
-      _canSteeringMeasurements.push_back(
-        std::make_pair(timestamp, data));
+      _steeringMeasurements.push_back(std::make_pair(timestamp, data));
     }
 
-    void CarCalibrator::addMeasurement(double timestamp) {
-      if (timestamp < _lastTimestamp)
-        throw InvalidOperationException("CarCalibrator::addMeasurement(): "
-          "timestamps must be monotically increasing");
+    void CarCalibrator::addMeasurement(NsecTime timestamp) {
       if (_currentBatchStartTimestamp == -1)
         _currentBatchStartTimestamp = timestamp;
-      if ((timestamp - _currentBatchStartTimestamp) >=
+      if (nsecToSec(timestamp - _currentBatchStartTimestamp) >=
           _options.windowDuration) {
         addMeasurements();
         clearMeasurements();
@@ -165,35 +164,31 @@ namespace aslam {
     void CarCalibrator::addMeasurements() {
       auto batch = boost::make_shared<OptimizationProblemSpline>();
       batch->addDesignVariable(
-        _calibrationDesignVariables.intrinsicCANDesignVariable, 1);
+        _calibrationDesignVariables.intrinsicOdoDesignVariable, 1);
       batch->addDesignVariable(
-        _calibrationDesignVariables.intrinsicDMIDesignVariable, 1);
+        _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable, 1);
       batch->addDesignVariable(
-        _calibrationDesignVariables.extrinsicOdometryTranslationDesignVariable,
-        1);
-      batch->addDesignVariable(
-        _calibrationDesignVariables.extrinsicOdometryRotationDesignVariable,
-        1);
-      addErrorTerms(_applanixNavigationMeasurements, batch);
-      addErrorTerms(_applanixEncoderMeasurements, batch);
-      addErrorTerms(_canFrontWheelsSpeedMeasurements, batch);
-      addErrorTerms(_canRearWheelsSpeedMeasurements, batch);
-      addErrorTerms(_canSteeringMeasurements, batch);
+        _calibrationDesignVariables.extrinsicOdoRotationDesignVariable, 1);
+      addNavigationErrorTerms(_navigationMeasurements, batch);
+      addDMIErrorTerms(_dmiMeasurements, batch);
+      addFrontWheelsErrorTerms(_frontWheelsSpeedMeasurements, batch);
+      addRearWheelsErrorTerms(_rearWheelsSpeedMeasurements, batch);
+      addSteeringErrorTerms(_steeringMeasurements, batch);
+      addVehicleErrorTerms(batch);
       batch->setGroupsOrdering({0, 1});
       if (_options.verbose) {
         std::cout << "calibration before batch: " << std::endl;
-        std::cout << "CAN intrinsic: " << std::endl <<
-          *_calibrationDesignVariables.intrinsicCANDesignVariable << std::endl;
-        std::cout << "DMI intrinsic: " << std::endl <<
-          *_calibrationDesignVariables.intrinsicDMIDesignVariable << std::endl;
+        std::cout << "Odometry intrinsic: " << std::endl
+          << std::fixed << std::setprecision(18) <<
+          *_calibrationDesignVariables.intrinsicOdoDesignVariable << std::endl;
         Eigen::MatrixXd t_io;
-        _calibrationDesignVariables.extrinsicOdometryTranslationDesignVariable
+        _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable
           ->getParameters(t_io);
         std::cout << "IMU-odometry translation: " << std::endl <<
           t_io.transpose() << std::endl;
         const EulerAnglesYawPitchRoll ypr;
         Eigen::MatrixXd q_io;
-        _calibrationDesignVariables.extrinsicOdometryRotationDesignVariable
+        _calibrationDesignVariables.extrinsicOdoRotationDesignVariable
           ->getParameters(q_io);
         std::cout << "IMU-odometry rotation: " << std::endl <<
           ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
@@ -207,72 +202,77 @@ namespace aslam {
         std::cout << "Time [s]: " << ret._elapsedTime << std::endl;
         std::cout << "Cholmod memory [MB]: " <<
           ret._cholmodMemoryUsage / 1024.0 / 1024.0 << std::endl;
+        std::cout << "rank: " << _estimator->getRank() << std::endl;
+        std::cout << "rank deficiency: " <<
+          _estimator->getRankDeficiency() << std::endl;
+        std::cout << "marginal rank: " << _estimator->getMarginalRank()
+          << std::endl;
+        std::cout << "marginal rank deficiency: "
+          << _estimator->getMarginalRankDeficiency() << std::endl;
         ret._batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+        std::cout << std::endl;
         std::cout << "calibration after batch: " << std::endl;
-        std::cout << "CAN intrinsic: " << std::endl <<
-          *_calibrationDesignVariables.intrinsicCANDesignVariable << std::endl;
-        std::cout << "DMI intrinsic: " << std::endl <<
-          *_calibrationDesignVariables.intrinsicDMIDesignVariable << std::endl;
+        std::cout << "Odometry intrinsic: " << std::endl <<
+          *_calibrationDesignVariables.intrinsicOdoDesignVariable << std::endl;
         Eigen::MatrixXd t_io;
-        _calibrationDesignVariables.extrinsicOdometryTranslationDesignVariable
+        _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable
           ->getParameters(t_io);
         std::cout << "IMU-odometry translation: " << std::endl <<
           t_io.transpose() << std::endl;
         const EulerAnglesYawPitchRoll ypr;
         Eigen::MatrixXd q_io;
-        _calibrationDesignVariables.extrinsicOdometryRotationDesignVariable
+        _calibrationDesignVariables.extrinsicOdoRotationDesignVariable
           ->getParameters(q_io);
         std::cout << "IMU-odometry rotation: " << std::endl <<
           ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
       }
     }
 
-    void CarCalibrator::addErrorTerms(const ApplanixNavigationMeasurements&
-        measurements, const OptimizationProblemSplineSP& batch) {
+    void CarCalibrator::addNavigationErrorTerms(const
+        ApplanixNavigationMeasurements& measurements, const
+        OptimizationProblemSplineSP& batch) {
       const size_t numMeasurements = measurements.size();
-      std::vector<double> timestamps;
+      std::vector<NsecTime> timestamps;
       timestamps.reserve(numMeasurements);
       std::vector<Eigen::Vector3d> transPoses;
       transPoses.reserve(numMeasurements);
       std::vector<Eigen::Vector4d> rotPoses;
       rotPoses.reserve(numMeasurements);
       const EulerAnglesYawPitchRoll ypr;
-      for (size_t i = 0; i < measurements.size(); ++i) {
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        auto timestamp = it->first;
         Eigen::Vector4d quat = r2quat(
-          ypr.parametersToRotationMatrix(Eigen::Vector3d(
-          measurements[i].second.yaw,
-          measurements[i].second.pitch,
-          measurements[i].second.roll)));
-        if (i > 0) {
+          ypr.parametersToRotationMatrix(Eigen::Vector3d(it->second.yaw,
+          it->second.pitch, it->second.roll)));
+        if (!rotPoses.empty()) {
           const Eigen::Vector4d lastRotPose = rotPoses.back();
-          if ((lastRotPose + quat).norm() < (lastRotPose - quat).norm())
-            quat = -quat;
+          quat = bestQuat(lastRotPose, quat);
         }
-        timestamps.push_back(measurements[i].first);
+        timestamps.push_back(timestamp);
         rotPoses.push_back(quat);
-        transPoses.push_back(Eigen::Vector3d(
-          measurements[i].second.x,
-          measurements[i].second.y,
-          measurements[i].second.z));
+        transPoses.push_back(Eigen::Vector3d(it->second.x, it->second.y,
+          it->second.z));
       }
-      _splineStartTime = timestamps[0];
-      _splineEndTime = timestamps[numMeasurements - 1];
-      const double elapsedTime =
-        timestamps[numMeasurements - 1] - timestamps[0];
-      const int measPerSec = numMeasurements / elapsedTime;
+      const double elapsedTime = (timestamps.back() - timestamps.front()) /
+        (double)NsecTimePolicy::getOne();
+      const int measPerSec = std::round(numMeasurements / elapsedTime);
       int numSegments;
-      if (measPerSec > _options.poseMeasPerSecDesired)
-        numSegments = _options.poseMeasPerSecDesired * elapsedTime;
+      if (measPerSec > _options.knotsPerSecond)
+        numSegments = std::ceil(_options.knotsPerSecond * elapsedTime);
       else
         numSegments = numMeasurements;
-      _translationSpline = boost::make_shared<TranslationSpline>();
-      BSplineFitter<TranslationSpline>::initUniformSpline(
-        *_translationSpline, timestamps, transPoses, numSegments,
-        _options.poseSplineLambda);
-      _rotationSpline = boost::make_shared<RotationSpline>();
-      BSplineFitter<RotationSpline>::initUniformSpline(
-        *_rotationSpline, timestamps, rotPoses, numSegments,
-        _options.poseSplineLambda);
+      _translationSpline = boost::make_shared<TranslationSpline>(
+        EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
+        EuclideanBSpline<Eigen::Dynamic, 3,
+        NsecTimePolicy>::CONF::ManifoldConf(3), _options.transSplineOrder));
+      BSplineFitter<TranslationSpline>::initUniformSpline(*_translationSpline,
+        timestamps, transPoses, numSegments, _options.transSplineLambda);
+      _rotationSpline = boost::make_shared<RotationSpline>(
+        UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF(
+        UnitQuaternionBSpline<Eigen::Dynamic,
+        NsecTimePolicy>::CONF::ManifoldConf(), _options.rotSplineOrder));
+      BSplineFitter<RotationSpline>::initUniformSpline(*_rotationSpline,
+        timestamps, rotPoses, numSegments, _options.rotSplineLambda);
       batch->addSpline(_translationSpline, 0);
       batch->addSpline(_rotationSpline, 0);
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
@@ -302,108 +302,174 @@ namespace aslam {
       }
     }
 
-    void CarCalibrator::addErrorTerms(const ApplanixEncoderMeasurements&
+    void CarCalibrator::addDMIErrorTerms(const ApplanixDMIMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
-      double lastTimestamp = -1;
+      NsecTime lastTimestamp = -1;
       double lastDistance = -1;
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        if (_splineStartTime > it->first || _splineEndTime < it->first)
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp ||
+            _translationSpline->getMaxTime() < timestamp)
           continue;
         if (lastTimestamp != -1) {
-//          const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-//            << (it->second.signedDistanceTraveled - lastDistance) /
-//            (it->second.gpsTimestamp - lastTimestamp)).finished());
-//          auto v = getOdometryVelocities(it->first, _translationSpline,
-//            _rotationSpline);
-//          auto e_dmi = boost::make_shared<ErrorTermDMI>(v.first, v.second,
-//            _calibrationDesignVariables.intrinsicDMIDesignVariable.get(), meas,
-//            _options.dmiCovariance);
-//          batch->addErrorTerm(e_dmi);
+          const double displacement = it->second.signedDistanceTraveled -
+            lastDistance;
+          const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
+            << displacement / (timestamp - lastTimestamp) * 1e9).finished());
+          auto v = getOdometryVelocities(timestamp, _translationSpline,
+            _rotationSpline);
+          auto e_dmi = boost::make_shared<ErrorTermDMI>(v.first, v.second,
+            _calibrationDesignVariables.intrinsicOdoDesignVariable.get(), meas,
+            _options.dmiCovariance);
+          batch->addErrorTerm(e_dmi);
         }
-//        lastTimestamp = it->second.gpsTimestamp;
+        lastTimestamp = timestamp;
         lastDistance = it->second.signedDistanceTraveled;
       }
     }
 
-    void CarCalibrator::addErrorTerms(const CANFrontWheelsSpeedMeasurements&
+    void CarCalibrator::addFrontWheelsErrorTerms(const WheelsSpeedMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        if (_splineStartTime > it->first || _splineEndTime < it->first ||
-            it->second.left == 0 || it->second.right == 0)
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp ||
+            _translationSpline->getMaxTime() < timestamp ||
+            it->second.left < _options.wheelSpeedSensorCutoff ||
+            it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
         auto v = getOdometryVelocities(it->first, _translationSpline,
           _rotationSpline);
+        const double v_oo_x = v.first.toValue()(0);
+        const double om_oo_z = v.second.toValue()(2);
+        const double L =
+          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(0);
+        const double e_f =
+          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(2);
+        const double k_fl =
+          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(9);
+        const double k_fr =
+          _calibrationDesignVariables.intrinsicOdoDesignVariable
+          ->getValue()(10);
+        const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
+        const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
+        if ((v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl < 0)
+          continue;
+        if ((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr < 0)
+          continue;
+        if (fabs(cos(phi_L)) < std::numeric_limits<double>::epsilon() ||
+            fabs(cos(phi_R)) < std::numeric_limits<double>::epsilon())
+          continue;
         auto e_fws = boost::make_shared<ErrorTermFws>(v.first, v.second,
-          _calibrationDesignVariables.intrinsicCANDesignVariable.get(),
+          _calibrationDesignVariables.intrinsicOdoDesignVariable.get(),
           Eigen::Vector2d(it->second.left, it->second.right),
           _options.fwsCovariance);
         batch->addErrorTerm(e_fws);
       }
     }
 
-    void CarCalibrator::addErrorTerms(const CANRearWheelsSpeedMeasurements&
+    void CarCalibrator::addRearWheelsErrorTerms(const WheelsSpeedMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        if (_splineStartTime > it->first || _splineEndTime < it->first ||
-            it->second.left == 0 || it->second.right == 0)
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp ||
+            _translationSpline->getMaxTime() < timestamp ||
+            it->second.left < _options.wheelSpeedSensorCutoff ||
+            it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
         auto v = getOdometryVelocities(it->first, _translationSpline,
           _rotationSpline);
+        const double v_oo_x = v.first.toValue()(0);
+        const double om_oo_z = v.second.toValue()(2);
+        const double e_r =
+          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(1);
+        const double k_rl =
+          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(7);
+        const double k_rr =
+          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(8);
+        if ((v_oo_x - e_r * om_oo_z) / k_rl < 0)
+          continue;
+        if ((v_oo_x + e_r * om_oo_z) / k_rr < 0)
+          continue;
         auto e_rws = boost::make_shared<ErrorTermRws>(v.first, v.second,
-          _calibrationDesignVariables.intrinsicCANDesignVariable.get(),
+          _calibrationDesignVariables.intrinsicOdoDesignVariable.get(),
           Eigen::Vector2d(it->second.left, it->second.right),
           _options.rwsCovariance);
         batch->addErrorTerm(e_rws);
       }
     }
 
-    void CarCalibrator::addErrorTerms(const CANSteeringMeasurements&
+    void CarCalibrator::addSteeringErrorTerms(const SteeringMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        if (_splineStartTime > it->first || _splineEndTime < it->first)
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp ||
+            _translationSpline->getMaxTime() < timestamp)
           continue;
         auto v = getOdometryVelocities(it->first, _translationSpline,
           _rotationSpline);
         if (std::fabs(v.first.toValue()(0)) < _options.linearVelocityTolerance)
           continue;
-        Eigen::Matrix<double, 1, 1> meas;
-        meas << it->second.value;
+        Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>() <<
+          it->second.value).finished());
         auto e_st = boost::make_shared<ErrorTermSteering>(v.first, v.second,
-          _calibrationDesignVariables.intrinsicCANDesignVariable.get(), meas,
+          _calibrationDesignVariables.intrinsicOdoDesignVariable.get(), meas,
           _options.steeringCovariance);
         batch->addErrorTerm(e_st);
       }
     }
 
+    void CarCalibrator::addVehicleErrorTerms(const OptimizationProblemSplineSP&
+        batch) {
+      for (auto it = _translationSpline->begin();
+          it != _translationSpline->end(); ++it) {
+        auto timestamp = it.getTime();
+        auto v = getOdometryVelocities(timestamp, _translationSpline,
+          _rotationSpline);
+        ErrorTermVehicleModel::Covariance Q(
+          ErrorTermVehicleModel::Covariance::Zero());
+        Q(0, 0) = 0.1; Q(1, 1) = 0.1; Q(2, 2) = 0.1; Q(3, 3) = 0.1;
+        auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v.first,
+          v.second, Q);
+        batch->addErrorTerm(e_vm);
+      }
+    }
+
     std::pair<EuclideanExpression, EuclideanExpression>
-        CarCalibrator::getOdometryVelocities(double timestamp,
+        CarCalibrator::getOdometryVelocities(NsecTime timestamp,
         const TranslationSplineSP& translationSpline,
         const RotationSplineSP& rotationSpline) const {
+      // Rotation transforming vectors in odometry frame to IMU frame
       RotationExpression C_io(
-        _calibrationDesignVariables.extrinsicOdometryRotationDesignVariable);
+        _calibrationDesignVariables.extrinsicOdoRotationDesignVariable);
+      // Translation from odometry frame to IMU frame
       EuclideanExpression t_io(
-        _calibrationDesignVariables.extrinsicOdometryTranslationDesignVariable);
+        _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable);
       auto translationExpressionFactory =
         translationSpline->getExpressionFactoryAt<1>(timestamp);
       auto rotationExpressionFactory =
         rotationSpline->getExpressionFactoryAt<1>(timestamp);
+      // Rotation transforming vectors in IMU frame to world frame
       auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
         rotationExpressionFactory.getValueExpression());
+      // linear velocity of IMU frame w.r. to world frame in IMU frame
       auto v_ii = C_wi.inverse() *
         translationExpressionFactory.getValueExpression(1);
+      // angular velocity of IMU frame w.r. to world frame in IMU frame
       auto om_ii = -(C_wi.inverse() *
         rotationExpressionFactory.getAngularVelocityExpression());
+      // linear velocity of odometry frame w.r. to world frame in odometry frame
       auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      // ang. velocity of odometry frame w.r. to world frame in odometry frame
       auto om_oo = C_io.inverse() * om_ii;
       return std::make_pair(v_oo, om_oo);
     }
 
     void CarCalibrator::clearMeasurements() {
-      _applanixNavigationMeasurements.clear();
-      _applanixEncoderMeasurements.clear();
-      _canFrontWheelsSpeedMeasurements.clear();
-      _canRearWheelsSpeedMeasurements.clear();
-      _canSteeringMeasurements.clear();
+      _navigationMeasurements.clear();
+      _dmiMeasurements.clear();
+      _frontWheelsSpeedMeasurements.clear();
+      _rearWheelsSpeedMeasurements.clear();
+      _steeringMeasurements.clear();
     }
 
   }

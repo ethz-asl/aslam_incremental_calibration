@@ -31,12 +31,21 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <sm/timing/NsecTimeUtilities.hpp>
+
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
 
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 
+#include "aslam/calibration/car/MeasurementsContainer.h"
+
+namespace bsplines {
+
+  struct NsecTimePolicy;
+
+}
 namespace aslam {
   namespace backend {
 
@@ -50,6 +59,10 @@ namespace aslam {
     template <int M> class VectorDesignVariable;
     class OptimizationProblemSpline;
     class IncrementalEstimator;
+    struct ApplanixNavigationMeasurement;
+    struct WheelsSpeedMeasurement;
+    struct SteeringMeasurement;
+    struct ApplanixDMIMeasurement;
 
     /** The class CarCalibrator implements the car calibration algorithm.
         \brief Car calibration algorithm.
@@ -63,22 +76,32 @@ namespace aslam {
       struct Options {
         Options() :
             windowDuration(10.0),
-            poseSplineLambda(0),
-            poseMeasPerSecDesired(10),
+            transSplineLambda(0),
+            rotSplineLambda(0),
+            knotsPerSecond(5),
+            transSplineOrder(4),
+            rotSplineOrder(4),
             linearVelocityTolerance(1e-1),
             dmiCovariance((Eigen::Matrix<double, 1, 1>() << 10).finished()),
-            fwsCovariance((Eigen::Matrix2d() << 2000, 0, 0, 2000).finished()),
-            rwsCovariance((Eigen::Matrix2d() << 2000, 0, 0, 2000).finished()),
+            fwsCovariance((Eigen::Matrix2d() << 500, 0, 0, 500).finished()),
+            rwsCovariance((Eigen::Matrix2d() << 500, 0, 0, 500).finished()),
             steeringCovariance((Eigen::Matrix<double, 1, 1>()
               << 10).finished()),
+            wheelSpeedSensorCutoff(350),
             verbose(true) {
         }
         /// Window duration in seconds
         double windowDuration;
-        /// Pose spline lambda
-        double poseSplineLambda;
-        /// Pose measurements per second desired
-        int poseMeasPerSecDesired;
+        /// Translation spline lambda
+        double transSplineLambda;
+        /// Rotation spline lambda
+        double rotSplineLambda;
+        /// Pose measurements per second desired for the spline
+        int knotsPerSecond;
+        /// Translation spline order
+        int transSplineOrder;
+        /// Rotation spline order
+        int rotSplineOrder;
         /// Tolerance for rejecting low speed measurements
         double linearVelocityTolerance;
         /// Covariance for DMI measurements
@@ -89,6 +112,8 @@ namespace aslam {
         Eigen::Matrix2d rwsCovariance;
         /// Covariance for steering measurements
         Eigen::Matrix<double, 1, 1> steeringCovariance;
+        /// Wheel speed sensor cutoff
+        uint16_t wheelSpeedSensorCutoff;
         /// Verbose option
         bool verbose;
       };
@@ -107,23 +132,37 @@ namespace aslam {
         /// Intrinsic odometry design variable
         OdoDesignVariableSP intrinsicOdoDesignVariable;
         /// Extrinsic odometry center translation design variable
-        EuclideanPointSP extrinsicOdometryTranslationDesignVariable;
+        EuclideanPointSP extrinsicOdoTranslationDesignVariable;
         /// Extrinsic odometry center rotation design variable
-        RotationQuaternionSP extrinsicOdometryRotationDesignVariable;
+        RotationQuaternionSP extrinsicOdoRotationDesignVariable;
       };
       /// Rotation spline
-      typedef typename aslam::splines::OPTBSpline<typename bsplines::
-        UnitQuaternionBSpline<4>::CONF>::BSpline RotationSpline;
+      typedef typename aslam::splines::OPTBSpline<typename
+        bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
+        bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
       /// Rotation spline shared pointer
       typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
       /// Translation spline
-      typedef typename aslam::splines::OPTBSpline<typename bsplines::
-        EuclideanBSpline<4, 3>::CONF>::BSpline TranslationSpline;
+      typedef typename aslam::splines::OPTBSpline<typename
+        bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
+        bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
       /// Euclidean spline shared pointer
       typedef boost::shared_ptr<TranslationSpline> TranslationSplineSP;
       /// Optimization problem shared pointer
       typedef boost::shared_ptr<OptimizationProblemSpline>
         OptimizationProblemSplineSP;
+      /// Applanix navigation measurements
+      typedef MeasurementsContainer<ApplanixNavigationMeasurement>::Type
+        ApplanixNavigationMeasurements;
+      /// Applanix DMI measurements
+      typedef MeasurementsContainer<ApplanixDMIMeasurement>::Type
+        ApplanixDMIMeasurements;
+      /// Wheel speeds measurements
+      typedef MeasurementsContainer<WheelsSpeedMeasurement>::Type
+        WheelsSpeedMeasurements;
+      /// Steering measurements
+      typedef MeasurementsContainer<SteeringMeasurement>::Type
+        SteeringMeasurements;
       /// Self type
       typedef CarCalibrator Self;
       /** @}
@@ -171,19 +210,20 @@ namespace aslam {
         @{
         */
       /// Adds an Applanix POS LV navigation measurement
-      void addMeasurement(const ApplanixNavigationMeasurement& data,
-        double timestamp);
+      void addNavigationMeasurement(const ApplanixNavigationMeasurement& data,
+        sm::timing::NsecTime timestamp);
       /// Adds an Applanix POS LV encoder measurement
-      void addMeasurement(const ApplanixEncoderMeasurement& data,
-        double timestamp);
+      void addDMIMeasurement(const ApplanixDMIMeasurement& data,
+        sm::timing::NsecTime timestamp);
       /// Adds a CAN front wheels speed measurement
-      void addMeasurement(const CANFrontWheelsSpeedMeasurement& data,
-        double timestamp);
+      void addFrontWheelsMeasurement(const WheelsSpeedMeasurement& data,
+        sm::timing::NsecTime timestamp);
       /// Adds a CAN rear wheels speed measurement
-      void addMeasurement(const CANRearWheelsSpeedMeasurement& data,
-        double timestamp);
+      void addRearWheelsMeasurement(const WheelsSpeedMeasurement& data,
+        sm::timing::NsecTime timestamp);
       /// Adds a CAN steering measurement
-      void addMeasurement(const CANSteeringMeasurement& data, double timestamp);
+      void addSteeringMeasurement(const SteeringMeasurement& data,
+        sm::timing::NsecTime timestamp);
       /// Adds the currently stored measurements to the estimator
       void addMeasurements();
       /// Clears the stored measurements
@@ -196,27 +236,29 @@ namespace aslam {
         @{
         */
       /// Adds a new measurement
-      void addMeasurement(double timestamp);
+      void addMeasurement(sm::timing::NsecTime timestamp);
       /// Adds Applanix navigation error terms
-      void addErrorTerms(const ApplanixNavigationMeasurements& measurements,
-        const OptimizationProblemSplineSP& batch);
+      void addNavigationErrorTerms(const ApplanixNavigationMeasurements&
+        measurements, const OptimizationProblemSplineSP& batch);
       /// Adds Applanix encoders error terms
-      void addErrorTerms(const ApplanixEncoderMeasurements& measurements,
+      void addDMIErrorTerms(const ApplanixDMIMeasurements& measurements,
         const OptimizationProblemSplineSP& batch);
       /// Adds CAN front wheels speed error terms
-      void addErrorTerms(const CANFrontWheelsSpeedMeasurements& measurements,
+      void addFrontWheelsErrorTerms(const WheelsSpeedMeasurements& measurements,
         const OptimizationProblemSplineSP& batch);
       /// Adds CAN rear wheels speed error terms
-      void addErrorTerms(const CANRearWheelsSpeedMeasurements& measurements,
+      void addRearWheelsErrorTerms(const WheelsSpeedMeasurements& measurements,
         const OptimizationProblemSplineSP& batch);
       /// Adds CAN steering error terms
-      void addErrorTerms(const CANSteeringMeasurements& measurements,
+      void addSteeringErrorTerms(const SteeringMeasurements& measurements,
         const OptimizationProblemSplineSP& batch);
+      /// Adds vehicle model error terms
+      void addVehicleErrorTerms(const OptimizationProblemSplineSP& batch);
       /// Returns linear and angular velocity in odometry frame from B-spline
       std::pair<aslam::backend::EuclideanExpression,
-        aslam::backend::EuclideanExpression> getOdometryVelocities(double
-        timestamp, const TranslationSplineSP& translationSpline,
-        const RotationSplineSP& rotationSpline) const;
+        aslam::backend::EuclideanExpression> getOdometryVelocities(
+        sm::timing::NsecTime timestamp, const TranslationSplineSP&
+        translationSpline, const RotationSplineSP& rotationSpline) const;
       /** @}
         */
 
@@ -230,27 +272,23 @@ namespace aslam {
       /// Incremental estimator
       IncrementalEstimatorSP _estimator;
       /// Current batch starting timestamp
-      double _currentBatchStartTimestamp;
+      sm::timing::NsecTime _currentBatchStartTimestamp;
       /// Last timestamp
-      double _lastTimestamp;
+      sm::timing::NsecTime _lastTimestamp;
       /// Stored Applanix navigation measurements
-      ApplanixNavigationMeasurements _applanixNavigationMeasurements;
+      ApplanixNavigationMeasurements _navigationMeasurements;
       /// Stored Applanix encoder measurements
-      ApplanixEncoderMeasurements _applanixEncoderMeasurements;
+      ApplanixDMIMeasurements _dmiMeasurements;
       /// Stored CAN front wheels speed measurements
-      CANFrontWheelsSpeedMeasurements _canFrontWheelsSpeedMeasurements;
+      WheelsSpeedMeasurements _frontWheelsSpeedMeasurements;
       /// Stored CAN rear wheels speed measurements
-      CANRearWheelsSpeedMeasurements _canRearWheelsSpeedMeasurements;
+      WheelsSpeedMeasurements _rearWheelsSpeedMeasurements;
       /// Stored CAN steering measurements
-      CANSteeringMeasurements _canSteeringMeasurements;
+      SteeringMeasurements _steeringMeasurements;
       /// Current rotation spline
       RotationSplineSP _rotationSpline;
       /// Current translation spline
       TranslationSplineSP _translationSpline;
-      /// Start time of spline
-      double _splineStartTime;
-      /// End time of spline
-      double _splineEndTime;
       /** @}
         */
 

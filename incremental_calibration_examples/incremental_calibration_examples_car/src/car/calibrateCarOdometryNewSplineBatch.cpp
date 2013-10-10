@@ -49,7 +49,6 @@
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
-#include <aslam/backend/MEstimatorPolicies.hpp>
 
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
@@ -349,7 +348,7 @@ int main(int argc, char** argv) {
   const double e_r = 0.74; // half-track rear [m]
   const double e_f = 0.755; // half-track front [m]
   const double a0 = 0; // steering coefficient
-  const double a1 = (M_PI / 180 / 10); // steering coefficient
+  const double a1 = M_PI / 180 / 10; // steering coefficient
   const double a2 = 0; // steering coefficient
   const double a3 = 0; // steering coefficient
   const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
@@ -374,11 +373,11 @@ int main(int argc, char** argv) {
   problem->addDesignVariable(t_io_dv);
   NsecTime lastTimestamp = -1;
   double lastDistance = -1;
-  const double sigma2_dmi = 10.0;
-  const double sigma2_rl = 2000;
-  const double sigma2_rr = 2000;
-  const double sigma2_fr = 2000;
-  const double sigma2_fl = 2000;
+  const double sigma2_dmi = 10;
+  const double sigma2_rl = 500;
+  const double sigma2_rr = 500;
+  const double sigma2_fr = 500;
+  const double sigma2_fl = 500;
   const double sigma2_st = 10;
   const uint16_t sensorCutOff = 350;
   std::ofstream errorDmiPreFile("error_dmi_pre.txt");
@@ -408,8 +407,6 @@ int main(int argc, char** argv) {
       auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
         meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
       problem->addErrorTerm(e_dmi);
-//      e_dmi->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
-//        e_dmi->dimension(), 0.999, 0.1));
       errorDmiPreChiFile << std::fixed << std::setprecision(18)
         << e_dmi->evaluateError() << std::endl;
       errorDmiPreFile << std::fixed << std::setprecision(18)
@@ -451,11 +448,8 @@ int main(int argc, char** argv) {
       continue;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-//      (Eigen::Matrix2d() << sigma2_fl, 0, 0, sigma2_fr).finished());
-      (Eigen::Matrix2d() << (it->second.left * 0.1) * (it->second.left * 0.1), 0, 0, (it->second.right * 0.1) * (it->second.right * 0.1)).finished());
+      (Eigen::Matrix2d() << sigma2_fl, 0, 0, sigma2_fr).finished());
     problem->addErrorTerm(e_fws);
-//    e_fws->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
-//      e_fws->dimension(), 0.999, 0.1));
     errorFwsPreChiFile << std::fixed << std::setprecision(18)
       << e_fws->evaluateError() << std::endl;
     errorFwsPreFile << std::fixed << std::setprecision(18)
@@ -489,11 +483,8 @@ int main(int argc, char** argv) {
       continue;
     auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-//      (Eigen::Matrix2d() << sigma2_rl, 0, 0, sigma2_rr).finished());
-      (Eigen::Matrix2d() << (it->second.left * 0.1) * (it->second.left * 0.1), 0, 0, (it->second.right * 0.1) * (it->second.right * 0.1)).finished());
+      (Eigen::Matrix2d() << sigma2_rl, 0, 0, sigma2_rr).finished());
     problem->addErrorTerm(e_rws);
-//    e_rws->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
-//      e_rws->dimension(), 0.999, 0.1));
     errorRwsPreChiFile << std::fixed << std::setprecision(18) <<
        e_rws->evaluateError() << std::endl;
     errorRwsPreFile << std::fixed << std::setprecision(18)
@@ -525,8 +516,6 @@ int main(int argc, char** argv) {
     auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
       meas, (Eigen::Matrix<double, 1, 1>() << sigma2_st).finished());
     problem->addErrorTerm(e_st);
-//    e_st->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
-//      e_st->dimension(), 0.999, 0.1));
     errorStPreChiFile << std::fixed << std::setprecision(18) <<
       e_st->evaluateError() << std::endl;
     errorStPreFile << std::fixed << std::setprecision(18)
@@ -551,12 +540,9 @@ int main(int argc, char** argv) {
     auto om_oo = C_io.inverse() * om_ii;
     ErrorTermVehicleModel::Covariance Q(
       ErrorTermVehicleModel::Covariance::Zero());
-//    Q(0, 0) = 0.0046; Q(1, 1) = 0.0105; Q(2, 2) = 0.0003; Q(3, 3) = 0.0003;
-    Q(0, 0) = 0.1; Q(1, 1) = 0.1; Q(2, 2) = 0.1; Q(3, 3) = 0.1;
+    Q(0, 0) = 1e-3; Q(1, 1) = 1e-3; Q(2, 2) = 1e-3; Q(3, 3) = 1e-3;
     auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
     problem->addErrorTerm(e_vm);
-//    e_vm->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
-//      e_vm->dimension(), 0.999, 0.1));
     errorVmPreChiFile << std::fixed << std::setprecision(18) <<
       e_vm->evaluateError() << std::endl;
     errorVmPreFile << std::fixed << std::setprecision(18)
@@ -602,8 +588,8 @@ int main(int argc, char** argv) {
   const CompressedColumnMatrix<ssize_t>& JOpt =
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
   const size_t numCols = JOpt.rows();
-  std::ofstream JOptFile("JOpt.txt");
-  JOpt.writeMATLAB(JOptFile);
+//  std::ofstream JOptFile("JOpt.txt");
+//  JOpt.writeMATLAB(JOptFile);
   std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
     ->getRank() << std::endl;
   std::cout << "Rank deficiency: " << numCols -

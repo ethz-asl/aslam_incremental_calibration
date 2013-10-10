@@ -20,7 +20,7 @@
 
 #include <sm/boost/null_deleter.hpp>
 
-#include <aslam/splines/BSplinePoseDesignVariable.hpp>
+#include <bsplines/NsecTimePolicy.hpp>
 
 #include <aslam/calibration/exceptions/OutOfBoundException.h>
 

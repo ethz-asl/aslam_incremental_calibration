@@ -29,27 +29,22 @@
 
 #include <aslam/calibration/core/IncrementalEstimator.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
-#include <aslam/calibration/exceptions/InvalidOperationException.h>
 
 #include "aslam/calibration/car/CarCalibrator.h"
+#include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
 
 using namespace aslam::backend;
 using namespace aslam::calibration;
 
 TEST(AslamCalibrationTestSuite, testCarCalibrator) {
   CarCalibrator::CalibrationDesignVariables dv;
-  dv.intrinsicCANDesignVariable =
-    boost::make_shared<VectorDesignVariable<11> >();
-  dv.intrinsicDMIDesignVariable =
-    boost::make_shared<VectorDesignVariable<1> >();
-  dv.extrinsicOdometryTranslationDesignVariable =
+  dv.intrinsicOdoDesignVariable =
+    boost::make_shared<VectorDesignVariable<12> >();
+  dv.extrinsicOdoTranslationDesignVariable =
     boost::make_shared<EuclideanPoint>(Eigen::Vector3d(0, 0, -0.785));
-  dv.extrinsicOdometryRotationDesignVariable =
+  dv.extrinsicOdoRotationDesignVariable =
     boost::make_shared<RotationQuaternion>(Eigen::Matrix3d());
   auto estimator = boost::make_shared<IncrementalEstimator>(1);
   CarCalibrator calibrator(estimator, dv);
-  calibrator.addMeasurement(CarCalibrator::ApplanixNavigationMeasurement(), 10);
-  ASSERT_THROW(calibrator.addMeasurement(
-    CarCalibrator::ApplanixNavigationMeasurement(), 5),
-    InvalidOperationException);
+  calibrator.addNavigationMeasurement(ApplanixNavigationMeasurement(), 10);
 }
