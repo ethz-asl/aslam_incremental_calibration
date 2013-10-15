@@ -20,10 +20,10 @@
   <depend package="rosbag"/>
   <depend package="poslv"/>
   <depend package="can_prius"/>
+  <depend package="sm_property_tree"/>
 
   <export>
-    <cpp cflags="-I${prefix}/include"
-	 lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -llibincremental_calibration_examples_car.so" />
+    <cpp cflags="-I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -llibincremental_calibration_examples_car.so" />
   </export>
 
 </package>

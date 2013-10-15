@@ -1,4 +1,61 @@
-<?xml version="1.0" encoding="utf-8"?>
-<carCalibrator>
-  <translationSplineLambda>1e-1</translationSplineLambda>
-</carCalibrator>
+<calibrator>
+  <splines>
+    <translationSplineLambda>0</translationSplineLambda>
+    <rotationSplineLambda>0</rotationSplineLambda>
+    <splineKnotsPerSeconds>5</splineKnotsPerSeconds>
+    <translationSplineOrder>4</translationSplineOrder>
+    <rotationSplineOrder>4</rotationSplineOrder>
+  </splines>
+  <odometry>
+    <intrinsic>
+      <wheelBase>2.7</wheelBase>
+      <halfRearTrack>0.74</halfRearTrack>
+      <halfFrontTrack>0.755</halfFrontTrack>
+      <steeringCoefficient0>0</steeringCoefficient0>
+      <steeringCoefficient1> 0.001745329251994</steeringCoefficient1>
+      <steeringCoefficient2>0</steeringCoefficient2>
+      <steeringCoefficient3>0</steeringCoefficient3>
+      <rearLeftWheelCoefficient>0.002777777777778</rearLeftWheelCoefficient>
+      <rearRightWheelCoefficient>0.002777777777778</rearRightWheelCoefficient>
+      <frontLeftWheelCoefficient>0.002777777777778</frontLeftWheelCoefficient>
+      <frontRightWheelCoefficient>0.002777777777778</frontRightWheelCoefficient>
+      <dmiCoefficient>1.0</dmiCoefficient>
+    </intrinsic>
+    <extrinsic>
+      <translation>
+        <x>0</x>
+        <y>0</y>
+        <z>-0.785</z>
+      </translation>
+      <rotation>
+        <yaw>0</yaw>
+        <pitch>0</pitch>
+        <roll>0</roll>
+      </rotation>
+    </extrinsic>
+    <noise>
+      <hallSensorCutoff>350</hallSensorCutoff>
+      <rlwPercentError>0.15</rlwPercentError>
+      <rrwPercentError>0.15</rrwPercentError>
+      <flwPercentError>0.2</flwPercentError>
+      <frwPercentError>0.2</frwPercentError>
+      <sigma2_dmi>1</sigma2_dmi>
+      <sigma2_st>1</sigma2_st>
+      <steeringMinSpeed>1e-1</steeringMinSpeed>
+      <sigma2_vy>1e-3</sigma2_vy>
+      <sigma2_vz>1e-3</sigma2_vz>
+      <sigma2_omx>1e-3</sigma2_omx>
+      <sigma2_omy>1e-3</sigma2_omy>
+    </noise>
+  </odometry>
+  <optimizer>
+    <linearSolver>
+      <colNorm>true</colNorm>
+      <qrTol>0.02</qrTol>
+      <normTol>1e-8</normTol>
+    </linearSolver>
+    <marginalizer>
+      <epsTol>1e-9</epsTol>
+    </marginalizer>
+  </optimizer>
+</calibrator>
