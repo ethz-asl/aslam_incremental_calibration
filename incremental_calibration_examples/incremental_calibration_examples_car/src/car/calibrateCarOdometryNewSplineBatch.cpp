@@ -51,6 +51,7 @@
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
+#include <aslam/backend/MEstimatorPolicies.hpp>
 
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
@@ -456,6 +457,10 @@ int main(int argc, char** argv) {
 //  const double sigma2_rr = 500;
 //  const double sigma2_fr = 500;
 //  const double sigma2_fl = 500;
+  ErrorTermVehicleModel::Covariance Q(
+    ErrorTermVehicleModel::Covariance::Zero());
+  Q(0, 0) = sigma2_vy; Q(1, 1) = sigma2_vz;
+  Q(2, 2) = sigma2_omx; Q(3, 3) = sigma2_omy;
   std::ofstream errorDmiPreFile("error_dmi_pre.txt");
   std::ofstream errorDmiPreChiFile("error_dmi_pre_chi.txt");
   for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
@@ -625,11 +630,9 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getAngularVelocityExpression());
     auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
     auto om_oo = C_io.inverse() * om_ii;
-    ErrorTermVehicleModel::Covariance Q(
-      ErrorTermVehicleModel::Covariance::Zero());
-    Q(0, 0) = sigma2_vy; Q(1, 1) = sigma2_vz;
-    Q(2, 2) = sigma2_omx; Q(3, 3) = sigma2_omy;
     auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
+//    e_vm->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
+//      e_vm->dimension()));
     problem->addErrorTerm(e_vm);
     errorVmPreChiFile << std::fixed << std::setprecision(18) <<
       e_vm->evaluateError() << std::endl;
@@ -916,10 +919,6 @@ int main(int argc, char** argv) {
       rotationExpressionFactory.getAngularVelocityExpression());
     auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
     auto om_oo = C_io.inverse() * om_ii;
-    ErrorTermVehicleModel::Covariance Q(
-      ErrorTermVehicleModel::Covariance::Zero());
-    Q(0, 0) = sigma2_vy; Q(1, 1) = sigma2_vz;
-    Q(2, 2) = sigma2_omx; Q(3, 3) = sigma2_omy;
     auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
     errorVmPostChiFile << std::fixed << std::setprecision(18) <<
       e_vm->evaluateError() << std::endl;
@@ -927,5 +926,28 @@ int main(int argc, char** argv) {
       << timestamp << " " << e_vm->error().transpose() << std::endl;
   }
 
+  std::ofstream resultFile("result.txt");
+  const Eigen::Vector3d rot =
+    ypr->rotationMatrixToParameters(C_io.toRotationMatrix());
+  resultFile << std::fixed << std::setprecision(18)
+    << cpdv->getValue()(0) << ";" << sqrt(Sigma(0, 0)) << ";"
+    << cpdv->getValue()(1) << ";" << sqrt(Sigma(1, 1)) << ";"
+    << cpdv->getValue()(2) << ";" << sqrt(Sigma(2, 2)) << ";"
+    << cpdv->getValue()(3) << ";" << sqrt(Sigma(3, 3)) << ";"
+    << cpdv->getValue()(4) << ";" << sqrt(Sigma(4, 4)) << ";"
+    << cpdv->getValue()(5) << ";" << sqrt(Sigma(5, 5)) << ";"
+    << cpdv->getValue()(6) << ";" << sqrt(Sigma(6, 6)) << ";"
+    << cpdv->getValue()(7) << ";" << sqrt(Sigma(7, 7)) << ";"
+    << cpdv->getValue()(8) << ";" << sqrt(Sigma(8, 8)) << ";"
+    << cpdv->getValue()(9) << ";" << sqrt(Sigma(9, 9)) << ";"
+    << cpdv->getValue()(10) << ";" << sqrt(Sigma(10, 10)) << ";"
+    << cpdv->getValue()(11) << ";" << sqrt(Sigma(11, 11)) << ";"
+    << t_io.toValue()(0) << ";" << sqrt(Sigma(15, 15)) << ";"
+    << t_io.toValue()(1) << ";" << sqrt(Sigma(16, 16)) << ";"
+    << t_io.toValue()(2) << ";" << sqrt(Sigma(17, 17)) << ";"
+    << rot(0) << ";" << sqrt(Sigma(12, 12)) << ";"
+    << rot(1) << ";" << sqrt(Sigma(13, 13)) << ";"
+    << rot(2) << ";" << sqrt(Sigma(14, 14)) << ";"
+    << elapsedTime << ";";
   return 0;
 }
