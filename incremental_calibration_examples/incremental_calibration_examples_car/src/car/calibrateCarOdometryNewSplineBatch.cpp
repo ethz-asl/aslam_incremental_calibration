@@ -151,33 +151,30 @@ int main(int argc, char** argv) {
       double x_ecef, y_ecef, z_ecef;
       Geo::wgs84ToEcef(vns->latitude, vns->longitude, vns->altitude, x_ecef,
         y_ecef, z_ecef);
-      double x_enu, y_enu, z_enu;
-      Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
-        y_enu, z_enu);
+      double x_ned, y_ned, z_ned;
+      Geo::ecefToNed(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_ned,
+        y_ned, z_ned);
       ApplanixNavigationMeasurement data;
-      data.x = x_enu;
-      data.y = y_enu;
-      data.z = z_enu;
-      data.yaw = angleMod(deg2rad(-vns->heading) + M_PI / 2);
-      data.pitch = deg2rad(-vns->pitch);
+      data.x = x_ned;
+      data.y = y_ned;
+      data.z = z_ned;
+      data.yaw = angleMod(deg2rad(vns->heading));
+      data.pitch = deg2rad(vns->pitch);
       data.roll = deg2rad(vns->roll);
-      Eigen::Vector3d linearVelocity =
-        Geo::R_ENU_NED::getInstance().getMatrix() * Eigen::Vector3d(
-        vns->northVelocity, vns->eastVelocity, vns->downVelocity);
-      data.v_x = linearVelocity(0);
-      data.v_y = linearVelocity(1);
-      data.v_z = linearVelocity(2);
+      data.v_x = vns->northVelocity;
+      data.v_y = vns->eastVelocity;
+      data.v_z = vns->downVelocity;
       data.om_x = deg2rad(vns->angularRateLong);
-      data.om_y = -deg2rad(vns->angularRateTrans);
-      data.om_z = -deg2rad(vns->angularRateDown);
+      data.om_y = deg2rad(vns->angularRateTrans);
+      data.om_z = deg2rad(vns->angularRateDown);
       data.a_x = vns->accLong;
-      data.a_y = -vns->accTrans;
-      data.a_z = -vns->accDown;
+      data.a_y = vns->accTrans;
+      data.a_z = vns->accDown;
       data.v = vns->speed;
-      data.x_sigma2 = lastVnp->eastPositionRMSError *
-        lastVnp->eastPositionRMSError;
-      data.y_sigma2 = lastVnp->northPositionRMSError *
+      data.x_sigma2 = lastVnp->northPositionRMSError *
         lastVnp->northPositionRMSError;
+      data.y_sigma2 = lastVnp->eastPositionRMSError *
+        lastVnp->eastPositionRMSError;
       data.z_sigma2 = lastVnp->downPositionRMSError *
         lastVnp->downPositionRMSError;
       data.roll_sigma2 = deg2rad(lastVnp->rollRMSError) *
@@ -186,10 +183,10 @@ int main(int argc, char** argv) {
         deg2rad(lastVnp->pitchRMSError);
       data.yaw_sigma2 = deg2rad(lastVnp->headingRMSError) *
         deg2rad(lastVnp->headingRMSError);
-      data.v_x_sigma2 = lastVnp->eastVelocityRMSError *
-        lastVnp->eastVelocityRMSError;
-      data.v_y_sigma2 = lastVnp->northVelocityRMSError *
+      data.v_x_sigma2 = lastVnp->northVelocityRMSError *
         lastVnp->northVelocityRMSError;
+      data.v_y_sigma2 = lastVnp->eastVelocityRMSError *
+        lastVnp->eastVelocityRMSError;
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
       navigationMeasurements.push_back(
@@ -373,6 +370,21 @@ int main(int argc, char** argv) {
     ::CONF>::BSpline>::initUniformSpline(rotationSpline, timestamps, rotPoses,
     numSegments, rotationSplineLambda);
 
+  std::cout << "Outputting raw data to MATLAB..." << std::endl;
+  std::ofstream applanixRawMATLABFile("applanix-raw.txt");
+  for (auto it = navigationMeasurements.cbegin();
+      it != navigationMeasurements.cend(); ++it)
+    applanixRawMATLABFile << std::fixed << std::setprecision(18)
+      << it->first << " "
+      << it->second.x << " " << it->second.y << " " << it->second.z << " "
+      << it->second.yaw << " " << it->second.pitch << " "
+      << it->second.roll << " "
+      << it->second.v_x << " " << it->second.v_y << " " << it->second.v_z << " "
+      << it->second.om_x << " " << it->second.om_y << " "
+      << it->second.om_z << " "
+      << it->second.a_x << " " << it->second.a_y << " " << it->second.a_z
+      << std::endl;
+
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
@@ -453,10 +465,6 @@ int main(int argc, char** argv) {
   problem->addDesignVariable(t_io_dv);
   NsecTime lastTimestamp = -1;
   double lastDistance = -1;
-//  const double sigma2_rl = 500;
-//  const double sigma2_rr = 500;
-//  const double sigma2_fr = 500;
-//  const double sigma2_fl = 500;
   ErrorTermVehicleModel::Covariance Q(
     ErrorTermVehicleModel::Covariance::Zero());
   Q(0, 0) = sigma2_vy; Q(1, 1) = sigma2_vz;
@@ -531,7 +539,6 @@ int main(int argc, char** argv) {
       continue;
     auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-//      (Eigen::Matrix2d() << sigma2_fl, 0, 0, sigma2_fr).finished());
       (Eigen::Matrix2d() << (flwPercentError * it->second.left) *
         (flwPercentError * it->second.left), 0, 0,
         (frwPercentError * it->second.right) *
@@ -571,7 +578,6 @@ int main(int argc, char** argv) {
       continue;
     auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
       Eigen::Vector2d(it->second.left, it->second.right),
-//      (Eigen::Matrix2d() << sigma2_rl, 0, 0, sigma2_rr).finished());
       (Eigen::Matrix2d() << (rlwPercentError * it->second.left) *
         (rlwPercentError * it->second.left), 0, 0,
         (rrwPercentError * it->second.right) *
@@ -680,8 +686,6 @@ int main(int argc, char** argv) {
   const CompressedColumnMatrix<ssize_t>& JOpt =
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose();
   const size_t numCols = JOpt.rows();
-//  std::ofstream JOptFile("JOpt.txt");
-//  JOpt.writeMATLAB(JOptFile);
   std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
     ->getRank() << std::endl;
   std::cout << "Rank deficiency: " << numCols -
@@ -759,6 +763,8 @@ int main(int argc, char** argv) {
 
   std::ofstream errorDmiPostFile("error_dmi_post.txt");
   std::ofstream errorDmiPostChiFile("error_dmi_post_chi.txt");
+  lastDistance = -1;
+  lastTimestamp = -1;
   for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
       ++it) {
     const NsecTime timestamp = it->first;

@@ -39,7 +39,7 @@
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 #include <bsplines/BSplineFitter.hpp>
-#include <bsplines/SimpleTypeTimePolicy.hpp>
+#include <bsplines/NsecTimePolicy.hpp>
 
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/TimeTaggedDMIDataMsg.h>
@@ -59,13 +59,6 @@ using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace bsplines;
-
-struct NsecTimePolicy :
-  public SimpleTypeTimePolicy<NsecTime> {
-  inline static NsecTime getOne() {
-    return NsecTime(1e9);
-  }
-};
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -106,28 +99,25 @@ int main(int argc, char** argv) {
       double x_ecef, y_ecef, z_ecef;
       Geo::wgs84ToEcef(vns->latitude, vns->longitude, vns->altitude, x_ecef,
         y_ecef, z_ecef);
-      double x_enu, y_enu, z_enu;
-      Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
-        y_enu, z_enu);
+      double x_ned, y_ned, z_ned;
+      Geo::ecefToNed(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_ned,
+        y_ned, z_ned);
       ApplanixNavigationMeasurement data;
-      data.x = x_enu;
-      data.y = y_enu;
-      data.z = z_enu;
-      data.yaw = angleMod(deg2rad(-vns->heading) + M_PI / 2);
-      data.pitch = deg2rad(-vns->pitch);
+      data.x = x_ned;
+      data.y = y_ned;
+      data.z = z_ned;
+      data.yaw = angleMod(deg2rad(vns->heading));
+      data.pitch = deg2rad(vns->pitch);
       data.roll = deg2rad(vns->roll);
-      Eigen::Vector3d linearVelocity =
-        Geo::R_ENU_NED::getInstance().getMatrix() * Eigen::Vector3d(
-        vns->northVelocity, vns->eastVelocity, vns->downVelocity);
-      data.v_x = linearVelocity(0);
-      data.v_y = linearVelocity(1);
-      data.v_z = linearVelocity(2);
+      data.v_x = vns->northVelocity;
+      data.v_y = vns->eastVelocity;
+      data.v_z = vns->downVelocity;
       data.om_x = deg2rad(vns->angularRateLong);
-      data.om_y = -deg2rad(vns->angularRateTrans);
-      data.om_z = -deg2rad(vns->angularRateDown);
+      data.om_y = deg2rad(vns->angularRateTrans);
+      data.om_z = deg2rad(vns->angularRateDown);
       data.a_x = vns->accLong;
-      data.a_y = -vns->accTrans;
-      data.a_z = -vns->accDown;
+      data.a_y = vns->accTrans;
+      data.a_z = vns->accDown;
       data.v = vns->speed;
       applanixNavigationMeasurements.push_back(
         std::make_pair(round(timestampCorrector1.correctTimestamp(
@@ -136,6 +126,7 @@ int main(int argc, char** argv) {
     }
   }
   std::cout << std::endl;
+
   std::cout << "Building spline..." << std::endl;
   const size_t numMeasurements = applanixNavigationMeasurements.size();
   std::vector<NsecTime> timestamps;
@@ -179,6 +170,7 @@ int main(int argc, char** argv) {
     initUniformSpline(transSpline, timestamps, transPoses, numSegments, lambda);
   BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE>::
     initUniformSpline(rotSpline, timestamps, rotPoses, numSegments, lambda);
+
   std::cout << "Outputting raw data to MATLAB..." << std::endl;
   std::ofstream applanixRawMATLABFile("applanix-raw.txt");
   for (auto it = applanixNavigationMeasurements.cbegin();
@@ -193,6 +185,7 @@ int main(int argc, char** argv) {
       << it->second.om_z << " "
       << it->second.a_x << " " << it->second.a_y << " " << it->second.a_z
       << std::endl;
+
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
   std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
@@ -209,6 +202,7 @@ int main(int argc, char** argv) {
       << (C_wi.transpose() * transEvaluator.evalD(2)).transpose()
       << std::endl;
   }
+
   std::cout << "Reading odometry data..." << std::endl;
   viewCounter = 0;
   std::ofstream canRawFwMATLABFile("can-raw-fws.txt");
@@ -222,15 +216,16 @@ int main(int argc, char** argv) {
   const double L = 2.7; // wheelbase [m]
   const double e_r = 0.74; // half-track rear [m]
   const double e_f = 0.755; // half-track front [m]
-  const double a0 = -0.0351; // steering coefficient
-  const double a1 = 1.0 / 10.0 * M_PI / 180.0 / 1.3; // steering coefficient
+  const double a0 = 0; // steering coefficient
+  const double a1 = 1.0 / 10.0 * M_PI / 180.0; // steering coefficient
   const double k_rl = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_rr = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_fl = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_fr = 1.0 / 3.6 / 100.0; // wheel coefficient
   const double k_dmi = 1.0; // DMI coefficient
-  const Eigen::Vector3d t_io(0, 0.0, -0.785);
-  const Eigen::Matrix3d C_io = Eigen::Matrix3d::Identity();
+  const Eigen::Vector3d t_io(0, 0, 0.785);
+  const Eigen::Matrix3d C_io = ypr.parametersToRotationMatrix(
+    Eigen::Vector3d(0, 0, M_PI));
   CovarianceEstimator<2> fwsCovEst;
   CovarianceEstimator<2> rwsCovEst;
   CovarianceEstimator<1> dmiCovEst;
@@ -238,6 +233,8 @@ int main(int argc, char** argv) {
   NsecTime lastDMITimestamp = -1;
   double lastDMIDistance = -1;
   TimestampCorrector<double> timestampCorrector2;
+  const uint16_t sensorCutoff = 350;
+  const double steeringMinSpeed = 1e-1;
   for (auto it = view.begin(); it != view.end(); ++it) {
     std::cout << std::fixed << std::setw(3)
       << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
@@ -245,7 +242,7 @@ int main(int argc, char** argv) {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
       const NsecTime timestamp = fws->header.stamp.toNSec();
-      if (fws->Left < 350 || fws->Right < 350 ||
+      if (fws->Left < sensorCutoff || fws->Right < sensorCutoff ||
           timestamp < timestamps.front() || timestamp > timestamps.back())
         continue;
       auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
@@ -259,8 +256,6 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (fabs(v_oo_x) < 0.85) // minimal speed for Hall sensor
-        continue;
       const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
       const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
       if (fabs(cos(phi_L)) < std::numeric_limits<double>::epsilon() ||
@@ -281,7 +276,7 @@ int main(int argc, char** argv) {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
       const NsecTime timestamp = rws->header.stamp.toNSec();
-      if (rws->Left < 350 || rws->Right < 350 ||
+      if (rws->Left < sensorCutoff || rws->Right < sensorCutoff ||
           timestamp < timestamps.front() || timestamp > timestamps.back())
         continue;
       auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
@@ -295,8 +290,6 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (fabs(v_oo_x) < 0.85) // minimal speed for Hall sensor
-        continue;
       const double predLeft = (v_oo_x - e_r * om_oo_z) / k_rl;
       const double predRight = (v_oo_x + e_r * om_oo_z) / k_rr;
       if (predLeft < 0 || predRight < 0)
@@ -325,7 +318,7 @@ int main(int argc, char** argv) {
       const Eigen::Vector3d om_oo = C_io.transpose() * om_ii;
       const double v_oo_x = v_oo(0);
       const double om_oo_z = om_oo(2);
-      if (fabs(v_oo_x) < 0.85) // minimal speed for Hall sensor
+      if (fabs(v_oo_x) < steeringMinSpeed)
         continue;
       const double phi = atan(L * om_oo_z / v_oo_x);
       const double predSteering = (phi - a0) / a1;
@@ -359,7 +352,7 @@ int main(int argc, char** argv) {
         const double om_oo_z = om_oo(2);
         const double predDMI = (v_oo_x - e_r * om_oo_z) * k_dmi;
         const double measDMI = displacement / (timestamp - lastDMITimestamp) *
-          (double)::NsecTimePolicy::getOne();
+          (double)NsecTimePolicy::getOne();
         dmiPredMATLABFile << std::fixed << std::setprecision(18)
           << timestamp << " " << predDMI << std::endl;
         dmiRawMATLABFile << std::fixed << std::setprecision(18)
@@ -372,6 +365,7 @@ int main(int argc, char** argv) {
     }
   }
   std::cout << std::endl;
+
   std::cout << "Front wheels speed mean: " << std::endl
     << fwsCovEst.getMean() << std::endl;
   std::cout << "Front wheels speed covariance: " << std::endl
@@ -420,5 +414,6 @@ int main(int argc, char** argv) {
     << dmiCovEst.getChiSquaredMean() << std::endl;
   std::cout << "DMI chi-square variance: " << std::endl
     << dmiCovEst.getChiSquaredVariance() << std::endl;
+
   return 0;
 }

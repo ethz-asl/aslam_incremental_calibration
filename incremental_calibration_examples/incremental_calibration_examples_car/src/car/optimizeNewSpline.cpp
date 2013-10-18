@@ -117,33 +117,30 @@ int main(int argc, char** argv) {
       double x_ecef, y_ecef, z_ecef;
       Geo::wgs84ToEcef(vns->latitude, vns->longitude, vns->altitude, x_ecef,
         y_ecef, z_ecef);
-      double x_enu, y_enu, z_enu;
-      Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
-        y_enu, z_enu);
+      double x_ned, y_ned, z_ned;
+      Geo::ecefToNed(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_ned,
+        y_ned, z_ned);
       ApplanixNavigationMeasurement data;
-      data.x = x_enu;
-      data.y = y_enu;
-      data.z = z_enu;
-      data.yaw = angleMod(deg2rad(-vns->heading) + M_PI / 2);
-      data.pitch = deg2rad(-vns->pitch);
+      data.x = x_ned;
+      data.y = y_ned;
+      data.z = z_ned;
+      data.yaw = angleMod(deg2rad(vns->heading));
+      data.pitch = deg2rad(vns->pitch);
       data.roll = deg2rad(vns->roll);
-      Eigen::Vector3d linearVelocity =
-        Geo::R_ENU_NED::getInstance().getMatrix() * Eigen::Vector3d(
-        vns->northVelocity, vns->eastVelocity, vns->downVelocity);
-      data.v_x = linearVelocity(0);
-      data.v_y = linearVelocity(1);
-      data.v_z = linearVelocity(2);
+      data.v_x = vns->northVelocity;
+      data.v_y = vns->eastVelocity;
+      data.v_z = vns->downVelocity;
       data.om_x = deg2rad(vns->angularRateLong);
-      data.om_y = -deg2rad(vns->angularRateTrans);
-      data.om_z = -deg2rad(vns->angularRateDown);
+      data.om_y = deg2rad(vns->angularRateTrans);
+      data.om_z = deg2rad(vns->angularRateDown);
       data.a_x = vns->accLong;
-      data.a_y = -vns->accTrans;
-      data.a_z = -vns->accDown;
+      data.a_y = vns->accTrans;
+      data.a_z = vns->accDown;
       data.v = vns->speed;
-      data.x_sigma2 = lastVnp->eastPositionRMSError *
-        lastVnp->eastPositionRMSError;
-      data.y_sigma2 = lastVnp->northPositionRMSError *
+      data.x_sigma2 = lastVnp->northPositionRMSError *
         lastVnp->northPositionRMSError;
+      data.y_sigma2 = lastVnp->eastPositionRMSError *
+        lastVnp->eastPositionRMSError;
       data.z_sigma2 = lastVnp->downPositionRMSError *
         lastVnp->downPositionRMSError;
       data.roll_sigma2 = deg2rad(lastVnp->rollRMSError) *
@@ -152,10 +149,10 @@ int main(int argc, char** argv) {
         deg2rad(lastVnp->pitchRMSError);
       data.yaw_sigma2 = deg2rad(lastVnp->headingRMSError) *
         deg2rad(lastVnp->headingRMSError);
-      data.v_x_sigma2 = lastVnp->eastVelocityRMSError *
-        lastVnp->eastVelocityRMSError;
-      data.v_y_sigma2 = lastVnp->northVelocityRMSError *
+      data.v_x_sigma2 = lastVnp->northVelocityRMSError *
         lastVnp->northVelocityRMSError;
+      data.v_y_sigma2 = lastVnp->eastVelocityRMSError *
+        lastVnp->eastVelocityRMSError;
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
       measurements.push_back(
@@ -164,6 +161,8 @@ int main(int argc, char** argv) {
         data));
     }
   }
+
+  std::cout << "Building spline..." << std::endl;
   const size_t numMeasurements = measurements.size();
   std::vector<NsecTime> timestamps;
   timestamps.reserve(numMeasurements);
@@ -211,6 +210,21 @@ int main(int argc, char** argv) {
   BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
     ::CONF>::BSpline>::initUniformSpline(rotationSpline, timestamps, rotPoses,
     numSegments, lambda);
+
+  std::cout << "Outputting raw data to MATLAB..." << std::endl;
+  std::ofstream applanixRawMATLABFile("applanix-raw.txt");
+  for (auto it = measurements.cbegin(); it != measurements.cend(); ++it)
+    applanixRawMATLABFile << std::fixed << std::setprecision(18)
+      << it->first << " "
+      << it->second.x << " " << it->second.y << " " << it->second.z << " "
+      << it->second.yaw << " " << it->second.pitch << " "
+      << it->second.roll << " "
+      << it->second.v_x << " " << it->second.v_y << " " << it->second.v_z << " "
+      << it->second.om_x << " " << it->second.om_y << " "
+      << it->second.om_z << " "
+      << it->second.a_x << " " << it->second.a_y << " " << it->second.a_z
+      << std::endl;
+
   std::cout << "Outputting spline data before optimization..." << std::endl;
   std::ofstream applanixSplineFile("applanix-spline.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
@@ -235,6 +249,8 @@ int main(int argc, char** argv) {
         transpose()
       << std::endl;
   }
+
+  std::cout << "Building optimization problem..." << std::endl;
   auto problem = boost::make_shared<OptimizationProblem>();
   for (size_t i = 0; i < translationSpline.numDesignVariables(); ++i) {
     translationSpline.designVariable(i)->setActive(true);
@@ -269,6 +285,8 @@ int main(int argc, char** argv) {
       xm, Q);
     problem->addErrorTerm(e_pose);
   }
+
+  std::cout << "Optimizing..." << std::endl;
   Optimizer2Options options;
   options.verbose = true;
   options.linearSystemSolver = boost::make_shared<SparseQrLinearSystemSolver>();
@@ -281,6 +299,7 @@ int main(int argc, char** argv) {
     linearSolverOptions);
   optimizer.setProblem(problem);
   optimizer.optimize();
+
   std::cout << "Outputting spline data after optimization..." << std::endl;
   std::ofstream applanixSplineOptFile("applanix-spline-opt.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
@@ -305,11 +324,13 @@ int main(int argc, char** argv) {
         transpose()
       << std::endl;
   }
+
   std::cout << "Rank: " << optimizer.getSolver<SparseQrLinearSystemSolver>()
     ->getRank() << std::endl;
   const size_t numCols = optimizer.getSolver<SparseQrLinearSystemSolver>()->
     getJacobianTranspose().rows();
   std::cout << "Rank deficiency: " << numCols -
     optimizer.getSolver<SparseQrLinearSystemSolver>()->getRank() << std::endl;
+
   return 0;
 }

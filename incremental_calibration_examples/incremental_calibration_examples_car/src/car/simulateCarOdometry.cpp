@@ -34,7 +34,6 @@
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/quaternion_algebra.hpp>
-#include <sm/kinematics/transformations.hpp>
 #include <sm/kinematics/Transformation.hpp>
 
 #include <sm/timing/TimestampCorrector.hpp>
@@ -109,33 +108,30 @@ int main(int argc, char** argv) {
       double x_ecef, y_ecef, z_ecef;
       Geo::wgs84ToEcef(vns->latitude, vns->longitude, vns->altitude, x_ecef,
         y_ecef, z_ecef);
-      double x_enu, y_enu, z_enu;
-      Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
-        y_enu, z_enu);
+      double x_ned, y_ned, z_ned;
+      Geo::ecefToNed(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_ned,
+        y_ned, z_ned);
       ApplanixNavigationMeasurement data;
-      data.x = x_enu;
-      data.y = y_enu;
-      data.z = z_enu;
-      data.yaw = angleMod(deg2rad(-vns->heading) + M_PI / 2);
-      data.pitch = deg2rad(-vns->pitch);
+      data.x = x_ned;
+      data.y = y_ned;
+      data.z = z_ned;
+      data.yaw = angleMod(deg2rad(vns->heading));
+      data.pitch = deg2rad(vns->pitch);
       data.roll = deg2rad(vns->roll);
-      Eigen::Vector3d linearVelocity =
-        Geo::R_ENU_NED::getInstance().getMatrix() * Eigen::Vector3d(
-        vns->northVelocity, vns->eastVelocity, vns->downVelocity);
-      data.v_x = linearVelocity(0);
-      data.v_y = linearVelocity(1);
-      data.v_z = linearVelocity(2);
+      data.v_x = vns->northVelocity;
+      data.v_y = vns->eastVelocity;
+      data.v_z = vns->downVelocity;
       data.om_x = deg2rad(vns->angularRateLong);
-      data.om_y = -deg2rad(vns->angularRateTrans);
-      data.om_z = -deg2rad(vns->angularRateDown);
+      data.om_y = deg2rad(vns->angularRateTrans);
+      data.om_z = deg2rad(vns->angularRateDown);
       data.a_x = vns->accLong;
-      data.a_y = -vns->accTrans;
-      data.a_z = -vns->accDown;
+      data.a_y = vns->accTrans;
+      data.a_z = vns->accDown;
       data.v = vns->speed;
-      data.x_sigma2 = lastVnp->eastPositionRMSError *
-        lastVnp->eastPositionRMSError;
-      data.y_sigma2 = lastVnp->northPositionRMSError *
+      data.x_sigma2 = lastVnp->northPositionRMSError *
         lastVnp->northPositionRMSError;
+      data.y_sigma2 = lastVnp->eastPositionRMSError *
+        lastVnp->eastPositionRMSError;
       data.z_sigma2 = lastVnp->downPositionRMSError *
         lastVnp->downPositionRMSError;
       data.roll_sigma2 = deg2rad(lastVnp->rollRMSError) *
@@ -144,10 +140,10 @@ int main(int argc, char** argv) {
         deg2rad(lastVnp->pitchRMSError);
       data.yaw_sigma2 = deg2rad(lastVnp->headingRMSError) *
         deg2rad(lastVnp->headingRMSError);
-      data.v_x_sigma2 = lastVnp->eastVelocityRMSError *
-        lastVnp->eastVelocityRMSError;
-      data.v_y_sigma2 = lastVnp->northVelocityRMSError *
+      data.v_x_sigma2 = lastVnp->northVelocityRMSError *
         lastVnp->northVelocityRMSError;
+      data.v_y_sigma2 = lastVnp->eastVelocityRMSError *
+        lastVnp->eastVelocityRMSError;
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
       navigationMeasurements.push_back(
@@ -158,6 +154,7 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Simulating data..." << std::endl;
+  const EulerAnglesYawPitchRoll ypr;
   DiscreteTrajectory discreteTrajectory;
   generateTrajectory(navigationMeasurements, discreteTrajectory);
   const double lambda = 0;
@@ -173,8 +170,9 @@ int main(int argc, char** argv) {
   const double e_r = 0.74;
   const double k_rl = 1.0 / 3.6 / 100.0;
   const double k_rr = 1.0 / 3.6 / 100.0;
-  const Transformation T_io(r2quat(Eigen::Matrix3d::Identity()),
-    Eigen::Vector3d(0, 0.0, -0.785));
+  const Transformation T_io(r2quat(ypr.parametersToRotationMatrix(
+    Eigen::Vector3d(0, 0, M_PI))),
+    Eigen::Vector3d(0, 0, 0.785));
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
     trueRearWheelsSpeedMeasurements;
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
@@ -221,7 +219,6 @@ int main(int argc, char** argv) {
   transPoses.reserve(numMeasurements);
   std::vector<Eigen::Vector4d> rotPoses;
   rotPoses.reserve(numMeasurements);
-  const EulerAnglesYawPitchRoll ypr;
   for (auto it = navigationMeasurements.cbegin();
       it != navigationMeasurements.cend(); ++it) {
     Eigen::Vector4d quat = r2quat(
@@ -252,6 +249,7 @@ int main(int argc, char** argv) {
     initUniformSpline(transSpline, timestamps, transPoses, numSegments, lambda);
   BSplineFitter<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::TYPE>::
     initUniformSpline(rotSpline, timestamps, rotPoses, numSegments, lambda);
+
   std::cout << "Outputting raw data to MATLAB..." << std::endl;
   std::ofstream applanixRawMATLABFile("applanix-raw.txt");
   for (auto it = navigationMeasurements.cbegin();
@@ -266,6 +264,7 @@ int main(int argc, char** argv) {
       << it->second.om_z << " "
       << it->second.a_x << " " << it->second.a_y << " " << it->second.a_z
       << std::endl;
+
   std::cout << "Outputting spline data to MATLAB..." << std::endl;
   std::ofstream applanixSplineMATLABFile("applanix-spline.txt");
   for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
@@ -282,6 +281,7 @@ int main(int argc, char** argv) {
       << (C_wi.transpose() * transEvaluator.evalD(2)).transpose()
       << std::endl;
   }
+
   std::cout << "Reading odometry data..." << std::endl;
   std::ofstream canRawFwMATLABFile("can-raw-fws.txt");
   std::ofstream canPredFwMATLABFile("can-pred-fws.txt");
@@ -297,6 +297,7 @@ int main(int argc, char** argv) {
   CovarianceEstimator<1> stCovEst;
   NsecTime lastDMITimestamp = -1;
   double lastDMIDistance = -1;
+  const double steeringMinSpeed = 1e-1;
   for (auto it = frontWheelsSpeedMeasurements.cbegin();
       it != frontWheelsSpeedMeasurements.cend(); ++it) {
     const NsecTime timestamp = it->first;
@@ -321,6 +322,8 @@ int main(int argc, char** argv) {
       continue;
     const double predLeft = fabs((v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl);
     const double predRight = fabs((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr);
+    if (predLeft < 0 || predRight < 0)
+      continue;
     canPredFwMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << predLeft << " " << predRight << std::endl;
     canRawFwMATLABFile << std::fixed << std::setprecision(18)
@@ -348,6 +351,8 @@ int main(int argc, char** argv) {
     const double om_oo_z = om_oo(2);
     const double predLeft = fabs((v_oo_x - e_r * om_oo_z) / k_rl);
     const double predRight = fabs((v_oo_x + e_r * om_oo_z) / k_rr);
+    if (predLeft < 0 || predRight < 0)
+      continue;
     canPredRwMATLABFile << std::fixed << std::setprecision(18)
       << timestamp << " " << predLeft << " " << predRight << std::endl;
     canRawRwMATLABFile << std::fixed << std::setprecision(18)
@@ -373,7 +378,7 @@ int main(int argc, char** argv) {
     const Eigen::Vector3d om_oo = T_io.C().transpose() * om_ii;
     const double v_oo_x = v_oo(0);
     const double om_oo_z = om_oo(2);
-    if (std::fabs(v_oo_x) < std::numeric_limits<double>::epsilon())
+    if (std::fabs(v_oo_x) < steeringMinSpeed)
       continue;
     const double phi = atan(L * om_oo_z / v_oo_x);
     const double predSteering = (phi - a0) / a1;
@@ -417,6 +422,7 @@ int main(int argc, char** argv) {
     lastDMITimestamp = timestamp;
     lastDMIDistance = it->second.signedDistanceTraveled;
    }
+
   std::cout << "Front wheels speed mean: " << std::endl
     << fwsCovEst.getMean() << std::endl;
   std::cout << "Front wheels speed covariance: " << std::endl

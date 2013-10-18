@@ -53,6 +53,8 @@
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 
+#include <bsplines/NsecTimePolicy.hpp>
+
 #include <poslv/VehicleNavigationSolutionMsg.h>
 #include <poslv/VehicleNavigationPerformanceMsg.h>
 
@@ -85,6 +87,7 @@ using namespace aslam::calibration;
 using namespace sm::kinematics;
 using namespace sm::timing;
 using namespace aslam::backend;
+using namespace bsplines;
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -136,9 +139,9 @@ int main(int argc, char** argv) {
   const double sigma2_st = 10;
   const double sigma2_dmi = 1;
   const double k_dmi = 1.0;
-  const Eigen::Vector3d t_io_t(0.0, 0.0, -0.785);
+  const Eigen::Vector3d t_io_t(0, 0, 0.785);
   const Eigen::Matrix3d C_io_t(ypr->parametersToRotationMatrix(
-    Eigen::Vector3d(deg2rad(0), deg2rad(0), deg2rad(0))));
+    Eigen::Vector3d(0, 0, M_PI)));
   const Eigen::Matrix4d T_io_t(Transformation(r2quat(C_io_t), t_io_t).T());
   auto problem = boost::make_shared<OptimizationProblem>();
   double traveledDistance = 0;
@@ -165,33 +168,30 @@ int main(int argc, char** argv) {
       double x_ecef, y_ecef, z_ecef;
       Geo::wgs84ToEcef(vns->latitude, vns->longitude, vns->altitude, x_ecef,
         y_ecef, z_ecef);
-      double x_enu, y_enu, z_enu;
-      Geo::ecefToEnu(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_enu,
-        y_enu, z_enu);
+      double x_ned, y_ned, z_ned;
+      Geo::ecefToNed(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_ned,
+        y_ned, z_ned);
       ApplanixNavigationMeasurement data;
-      data.x = x_enu;
-      data.y = y_enu;
-      data.z = z_enu;
-      data.yaw = angleMod(deg2rad(-vns->heading) + M_PI / 2);
-      data.pitch = deg2rad(-vns->pitch);
+      data.x = x_ned;
+      data.y = y_ned;
+      data.z = z_ned;
+      data.yaw = angleMod(deg2rad(vns->heading));
+      data.pitch = deg2rad(vns->pitch);
       data.roll = deg2rad(vns->roll);
-      Eigen::Vector3d linearVelocity =
-        Geo::R_ENU_NED::getInstance().getMatrix() * Eigen::Vector3d(
-        vns->northVelocity, vns->eastVelocity, vns->downVelocity);
-      data.v_x = linearVelocity(0);
-      data.v_y = linearVelocity(1);
-      data.v_z = linearVelocity(2);
+      data.v_x = vns->northVelocity;
+      data.v_y = vns->eastVelocity;
+      data.v_z = vns->downVelocity;
       data.om_x = deg2rad(vns->angularRateLong);
-      data.om_y = -deg2rad(vns->angularRateTrans);
-      data.om_z = -deg2rad(vns->angularRateDown);
+      data.om_y = deg2rad(vns->angularRateTrans);
+      data.om_z = deg2rad(vns->angularRateDown);
       data.a_x = vns->accLong;
-      data.a_y = -vns->accTrans;
-      data.a_z = -vns->accDown;
+      data.a_y = vns->accTrans;
+      data.a_z = vns->accDown;
       data.v = vns->speed;
-      data.x_sigma2 = lastVnp->eastPositionRMSError *
-        lastVnp->eastPositionRMSError;
-      data.y_sigma2 = lastVnp->northPositionRMSError *
+      data.x_sigma2 = lastVnp->northPositionRMSError *
         lastVnp->northPositionRMSError;
+      data.y_sigma2 = lastVnp->eastPositionRMSError *
+        lastVnp->eastPositionRMSError;
       data.z_sigma2 = lastVnp->downPositionRMSError *
         lastVnp->downPositionRMSError;
       data.roll_sigma2 = deg2rad(lastVnp->rollRMSError) *
@@ -200,10 +200,10 @@ int main(int argc, char** argv) {
         deg2rad(lastVnp->pitchRMSError);
       data.yaw_sigma2 = deg2rad(lastVnp->headingRMSError) *
         deg2rad(lastVnp->headingRMSError);
-      data.v_x_sigma2 = lastVnp->eastVelocityRMSError *
-        lastVnp->eastVelocityRMSError;
-      data.v_y_sigma2 = lastVnp->northVelocityRMSError *
+      data.v_x_sigma2 = lastVnp->northVelocityRMSError *
         lastVnp->northVelocityRMSError;
+      data.v_y_sigma2 = lastVnp->eastVelocityRMSError *
+        lastVnp->eastVelocityRMSError;
       data.v_z_sigma2 = lastVnp->downVelocityRMSError *
         lastVnp->downVelocityRMSError;
       navigationMeasurements.push_back(
@@ -326,7 +326,7 @@ int main(int argc, char** argv) {
         lastDMIDistance;
       const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
         << displacement / (encoderMeasurements[i - 1].first - lastDMITimestamp)
-        * 1e9).finished());
+        * (double)NsecTimePolicy::getOne()).finished());
       auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
         meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
       problem->addErrorTerm(e_dmi);

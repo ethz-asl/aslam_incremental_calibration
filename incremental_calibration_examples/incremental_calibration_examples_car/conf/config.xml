@@ -25,22 +25,22 @@
       <translation>
         <x>0</x>
         <y>0</y>
-        <z>-0.785</z>
+        <z>0.785</z>
       </translation>
       <rotation>
         <yaw>0</yaw>
         <pitch>0</pitch>
-        <roll>0</roll>
+        <roll>3.141592653589793</roll>
       </rotation>
     </extrinsic>
     <noise>
       <hallSensorCutoff>350</hallSensorCutoff>
       <rlwPercentError>0.1</rlwPercentError>
       <rrwPercentError>0.1</rrwPercentError>
-      <flwPercentError>0.25</flwPercentError>
-      <frwPercentError>0.25</frwPercentError>
-      <sigma2_dmi>10</sigma2_dmi>
-      <sigma2_st>1e-1</sigma2_st>
+      <flwPercentError>0.15</flwPercentError>
+      <frwPercentError>0.15</frwPercentError>
+      <sigma2_dmi>1</sigma2_dmi>
+      <sigma2_st>1</sigma2_st>
       <steeringMinSpeed>1e-1</steeringMinSpeed>
       <sigma2_vy>1e-3</sigma2_vy>
       <sigma2_vz>1e-3</sigma2_vz>
