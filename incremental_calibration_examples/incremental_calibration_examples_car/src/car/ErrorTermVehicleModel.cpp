@@ -87,7 +87,8 @@ namespace aslam {
       // build the error term
       error_t error;
       error(0) = _v_oo.toValue()(1);
-      error(1) = _v_oo.toValue()(2);
+//      error(1) = _v_oo.toValue()(2);
+      error(1) = 0;
       error(2) = _om_oo.toValue()(0);
       error(3) = _om_oo.toValue()(1);
       setError(error);
@@ -99,7 +100,7 @@ namespace aslam {
       // Jacobian with respect to v_oo
       Eigen::Matrix<double, 4, 3> Hv = Eigen::Matrix<double, 4, 3>::Zero();
       Hv(0, 1) = 1.0;
-      Hv(1, 2) = 1.0;
+//      Hv(1, 2) = 1.0;
 
       // Jacobian with respect to om_oo
       Eigen::Matrix<double, 4, 3> Ho = Eigen::Matrix<double, 4, 3>::Zero();

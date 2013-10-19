@@ -35,18 +35,25 @@
     </extrinsic>
     <noise>
       <hallSensorCutoff>350</hallSensorCutoff>
-      <rlwPercentError>0.1</rlwPercentError>
-      <rrwPercentError>0.1</rrwPercentError>
-      <flwPercentError>0.15</flwPercentError>
-      <frwPercentError>0.15</frwPercentError>
-      <sigma2_dmi>1</sigma2_dmi>
-      <sigma2_st>1</sigma2_st>
-      <steeringMinSpeed>1e-1</steeringMinSpeed>
+      <rlwPercentError>0.2</rlwPercentError>
+      <rrwPercentError>0.2</rrwPercentError>
+      <flwPercentError>0.2</flwPercentError>
+      <frwPercentError>0.2</frwPercentError>
+      <sigma2_dmi>1e-1</sigma2_dmi>
+      <sigma2_st>1e-1</sigma2_st>
+      <minSpeed>1</minSpeed>
       <sigma2_vy>1e-3</sigma2_vy>
       <sigma2_vz>1e-3</sigma2_vz>
       <sigma2_omx>1e-3</sigma2_omx>
       <sigma2_omy>1e-3</sigma2_omy>
     </noise>
+    <sensors>
+      <dmi>true</dmi>
+      <fws>true</fws>
+      <rws>true</rws>
+      <st>true</st>
+      <vm>true</vm>
+    </sensors>
   </odometry>
   <optimizer>
     <linearSolver>

@@ -304,8 +304,8 @@ int main(int argc, char** argv) {
     propertyTree.getDouble("calibrator/odometry/noise/sigma2_dmi");
   const double sigma2_st =
     propertyTree.getDouble("calibrator/odometry/noise/sigma2_st");
-  const double steeringMinSpeed =
-    propertyTree.getDouble("calibrator/odometry/noise/steeringMinSpeed");
+  const double minSpeed =
+    propertyTree.getDouble("calibrator/odometry/noise/minSpeed");
   const double sigma2_vy =
     propertyTree.getDouble("calibrator/odometry/noise/sigma2_vy");
   const double sigma2_vz =
@@ -322,6 +322,16 @@ int main(int argc, char** argv) {
     propertyTree.getDouble("calibrator/optimizer/linearSolver/normTol");
   const double epsTol =
     propertyTree.getDouble("calibrator/optimizer/marginalizer/epsTol");
+  const bool useDMI =
+    propertyTree.getBool("calibrator/odometry/sensors/dmi");
+  const bool useFws =
+    propertyTree.getBool("calibrator/odometry/sensors/fws");
+  const bool useRws =
+    propertyTree.getBool("calibrator/odometry/sensors/rws");
+  const bool useSt =
+    propertyTree.getBool("calibrator/odometry/sensors/st");
+  const bool useVm =
+    propertyTree.getBool("calibrator/odometry/sensors/vm");
 
   std::cout << "Building spline..." << std::endl;
   const size_t numMeasurements = navigationMeasurements.size();
@@ -469,19 +479,56 @@ int main(int argc, char** argv) {
     ErrorTermVehicleModel::Covariance::Zero());
   Q(0, 0) = sigma2_vy; Q(1, 1) = sigma2_vz;
   Q(2, 2) = sigma2_omx; Q(3, 3) = sigma2_omy;
-  std::ofstream errorDmiPreFile("error_dmi_pre.txt");
-  std::ofstream errorDmiPreChiFile("error_dmi_pre_chi.txt");
-  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
-      ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp)
-      continue;
-    if (lastTimestamp != -1) {
-     const double displacement = it->second.signedDistanceTraveled -
-        lastDistance;
-      const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-        << displacement / (timestamp - lastTimestamp) *
-        NsecTimePolicy::getOne()).finished());
+  if (useDMI) {
+    std::ofstream errorDmiPreFile("error_dmi_pre.txt");
+    std::ofstream errorDmiPreChiFile("error_dmi_pre_chi.txt");
+    for (auto it = encoderMeasurements.cbegin();
+        it != encoderMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp)
+        continue;
+      if (lastTimestamp != -1) {
+        const double displacement = it->second.signedDistanceTraveled -
+          lastDistance;
+        const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
+          << displacement / (timestamp - lastTimestamp) *
+          NsecTimePolicy::getOne()).finished());
+        auto translationExpressionFactory =
+          translationSpline.getExpressionFactoryAt<1>(timestamp);
+        auto rotationExpressionFactory =
+          rotationSpline.getExpressionFactoryAt<1>(timestamp);
+        auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto v_ii = C_wi.inverse() *
+          translationExpressionFactory.getValueExpression(1);
+        auto om_ii = -(C_wi.inverse() *
+          rotationExpressionFactory.getAngularVelocityExpression());
+        auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+        if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+          continue;
+        auto om_oo = C_io.inverse() * om_ii;
+        auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
+          meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
+        problem->addErrorTerm(e_dmi);
+        errorDmiPreChiFile << std::fixed << std::setprecision(18)
+          << e_dmi->evaluateError() << std::endl;
+        errorDmiPreFile << std::fixed << std::setprecision(18)
+          << timestamp << " " << e_dmi->error().transpose() << std::endl;
+      }
+      lastTimestamp = timestamp;
+      lastDistance = it->second.signedDistanceTraveled;
+    }
+  }
+  if (useFws) {
+    std::ofstream errorFwsPreFile("error_fws_pre.txt");
+    std::ofstream errorFwsPreChiFile("error_fws_pre_chi.txt");
+    for (auto it = frontWheelsSpeedMeasurements.cbegin();
+        it != frontWheelsSpeedMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
+          it->second.left < hallSensorCutOff ||
+          it->second.right< hallSensorCutOff)
+        continue;
       auto translationExpressionFactory =
         translationSpline.getExpressionFactoryAt<1>(timestamp);
       auto rotationExpressionFactory =
@@ -493,157 +540,128 @@ int main(int argc, char** argv) {
       auto om_ii = -(C_wi.inverse() *
         rotationExpressionFactory.getAngularVelocityExpression());
       auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      if (v_oo.toValue()(0) < minSpeed)
+        continue;
       auto om_oo = C_io.inverse() * om_ii;
-      auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
-        meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
-      problem->addErrorTerm(e_dmi);
-      errorDmiPreChiFile << std::fixed << std::setprecision(18)
-        << e_dmi->evaluateError() << std::endl;
-      errorDmiPreFile << std::fixed << std::setprecision(18)
-        << timestamp << " " << e_dmi->error().transpose() << std::endl;
+      const double v_oo_x = v_oo.toValue()(0);
+      const double om_oo_z = om_oo.toValue()(2);
+      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
+      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
+      if (fabs(cos(phi_L)) < std::numeric_limits<double>::epsilon() ||
+          fabs(cos(phi_R)) < std::numeric_limits<double>::epsilon())
+        continue;
+      auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
+        Eigen::Vector2d(it->second.left, it->second.right),
+        (Eigen::Matrix2d() << (flwPercentError * it->second.left) *
+          (flwPercentError * it->second.left), 0, 0,
+          (frwPercentError * it->second.right) *
+          (frwPercentError * it->second.right)).finished());
+      problem->addErrorTerm(e_fws);
+      errorFwsPreChiFile << std::fixed << std::setprecision(18)
+        << e_fws->evaluateError() << std::endl;
+      errorFwsPreFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_fws->error().transpose() << std::endl;
     }
-    lastTimestamp = timestamp;
-    lastDistance = it->second.signedDistanceTraveled;
   }
-  std::ofstream errorFwsPreFile("error_fws_pre.txt");
-  std::ofstream errorFwsPreChiFile("error_fws_pre_chi.txt");
-  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-      it != frontWheelsSpeedMeasurements.cend(); ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
-        it->second.left < hallSensorCutOff ||
-        it->second.right< hallSensorCutOff)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    const double v_oo_x = v_oo.toValue()(0);
-    const double om_oo_z = om_oo.toValue()(2);
-    const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-    const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-    if ((v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl < 0)
-      continue;
-    if ((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr < 0)
-      continue;
-    if (fabs(cos(phi_L)) < std::numeric_limits<double>::epsilon() ||
-        fabs(cos(phi_R)) < std::numeric_limits<double>::epsilon())
-      continue;
-    auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << (flwPercentError * it->second.left) *
-        (flwPercentError * it->second.left), 0, 0,
-        (frwPercentError * it->second.right) *
-        (frwPercentError * it->second.right)).finished());
-    problem->addErrorTerm(e_fws);
-    errorFwsPreChiFile << std::fixed << std::setprecision(18)
-      << e_fws->evaluateError() << std::endl;
-    errorFwsPreFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_fws->error().transpose() << std::endl;
+  if (useRws) {
+    std::ofstream errorRwsPreFile("error_rws_pre.txt");
+    std::ofstream errorRwsPreChiFile("error_rws_pre_chi.txt");
+    for (auto it = rearWheelsSpeedMeasurements.cbegin();
+        it != rearWheelsSpeedMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
+          it->second.left < hallSensorCutOff ||
+          it->second.right< hallSensorCutOff)
+        continue;
+      auto translationExpressionFactory =
+        translationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto rotationExpressionFactory =
+        rotationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+        rotationExpressionFactory.getValueExpression());
+      auto v_ii = C_wi.inverse() *
+        translationExpressionFactory.getValueExpression(1);
+      auto om_ii = -(C_wi.inverse() *
+        rotationExpressionFactory.getAngularVelocityExpression());
+      auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      if (v_oo.toValue()(0) < minSpeed)
+        continue;
+      auto om_oo = C_io.inverse() * om_ii;
+      auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
+        Eigen::Vector2d(it->second.left, it->second.right),
+        (Eigen::Matrix2d() << (rlwPercentError * it->second.left) *
+          (rlwPercentError * it->second.left), 0, 0,
+          (rrwPercentError * it->second.right) *
+          (rrwPercentError * it->second.right)).finished());
+      problem->addErrorTerm(e_rws);
+      errorRwsPreChiFile << std::fixed << std::setprecision(18) <<
+         e_rws->evaluateError() << std::endl;
+      errorRwsPreFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_rws->error().transpose() << std::endl;
+    }
   }
-  std::ofstream errorRwsPreFile("error_rws_pre.txt");
-  std::ofstream errorRwsPreChiFile("error_rws_pre_chi.txt");
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
-        it->second.left < hallSensorCutOff ||
-        it->second.right< hallSensorCutOff)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    const double v_oo_x = v_oo.toValue()(0);
-    const double om_oo_z = om_oo.toValue()(2);
-    if ((v_oo_x - e_r * om_oo_z) / k_rl < 0)
-      continue;
-    if ((v_oo_x + e_r * om_oo_z) / k_rr < 0)
-      continue;
-    auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << (rlwPercentError * it->second.left) *
-        (rlwPercentError * it->second.left), 0, 0,
-        (rrwPercentError * it->second.right) *
-        (rrwPercentError * it->second.right)).finished());
-    problem->addErrorTerm(e_rws);
-    errorRwsPreChiFile << std::fixed << std::setprecision(18) <<
-       e_rws->evaluateError() << std::endl;
-    errorRwsPreFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_rws->error().transpose() << std::endl;
+  if (useSt) {
+    std::ofstream errorStPreFile("error_st_pre.txt");
+    std::ofstream errorStPreChiFile("error_st_pre_chi.txt");
+    for (auto it = steeringMeasurements.cbegin();
+        it != steeringMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp)
+        continue;
+      auto translationExpressionFactory =
+        translationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto rotationExpressionFactory =
+        rotationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+        rotationExpressionFactory.getValueExpression());
+      auto v_ii = C_wi.inverse() *
+        translationExpressionFactory.getValueExpression(1);
+      auto om_ii = -(C_wi.inverse() *
+        rotationExpressionFactory.getAngularVelocityExpression());
+      auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+        continue;
+      auto om_oo = C_io.inverse() * om_ii;
+      Eigen::Matrix<double, 1, 1> meas;
+      meas << it->second.value;
+      auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
+        meas, (Eigen::Matrix<double, 1, 1>() << sigma2_st).finished());
+      problem->addErrorTerm(e_st);
+      errorStPreChiFile << std::fixed << std::setprecision(18) <<
+        e_st->evaluateError() << std::endl;
+      errorStPreFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_st->error().transpose() << std::endl;
+    }
   }
-  std::ofstream errorStPreFile("error_st_pre.txt");
-  std::ofstream errorStPreChiFile("error_st_pre_chi.txt");
-  for (auto it = steeringMeasurements.cbegin();
-      it != steeringMeasurements.cend(); ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < steeringMinSpeed)
-      continue;
-    Eigen::Matrix<double, 1, 1> meas;
-    meas << it->second.value;
-    auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
-      meas, (Eigen::Matrix<double, 1, 1>() << sigma2_st).finished());
-    problem->addErrorTerm(e_st);
-    errorStPreChiFile << std::fixed << std::setprecision(18) <<
-      e_st->evaluateError() << std::endl;
-    errorStPreFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_st->error().transpose() << std::endl;
-  }
-  std::ofstream errorVmPreFile("error_vm_pre.txt");
-  std::ofstream errorVmPreChiFile("error_vm_pre_chi.txt");
-  for (auto it = translationSpline.begin(); it != translationSpline.end();
-      ++it) {
-    auto timestamp = it.getTime();
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
-//    e_vm->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
-//      e_vm->dimension()));
-    problem->addErrorTerm(e_vm);
-    errorVmPreChiFile << std::fixed << std::setprecision(18) <<
-      e_vm->evaluateError() << std::endl;
-    errorVmPreFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_vm->error().transpose() << std::endl;
+  if (useVm) {
+    std::ofstream errorVmPreFile("error_vm_pre.txt");
+    std::ofstream errorVmPreChiFile("error_vm_pre_chi.txt");
+    for (auto it = translationSpline.begin(); it != translationSpline.end();
+        ++it) {
+      auto timestamp = it.getTime();
+      auto translationExpressionFactory =
+        translationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto rotationExpressionFactory =
+        rotationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+        rotationExpressionFactory.getValueExpression());
+      auto v_ii = C_wi.inverse() *
+        translationExpressionFactory.getValueExpression(1);
+      auto om_ii = -(C_wi.inverse() *
+        rotationExpressionFactory.getAngularVelocityExpression());
+      auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+        continue;
+      auto om_oo = C_io.inverse() * om_ii;
+      auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
+  //    e_vm->setMEstimatorPolicy(boost::make_shared<BlakeZissermanMEstimator>(
+  //      e_vm->dimension()));
+      problem->addErrorTerm(e_vm);
+      errorVmPreChiFile << std::fixed << std::setprecision(18) <<
+        e_vm->evaluateError() << std::endl;
+      errorVmPreFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_vm->error().transpose() << std::endl;
+    }
   }
 
   std::cout << "Calibration before optimization: " << std::endl;
@@ -765,16 +783,129 @@ int main(int argc, char** argv) {
   std::ofstream errorDmiPostChiFile("error_dmi_post_chi.txt");
   lastDistance = -1;
   lastTimestamp = -1;
-  for (auto it = encoderMeasurements.cbegin(); it != encoderMeasurements.cend();
-      ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp)
-      continue;
-    if (lastTimestamp != -1) {
-     const double displacement = it->second.signedDistanceTraveled -
-        lastDistance;
-      const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-        << displacement / (timestamp - lastTimestamp) * 1e9).finished());
+  if (useDMI) {
+    for (auto it = encoderMeasurements.cbegin();
+        it != encoderMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp)
+        continue;
+      if (lastTimestamp != -1) {
+       const double displacement = it->second.signedDistanceTraveled -
+          lastDistance;
+        const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
+          << displacement / (timestamp - lastTimestamp) * 1e9).finished());
+        auto translationExpressionFactory =
+          translationSpline.getExpressionFactoryAt<1>(timestamp);
+        auto rotationExpressionFactory =
+          rotationSpline.getExpressionFactoryAt<1>(timestamp);
+        auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto v_ii = C_wi.inverse() *
+          translationExpressionFactory.getValueExpression(1);
+        auto om_ii = -(C_wi.inverse() *
+          rotationExpressionFactory.getAngularVelocityExpression());
+        auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+        if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+          continue;
+        auto om_oo = C_io.inverse() * om_ii;
+        auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
+          meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
+        errorDmiPostChiFile << std::fixed << std::setprecision(18)
+          << e_dmi->evaluateError() << std::endl;
+        errorDmiPostFile << std::fixed << std::setprecision(18)
+          << timestamp << " " << e_dmi->error().transpose() << std::endl;
+      }
+      lastTimestamp = timestamp;
+      lastDistance = it->second.signedDistanceTraveled;
+    }
+  }
+  if (useFws) {
+    std::ofstream errorFwsPostFile("error_fws_post.txt");
+    std::ofstream errorFwsPostChiFile("error_fws_post_chi.txt");
+    for (auto it = frontWheelsSpeedMeasurements.cbegin();
+        it != frontWheelsSpeedMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
+          it->second.left< hallSensorCutOff ||
+          it->second.right< hallSensorCutOff)
+        continue;
+      auto translationExpressionFactory =
+        translationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto rotationExpressionFactory =
+        rotationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+        rotationExpressionFactory.getValueExpression());
+      auto v_ii = C_wi.inverse() *
+        translationExpressionFactory.getValueExpression(1);
+      auto om_ii = -(C_wi.inverse() *
+        rotationExpressionFactory.getAngularVelocityExpression());
+      auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      if (v_oo.toValue()(0) < minSpeed)
+        continue;
+      auto om_oo = C_io.inverse() * om_ii;
+      const double v_oo_x = v_oo.toValue()(0);
+      const double om_oo_z = om_oo.toValue()(2);
+      const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
+      const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
+      if (fabs(cos(phi_L)) < std::numeric_limits<double>::epsilon() ||
+          fabs(cos(phi_R)) < std::numeric_limits<double>::epsilon())
+        continue;
+      auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
+        Eigen::Vector2d(it->second.left, it->second.right),
+        (Eigen::Matrix2d() << (flwPercentError * it->second.left) *
+          (flwPercentError * it->second.left), 0, 0,
+          (frwPercentError * it->second.right) *
+          (frwPercentError * it->second.right)).finished());
+      errorFwsPostChiFile << std::fixed << std::setprecision(18)
+        << e_fws->evaluateError() << std::endl;
+      errorFwsPostFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_fws->error().transpose() << std::endl;
+    }
+  }
+  if (useRws) {
+    std::ofstream errorRwsPostFile("error_rws_post.txt");
+    std::ofstream errorRwsPostChiFile("error_rws_post_chi.txt");
+    for (auto it = rearWheelsSpeedMeasurements.cbegin();
+        it != rearWheelsSpeedMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
+          it->second.left < hallSensorCutOff ||
+          it->second.right < hallSensorCutOff)
+        continue;
+      auto translationExpressionFactory =
+        translationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto rotationExpressionFactory =
+        rotationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+        rotationExpressionFactory.getValueExpression());
+      auto v_ii = C_wi.inverse() *
+        translationExpressionFactory.getValueExpression(1);
+      auto om_ii = -(C_wi.inverse() *
+        rotationExpressionFactory.getAngularVelocityExpression());
+      auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      if (v_oo.toValue()(0) < minSpeed)
+        continue;
+      auto om_oo = C_io.inverse() * om_ii;
+      auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
+        Eigen::Vector2d(it->second.left, it->second.right),
+        (Eigen::Matrix2d() << (rlwPercentError * it->second.left) *
+          (rlwPercentError * it->second.left), 0, 0,
+          (rrwPercentError * it->second.right) *
+          (rrwPercentError * it->second.right)).finished());
+      errorRwsPostChiFile << std::fixed << std::setprecision(18) <<
+         e_rws->evaluateError() << std::endl;
+      errorRwsPostFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_rws->error().transpose() << std::endl;
+    }
+  }
+  if (useSt) {
+    std::ofstream errorStPostFile("error_st_post.txt");
+    std::ofstream errorStPostChiFile("error_st_post_chi.txt");
+    for (auto it = steeringMeasurements.cbegin();
+        it != steeringMeasurements.cend(); ++it) {
+      const NsecTime timestamp = it->first;
+      if (timestamps.front() > timestamp || timestamps.back() < timestamp)
+        continue;
       auto translationExpressionFactory =
         translationSpline.getExpressionFactoryAt<1>(timestamp);
       auto rotationExpressionFactory =
@@ -787,149 +918,44 @@ int main(int argc, char** argv) {
         rotationExpressionFactory.getAngularVelocityExpression());
       auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
       auto om_oo = C_io.inverse() * om_ii;
-      auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
-        meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
-      errorDmiPostChiFile << std::fixed << std::setprecision(18)
-        << e_dmi->evaluateError() << std::endl;
-      errorDmiPostFile << std::fixed << std::setprecision(18)
-        << timestamp << " " << e_dmi->error().transpose() << std::endl;
+      if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+        continue;
+      Eigen::Matrix<double, 1, 1> meas;
+      meas << it->second.value;
+      auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
+        meas, (Eigen::Matrix<double, 1, 1>() << sigma2_st).finished());
+      errorStPostChiFile << std::fixed << std::setprecision(18) <<
+        e_st->evaluateError() << std::endl;
+      errorStPostFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_st->error().transpose() << std::endl;
     }
-    lastTimestamp = timestamp;
-    lastDistance = it->second.signedDistanceTraveled;
   }
-  std::ofstream errorFwsPostFile("error_fws_post.txt");
-  std::ofstream errorFwsPostChiFile("error_fws_post_chi.txt");
-  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-      it != frontWheelsSpeedMeasurements.cend(); ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
-        it->second.left< hallSensorCutOff ||
-        it->second.right< hallSensorCutOff)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    const double v_oo_x = v_oo.toValue()(0);
-    const double om_oo_z = om_oo.toValue()(2);
-    const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
-    const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-    if ((v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl < 0)
-      continue;
-    if ((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr < 0)
-      continue;
-    if (fabs(cos(phi_L)) < std::numeric_limits<double>::epsilon() ||
-        fabs(cos(phi_R)) < std::numeric_limits<double>::epsilon())
-      continue;
-    auto e_fws = boost::make_shared<ErrorTermFws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << (flwPercentError * it->second.left) *
-        (flwPercentError * it->second.left), 0, 0,
-        (frwPercentError * it->second.right) *
-        (frwPercentError * it->second.right)).finished());
-    errorFwsPostChiFile << std::fixed << std::setprecision(18)
-      << e_fws->evaluateError() << std::endl;
-    errorFwsPostFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_fws->error().transpose() << std::endl;
-  }
-  std::ofstream errorRwsPostFile("error_rws_post.txt");
-  std::ofstream errorRwsPostChiFile("error_rws_post_chi.txt");
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp ||
-        it->second.left < hallSensorCutOff ||
-        it->second.right < hallSensorCutOff)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    const double v_oo_x = v_oo.toValue()(0);
-    const double om_oo_z = om_oo.toValue()(2);
-    if ((v_oo_x - e_r * om_oo_z) / k_rl < 0)
-      continue;
-    if ((v_oo_x + e_r * om_oo_z) / k_rr < 0)
-      continue;
-    auto e_rws = boost::make_shared<ErrorTermRws>(v_oo, om_oo, cpdv.get(),
-      Eigen::Vector2d(it->second.left, it->second.right),
-      (Eigen::Matrix2d() << (rlwPercentError * it->second.left) *
-        (rlwPercentError * it->second.left), 0, 0,
-        (rrwPercentError * it->second.right) *
-        (rrwPercentError * it->second.right)).finished());
-    errorRwsPostChiFile << std::fixed << std::setprecision(18) <<
-       e_rws->evaluateError() << std::endl;
-    errorRwsPostFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_rws->error().transpose() << std::endl;
-  }
-  std::ofstream errorStPostFile("error_st_post.txt");
-  std::ofstream errorStPostChiFile("error_st_post_chi.txt");
-  for (auto it = steeringMeasurements.cbegin();
-      it != steeringMeasurements.cend(); ++it) {
-    const NsecTime timestamp = it->first;
-    if (timestamps.front() > timestamp || timestamps.back() < timestamp)
-      continue;
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    if (std::fabs(v_oo.toValue()(0)) < steeringMinSpeed)
-      continue;
-    Eigen::Matrix<double, 1, 1> meas;
-    meas << it->second.value;
-    auto e_st = boost::make_shared<ErrorTermSteering>(v_oo, om_oo, cpdv.get(),
-      meas, (Eigen::Matrix<double, 1, 1>() << sigma2_st).finished());
-    errorStPostChiFile << std::fixed << std::setprecision(18) <<
-      e_st->evaluateError() << std::endl;
-    errorStPostFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_st->error().transpose() << std::endl;
-  }
-  std::ofstream errorVmPostFile("error_vm_post.txt");
-  std::ofstream errorVmPostChiFile("error_vm_post_chi.txt");
-  for (auto it = translationSpline.begin(); it != translationSpline.end();
-      ++it) {
-    auto timestamp = it.getTime();
-    auto translationExpressionFactory =
-      translationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto rotationExpressionFactory =
-      rotationSpline.getExpressionFactoryAt<1>(timestamp);
-    auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-      rotationExpressionFactory.getValueExpression());
-    auto v_ii = C_wi.inverse() *
-      translationExpressionFactory.getValueExpression(1);
-    auto om_ii = -(C_wi.inverse() *
-      rotationExpressionFactory.getAngularVelocityExpression());
-    auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-    auto om_oo = C_io.inverse() * om_ii;
-    auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
-    errorVmPostChiFile << std::fixed << std::setprecision(18) <<
-      e_vm->evaluateError() << std::endl;
-    errorVmPostFile << std::fixed << std::setprecision(18)
-      << timestamp << " " << e_vm->error().transpose() << std::endl;
+  if (useVm) {
+    std::ofstream errorVmPostFile("error_vm_post.txt");
+    std::ofstream errorVmPostChiFile("error_vm_post_chi.txt");
+    for (auto it = translationSpline.begin(); it != translationSpline.end();
+        ++it) {
+      auto timestamp = it.getTime();
+      auto translationExpressionFactory =
+        translationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto rotationExpressionFactory =
+        rotationSpline.getExpressionFactoryAt<1>(timestamp);
+      auto C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+        rotationExpressionFactory.getValueExpression());
+      auto v_ii = C_wi.inverse() *
+        translationExpressionFactory.getValueExpression(1);
+      auto om_ii = -(C_wi.inverse() *
+        rotationExpressionFactory.getAngularVelocityExpression());
+      auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
+      if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+        continue;
+      auto om_oo = C_io.inverse() * om_ii;
+      auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v_oo, om_oo, Q);
+      errorVmPostChiFile << std::fixed << std::setprecision(18) <<
+        e_vm->evaluateError() << std::endl;
+      errorVmPostFile << std::fixed << std::setprecision(18)
+        << timestamp << " " << e_vm->error().transpose() << std::endl;
+    }
   }
 
   std::ofstream resultFile("result.txt");
