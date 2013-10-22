@@ -52,6 +52,8 @@
 #include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 #include <aslam/backend/MEstimatorPolicies.hpp>
+#include <aslam/backend/GenericScalar.hpp>
+#include <aslam/backend/GenericScalarExpression.hpp>
 
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
@@ -365,20 +367,20 @@ int main(int argc, char** argv) {
     numSegments = std::ceil(splineKnotsPerSeconds * elapsedTime);
   else
     numSegments = numMeasurements;
-  OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF>::BSpline
-    translationSpline(EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
-    EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF::ManifoldConf(3),
-    translationSplineOrder));
-  BSplineFitter<OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::
-    CONF>::BSpline>::initUniformSpline(translationSpline, timestamps,
-    transPoses, numSegments, translationSplineLambda);
-  OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF>::
-    BSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
-    ::CONF(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF::
-    ManifoldConf(), rotationSplineOrder));
-  BSplineFitter<OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
-    ::CONF>::BSpline>::initUniformSpline(rotationSpline, timestamps, rotPoses,
-    numSegments, rotationSplineLambda);
+  typedef OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF>
+    ::BSpline TranslationSpline;
+  TranslationSpline translationSpline(EuclideanBSpline<Eigen::Dynamic, 3,
+    NsecTimePolicy>::CONF(EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>
+    ::CONF::ManifoldConf(3), translationSplineOrder));
+  BSplineFitter<TranslationSpline>::initUniformSpline(translationSpline,
+    timestamps, transPoses, numSegments, translationSplineLambda);
+  typedef OPTBSpline<UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
+    ::CONF>::BSpline RotationSpline;
+  RotationSpline rotationSpline(UnitQuaternionBSpline<Eigen::Dynamic,
+    NsecTimePolicy>::CONF(UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>
+    ::CONF::ManifoldConf(), rotationSplineOrder));
+  BSplineFitter<RotationSpline>::initUniformSpline(rotationSpline, timestamps,
+    rotPoses, numSegments, rotationSplineLambda);
 
   std::cout << "Outputting raw data to MATLAB..." << std::endl;
   std::ofstream applanixRawMATLABFile("applanix-raw.txt");
@@ -392,7 +394,7 @@ int main(int argc, char** argv) {
       << it->second.v_x << " " << it->second.v_y << " " << it->second.v_z << " "
       << it->second.om_x << " " << it->second.om_y << " "
       << it->second.om_z << " "
-      << it->second.a_x << " " << it->second.a_y << " " << it->second.a_z
+      << it->second.a_x << " " << it->second.a_y << " " << it->second.a_z << " "
       << std::endl;
 
   std::cout << "Outputting spline data before optimization..." << std::endl;
@@ -492,7 +494,7 @@ int main(int argc, char** argv) {
           lastDistance;
         const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
           << displacement / (timestamp - lastTimestamp) *
-          NsecTimePolicy::getOne()).finished());
+          (double)NsecTimePolicy::getOne()).finished());
         auto translationExpressionFactory =
           translationSpline.getExpressionFactoryAt<1>(timestamp);
         auto rotationExpressionFactory =
@@ -504,8 +506,11 @@ int main(int argc, char** argv) {
         auto om_ii = -(C_wi.inverse() *
           rotationExpressionFactory.getAngularVelocityExpression());
         auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-        if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+        if (std::fabs(v_oo.toValue()(0)) < minSpeed) {
+          lastTimestamp = timestamp;
+          lastDistance = it->second.signedDistanceTraveled;
           continue;
+        }
         auto om_oo = C_io.inverse() * om_ii;
         auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
           meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
@@ -746,11 +751,12 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Integrating odometry..." << std::endl;
-  janeth::DifferentialOdometry::Parameters params = {0.285, 0.285, 0.285, 0.285,
-    cpdv->getValue()(1) * 2, cpdv->getValue()(2) * 2, 0.000045};
-  std::ofstream diffOdoFile("diffOdo.txt");
-  janeth::DifferentialOdometry odometry(params);
+  janeth::DifferentialOdometry::Parameters diffParams = {
+    0.285, 0.285, 0.285, 0.285, cpdv->getValue()(1) * 2,
+    cpdv->getValue()(2) * 2, 0.000045};
+  janeth::DifferentialOdometry diffOdo(diffParams);
   bool firstPose = true;
+  std::ofstream diffOdoFile("diffOdo.txt");
   for (auto it = rearWheelsSpeedMeasurements.cbegin();
       it != rearWheelsSpeedMeasurements.cend(); ++it) {
     const NsecTime timestamp = it->first;
@@ -766,21 +772,23 @@ int main(int argc, char** argv) {
       Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
         rotationExpressionFactory.getValueExpression()).toRotationMatrix();
       Eigen::Vector3d C_wi_param = ypr->rotationMatrixToParameters(C_wi);
-      odometry.reset(Eigen::Vector3d(tk(0), tk(1), C_wi_param(0)),
+      diffOdo.reset(Eigen::Vector3d(tk(1), tk(0), -C_wi_param(0) + M_PI / 2),
         nsecToSec(timestamp));
       firstPose = false;
     }
-    odometry.updateRearWheelTranslationalVelocities(
+    diffOdo.updateRearWheelTranslationalVelocities(
       it->second.left * cpdv->getValue()(7),
       it->second.right * cpdv->getValue()(8), nsecToSec(timestamp));
     diffOdoFile << std::fixed << std::setprecision(18)
-      << odometry.getPose().transpose() << std::endl;
-  }
+      << diffOdo.getPose().transpose() << std::endl;
+   }
 
-  std::cout << "Outputting errors after optimization..." << std::endl;
-
+  std::cout << "Outputting errors and predicting after optimization..."
+    << std::endl;
   std::ofstream errorDmiPostFile("error_dmi_post.txt");
   std::ofstream errorDmiPostChiFile("error_dmi_post_chi.txt");
+  std::ofstream dmiRawMATLABFile("dmi-raw.txt");
+  std::ofstream dmiPredMATLABFile("dmi-pred.txt");
   lastDistance = -1;
   lastTimestamp = -1;
   if (useDMI) {
@@ -805,8 +813,11 @@ int main(int argc, char** argv) {
         auto om_ii = -(C_wi.inverse() *
           rotationExpressionFactory.getAngularVelocityExpression());
         auto v_oo = C_io.inverse() * (v_ii + om_ii.cross(t_io));
-        if (std::fabs(v_oo.toValue()(0)) < minSpeed)
+        if (std::fabs(v_oo.toValue()(0)) < minSpeed) {
+          lastTimestamp = timestamp;
+          lastDistance = it->second.signedDistanceTraveled;
           continue;
+        }
         auto om_oo = C_io.inverse() * om_ii;
         auto e_dmi = boost::make_shared<ErrorTermDMI>(v_oo, om_oo, cpdv.get(),
           meas, (Eigen::Matrix<double, 1, 1>() << sigma2_dmi).finished());
@@ -814,6 +825,12 @@ int main(int argc, char** argv) {
           << e_dmi->evaluateError() << std::endl;
         errorDmiPostFile << std::fixed << std::setprecision(18)
           << timestamp << " " << e_dmi->error().transpose() << std::endl;
+        const double predDMI = (v_oo.toValue()(0) - cpdv->getValue()(1) *
+          om_oo.toValue()(2)) * cpdv->getValue()(11);
+        dmiPredMATLABFile << std::fixed << std::setprecision(18)
+          << nsecToSec(timestamp) << " " << predDMI << std::endl;
+        dmiRawMATLABFile << std::fixed << std::setprecision(18)
+          << nsecToSec(timestamp) << " " << meas(0) << std::endl;
       }
       lastTimestamp = timestamp;
       lastDistance = it->second.signedDistanceTraveled;
@@ -822,6 +839,8 @@ int main(int argc, char** argv) {
   if (useFws) {
     std::ofstream errorFwsPostFile("error_fws_post.txt");
     std::ofstream errorFwsPostChiFile("error_fws_post_chi.txt");
+    std::ofstream canRawFwMATLABFile("can-raw-fws.txt");
+    std::ofstream canPredFwMATLABFile("can-pred-fws.txt");
     for (auto it = frontWheelsSpeedMeasurements.cbegin();
         it != frontWheelsSpeedMeasurements.cend(); ++it) {
       const NsecTime timestamp = it->first;
@@ -860,11 +879,27 @@ int main(int argc, char** argv) {
         << e_fws->evaluateError() << std::endl;
       errorFwsPostFile << std::fixed << std::setprecision(18)
         << timestamp << " " << e_fws->error().transpose() << std::endl;
+      const double predPhi_L = atan(cpdv->getValue()(0) * om_oo_z /
+        (v_oo_x - cpdv->getValue()(1) * om_oo_z));
+      const double predPhi_R = atan(cpdv->getValue()(0) * om_oo_z /
+        (v_oo_x + cpdv->getValue()(1) * om_oo_z));
+      const double predLeft = (v_oo_x - cpdv->getValue()(1) * om_oo_z) /
+        cos(predPhi_L) / cpdv->getValue()(9);
+      const double predRight = (v_oo_x + cpdv->getValue()(1) * om_oo_z) /
+        cos(predPhi_R) / cpdv->getValue()(10);
+      canRawFwMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << it->second.left << " "
+        << it->second.right << std::endl;
+      canPredFwMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << predLeft << " " << predRight
+        << std::endl;
     }
   }
   if (useRws) {
     std::ofstream errorRwsPostFile("error_rws_post.txt");
     std::ofstream errorRwsPostChiFile("error_rws_post_chi.txt");
+    std::ofstream canRawRwMATLABFile("can-raw-rws.txt");
+    std::ofstream canPredRwMATLABFile("can-pred-rws.txt");
     for (auto it = rearWheelsSpeedMeasurements.cbegin();
         it != rearWheelsSpeedMeasurements.cend(); ++it) {
       const NsecTime timestamp = it->first;
@@ -896,11 +931,23 @@ int main(int argc, char** argv) {
          e_rws->evaluateError() << std::endl;
       errorRwsPostFile << std::fixed << std::setprecision(18)
         << timestamp << " " << e_rws->error().transpose() << std::endl;
+      const double predLeft = (v_oo.toValue()(0) - cpdv->getValue()(2) *
+        om_oo.toValue()(2)) / cpdv->getValue()(7);
+      const double predRight = (v_oo.toValue()(0) + cpdv->getValue()(2) *
+        om_oo.toValue()(2)) / cpdv->getValue()(8);
+      canRawRwMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << it->second.left << " "
+        << it->second.right << std::endl;
+      canPredRwMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << predLeft << " " << predRight
+        << std::endl;
     }
   }
   if (useSt) {
     std::ofstream errorStPostFile("error_st_post.txt");
     std::ofstream errorStPostChiFile("error_st_post_chi.txt");
+    std::ofstream canRawStMATLABFile("can-raw-st.txt");
+    std::ofstream canPredStMATLABFile("can-pred-st.txt");
     for (auto it = steeringMeasurements.cbegin();
         it != steeringMeasurements.cend(); ++it) {
       const NsecTime timestamp = it->first;
@@ -928,6 +975,17 @@ int main(int argc, char** argv) {
         e_st->evaluateError() << std::endl;
       errorStPostFile << std::fixed << std::setprecision(18)
         << timestamp << " " << e_st->error().transpose() << std::endl;
+      const double predPhi = atan(cpdv->getValue()(0) * om_oo.toValue()(2) /
+        v_oo.toValue()(0));
+      const double measPhi = cpdv->getValue()(3) +
+        cpdv->getValue()(4) * it->second.value +
+        cpdv->getValue()(5) * it->second.value * it->second.value +
+        cpdv->getValue()(6) * it->second.value * it->second.value *
+        it->second.value;
+      canRawStMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << measPhi << std::endl;
+      canPredStMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << predPhi << std::endl;
     }
   }
   if (useVm) {

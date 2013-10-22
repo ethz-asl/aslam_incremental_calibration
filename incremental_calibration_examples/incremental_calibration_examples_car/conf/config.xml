@@ -39,13 +39,13 @@
       <rrwPercentError>0.2</rrwPercentError>
       <flwPercentError>0.2</flwPercentError>
       <frwPercentError>0.2</frwPercentError>
-      <sigma2_dmi>1e-1</sigma2_dmi>
-      <sigma2_st>1e-1</sigma2_st>
+      <sigma2_dmi>1</sigma2_dmi>
+      <sigma2_st>1</sigma2_st>
       <minSpeed>1</minSpeed>
-      <sigma2_vy>1e-3</sigma2_vy>
-      <sigma2_vz>1e-3</sigma2_vz>
-      <sigma2_omx>1e-3</sigma2_omx>
-      <sigma2_omy>1e-3</sigma2_omy>
+      <sigma2_vy>1e-1</sigma2_vy>
+      <sigma2_vz>1e-1</sigma2_vz>
+      <sigma2_omx>1e-1</sigma2_omx>
+      <sigma2_omy>1e-1</sigma2_omy>
     </noise>
     <sensors>
       <dmi>true</dmi>
