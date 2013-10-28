@@ -2,7 +2,7 @@
   <splines>
     <translationSplineLambda>0</translationSplineLambda>
     <rotationSplineLambda>0</rotationSplineLambda>
-    <splineKnotsPerSeconds>5</splineKnotsPerSeconds>
+    <splineKnotsPerSecond>5</splineKnotsPerSecond>
     <translationSplineOrder>4</translationSplineOrder>
     <rotationSplineOrder>4</rotationSplineOrder>
   </splines>
@@ -40,6 +40,7 @@
       <flwPercentError>0.2</flwPercentError>
       <frwPercentError>0.2</frwPercentError>
       <sigma2_dmi>1</sigma2_dmi>
+      <dmiPercentError>0.1</dmiPercentError>
       <sigma2_st>1</sigma2_st>
       <minSpeed>1</minSpeed>
       <sigma2_vy>1e-1</sigma2_vy>
@@ -56,6 +57,7 @@
     </sensors>
   </odometry>
   <optimizer>
+    <maxIterations>20</maxIterations>
     <linearSolver>
       <colNorm>true</colNorm>
       <qrTol>0.02</qrTol>
@@ -64,5 +66,9 @@
     <marginalizer>
       <epsTol>1e-9</epsTol>
     </marginalizer>
+    <incremental>
+      <miTol>0.5</miTol>
+      <windowDuration>20</windowDuration>
+    </incremental>
   </optimizer>
 </calibrator>

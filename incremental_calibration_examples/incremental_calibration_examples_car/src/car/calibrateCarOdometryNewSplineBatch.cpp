@@ -242,8 +242,8 @@ int main(int argc, char** argv) {
     propertyTree.getDouble("calibrator/splines/translationSplineLambda");
   const double rotationSplineLambda =
     propertyTree.getDouble("calibrator/splines/rotationSplineLambda");
-  const int splineKnotsPerSeconds =
-    propertyTree.getInt("calibrator/splines/splineKnotsPerSeconds");
+  const int splineKnotsPerSecond =
+    propertyTree.getInt("calibrator/splines/splineKnotsPerSecond");
   const int translationSplineOrder =
     propertyTree.getInt("calibrator/splines/translationSplineOrder");
   const int rotationSplineOrder =
@@ -363,8 +363,8 @@ int main(int argc, char** argv) {
     (double)NsecTimePolicy::getOne();
   const int measPerSec = std::round(numMeasurements / elapsedTime);
   int numSegments;
-  if (measPerSec > splineKnotsPerSeconds)
-    numSegments = std::ceil(splineKnotsPerSeconds * elapsedTime);
+  if (measPerSec > splineKnotsPerSecond)
+    numSegments = std::ceil(splineKnotsPerSecond * elapsedTime);
   else
     numSegments = numMeasurements;
   typedef OPTBSpline<EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF>

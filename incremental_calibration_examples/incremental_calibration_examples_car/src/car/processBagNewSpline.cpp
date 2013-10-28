@@ -242,9 +242,9 @@ int main(int argc, char** argv) {
       can_prius::FrontWheelsSpeedMsgConstPtr fws(
         it->instantiate<can_prius::FrontWheelsSpeedMsg>());
       const NsecTime timestamp = fws->header.stamp.toNSec();
-      canRawFwMATLABFile << std::fixed << std::setprecision(18)
-        << nsecToSec(timestamp) << " " << fws->Left << " " << fws->Right
-        << std::endl;
+//      canRawFwMATLABFile << std::fixed << std::setprecision(18)
+//        << nsecToSec(timestamp) << " " << fws->Left << " " << fws->Right
+//        << std::endl;
       if (fws->Left < sensorCutoff || fws->Right < sensorCutoff ||
           timestamp < timestamps.front() || timestamp > timestamps.back())
         continue;
@@ -271,6 +271,9 @@ int main(int argc, char** argv) {
       canPredFwMATLABFile << std::fixed << std::setprecision(18)
         << nsecToSec(timestamp) << " " << predLeft << " " << predRight
         << std::endl;
+      canRawFwMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << fws->Left << " " << fws->Right
+        << std::endl;
       fwsCovEst.addMeasurement(Eigen::Vector2d(fws->Left - predLeft,
         fws->Right - predRight));
     }
@@ -278,9 +281,9 @@ int main(int argc, char** argv) {
       can_prius::RearWheelsSpeedMsgConstPtr rws(
         it->instantiate<can_prius::RearWheelsSpeedMsg>());
       const NsecTime timestamp = rws->header.stamp.toNSec();
-      canRawRwMATLABFile << std::fixed << std::setprecision(18)
-        << nsecToSec(timestamp) << " " << rws->Left << " " << rws->Right
-        << std::endl;
+//      canRawRwMATLABFile << std::fixed << std::setprecision(18)
+//        << nsecToSec(timestamp) << " " << rws->Left << " " << rws->Right
+//        << std::endl;
       if (rws->Left < sensorCutoff || rws->Right < sensorCutoff ||
           timestamp < timestamps.front() || timestamp > timestamps.back())
         continue;
@@ -302,6 +305,9 @@ int main(int argc, char** argv) {
       canPredRwMATLABFile << std::fixed << std::setprecision(18)
         << nsecToSec(timestamp) << " " << predLeft << " " << predRight
         << std::endl;
+      canRawRwMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << rws->Left << " " << rws->Right
+        << std::endl;
       rwsCovEst.addMeasurement(Eigen::Vector2d(rws->Left - predLeft,
         rws->Right - predRight));
     }
@@ -309,8 +315,8 @@ int main(int argc, char** argv) {
       can_prius::Steering1MsgConstPtr st(
         it->instantiate<can_prius::Steering1Msg>());
       const NsecTime timestamp = st->header.stamp.toNSec();
-      canRawStMATLABFile << std::fixed << std::setprecision(18)
-        << nsecToSec(timestamp) << " " << st->value << std::endl;
+//      canRawStMATLABFile << std::fixed << std::setprecision(18)
+//        << nsecToSec(timestamp) << " " << st->value << std::endl;
       if (timestamp < timestamps.front() || timestamp > timestamps.back())
         continue;
       auto transEvaluator = transSpline.getEvaluatorAt<1>(timestamp);
@@ -330,6 +336,8 @@ int main(int argc, char** argv) {
       const double predSteering = (phi - a0) / a1;
       canPredStMATLABFile << std::fixed << std::setprecision(18)
         << nsecToSec(timestamp) << " " << predSteering << std::endl;
+      canRawStMATLABFile << std::fixed << std::setprecision(18)
+        << nsecToSec(timestamp) << " " << st->value << std::endl;
       stCovEst.addMeasurement((Eigen::Matrix<double, 1, 1>()
         << st->value - predSteering).finished());
     }

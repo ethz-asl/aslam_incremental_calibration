@@ -78,16 +78,23 @@ namespace aslam {
             windowDuration(10.0),
             transSplineLambda(0),
             rotSplineLambda(0),
-            knotsPerSecond(5),
+            splineKnotsPerSecond(5),
             transSplineOrder(4),
             rotSplineOrder(4),
-            linearVelocityTolerance(1e-1),
-            dmiCovariance((Eigen::Matrix<double, 1, 1>() << 10).finished()),
-            fwsCovariance((Eigen::Matrix2d() << 500, 0, 0, 500).finished()),
-            rwsCovariance((Eigen::Matrix2d() << 500, 0, 0, 500).finished()),
-            steeringCovariance((Eigen::Matrix<double, 1, 1>()
-              << 10).finished()),
+            linearVelocityTolerance(1),
+            dmiPercentError(0.1),
+            dmiVariance(1),
+            flwPercentError(0.1),
+            frwPercentError(0.1),
+            rlwPercentError(0.1),
+            rrwPercentError(0.1),
+            steeringVariance(0.1),
             wheelSpeedSensorCutoff(350),
+            vyVariance(1e-1),
+            vzVariance(1e-1),
+            omxVariance(1e-1),
+            omyVariance(1e-1),
+            useVm(true),
             verbose(true) {
         }
         /// Window duration in seconds
@@ -97,23 +104,39 @@ namespace aslam {
         /// Rotation spline lambda
         double rotSplineLambda;
         /// Pose measurements per second desired for the spline
-        int knotsPerSecond;
+        int splineKnotsPerSecond;
         /// Translation spline order
         int transSplineOrder;
         /// Rotation spline order
         int rotSplineOrder;
         /// Tolerance for rejecting low speed measurements
         double linearVelocityTolerance;
-        /// Covariance for DMI measurements
-        Eigen::Matrix<double, 1, 1> dmiCovariance;
-        /// Covariance for front wheels speed measurements
-        Eigen::Matrix2d fwsCovariance;
-        /// Covariance for rear wheels speed measurements
-        Eigen::Matrix2d rwsCovariance;
-        /// Covariance for steering measurements
-        Eigen::Matrix<double, 1, 1> steeringCovariance;
+        /// Percent error for DMI measurements
+        double dmiPercentError;
+        /// Variance for DMI measurements
+        double dmiVariance;
+        /// Percent error for front left wheel speed measurements
+        double flwPercentError;
+        /// Percent error for front right wheel speed measurements
+        double frwPercentError;
+        /// Percent error for rear left wheel speed measurements
+        double rlwPercentError;
+        /// Percent error for rear right wheel speed measurements
+        double rrwPercentError;
+        /// Variance for steering measurement
+        double steeringVariance;
         /// Wheel speed sensor cutoff
         uint16_t wheelSpeedSensorCutoff;
+        /// Variance for v_y constraint
+        double vyVariance;
+        /// Variance for v_z constraint
+        double vzVariance;
+        /// Variance for om_x constraint
+        double omxVariance;
+        /// Variance for om_y constraint
+        double omyVariance;
+        /// Use vehicle constraints
+        bool useVm;
         /// Verbose option
         bool verbose;
       };
@@ -203,6 +226,8 @@ namespace aslam {
       const IncrementalEstimatorSP getEstimator() const;
       /// Returns the incremental estimator
       IncrementalEstimatorSP getEstimator();
+      /// Unprocessed measurements in the pipeline?
+      bool unprocessedMeasurements() const;
       /** @}
         */
 

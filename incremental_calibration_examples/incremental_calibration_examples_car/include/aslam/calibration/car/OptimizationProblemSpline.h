@@ -111,17 +111,17 @@ namespace aslam {
       /// Returns the number of translation spliens
       size_t getNumTranslationSplines() const;
       /// Returns a translation spline by index
-      const TranslationSpline* getTranslationSpline(size_t idx) const;
+      const TranslationSpline* getTranslationSpline(size_t idx = 0) const;
       /// Returns a translation spline by index
-      TranslationSpline* getTranslationSpline(size_t idx);
+      TranslationSpline* getTranslationSpline(size_t idx = 0);
       /// Returns the rotation splines
       const RotationSplinesSP& getRotationSplines() const;
       /// Returns the number of rotation spliens
       size_t getNumRotationSplines() const;
       /// Returns a rotation spline by index
-      const RotationSpline* getRotationSpline(size_t idx) const;
+      const RotationSpline* getRotationSpline(size_t idx = 0) const;
       /// Returns a rotation spline by index
-      RotationSpline* getRotationSpline(size_t idx);
+      RotationSpline* getRotationSpline(size_t idx = 0);
       /** @}
         */
 

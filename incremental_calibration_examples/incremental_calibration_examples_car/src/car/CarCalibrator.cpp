@@ -115,6 +115,14 @@ namespace aslam {
       return _estimator;
     }
 
+    bool CarCalibrator::unprocessedMeasurements() const {
+      return !_navigationMeasurements.empty() ||
+        !_dmiMeasurements.empty() ||
+        !_frontWheelsSpeedMeasurements.empty() ||
+        !_rearWheelsSpeedMeasurements.empty() ||
+        !_steeringMeasurements.empty();
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -150,15 +158,12 @@ namespace aslam {
     }
 
     void CarCalibrator::addMeasurement(NsecTime timestamp) {
+      _lastTimestamp = timestamp;
       if (_currentBatchStartTimestamp == -1)
         _currentBatchStartTimestamp = timestamp;
       if (nsecToSec(timestamp - _currentBatchStartTimestamp) >=
-          _options.windowDuration) {
+          _options.windowDuration)
         addMeasurements();
-        clearMeasurements();
-        _currentBatchStartTimestamp = timestamp;
-      }
-      _lastTimestamp = timestamp;
     }
 
     void CarCalibrator::addMeasurements() {
@@ -175,6 +180,8 @@ namespace aslam {
       addRearWheelsErrorTerms(_rearWheelsSpeedMeasurements, batch);
       addSteeringErrorTerms(_steeringMeasurements, batch);
       addVehicleErrorTerms(batch);
+      clearMeasurements();
+      _currentBatchStartTimestamp = _lastTimestamp;
       batch->setGroupsOrdering({0, 1});
       if (_options.verbose) {
         std::cout << "calibration before batch: " << std::endl;
@@ -257,8 +264,8 @@ namespace aslam {
         (double)NsecTimePolicy::getOne();
       const int measPerSec = std::round(numMeasurements / elapsedTime);
       int numSegments;
-      if (measPerSec > _options.knotsPerSecond)
-        numSegments = std::ceil(_options.knotsPerSecond * elapsedTime);
+      if (measPerSec > _options.splineKnotsPerSecond)
+        numSegments = std::ceil(_options.splineKnotsPerSecond * elapsedTime);
       else
         numSegments = numMeasurements;
       _translationSpline = boost::make_shared<TranslationSpline>(
@@ -312,15 +319,24 @@ namespace aslam {
             _translationSpline->getMaxTime() < timestamp)
           continue;
         if (lastTimestamp != -1) {
+          auto v = getOdometryVelocities(timestamp, _translationSpline,
+            _rotationSpline);
+          if (std::fabs(v.first.toValue()(0)) <
+              _options.linearVelocityTolerance) {
+            lastTimestamp = timestamp;
+            lastDistance = it->second.signedDistanceTraveled;
+            continue;
+          }
           const double displacement = it->second.signedDistanceTraveled -
             lastDistance;
           const Eigen::Matrix<double, 1, 1> meas((Eigen::Matrix<double, 1, 1>()
-            << displacement / (timestamp - lastTimestamp) * 1e9).finished());
-          auto v = getOdometryVelocities(timestamp, _translationSpline,
-            _rotationSpline);
+            << displacement / (timestamp - lastTimestamp) *
+            (double)NsecTimePolicy::getOne()).finished());
           auto e_dmi = boost::make_shared<ErrorTermDMI>(v.first, v.second,
             _calibrationDesignVariables.intrinsicOdoDesignVariable.get(), meas,
-            _options.dmiCovariance);
+//            (Eigen::Matrix<double, 1, 1>() << _options.dmiPercentError * meas(0)
+//            * _options.dmiPercentError * meas(0)).finished());
+            (Eigen::Matrix<double, 1, 1>() << _options.dmiVariance).finished());
           batch->addErrorTerm(e_dmi);
         }
         lastTimestamp = timestamp;
@@ -337,32 +353,28 @@ namespace aslam {
             it->second.left < _options.wheelSpeedSensorCutoff ||
             it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
-        auto v = getOdometryVelocities(it->first, _translationSpline,
+        auto v = getOdometryVelocities(timestamp, _translationSpline,
           _rotationSpline);
+        if (v.first.toValue()(0) < _options.linearVelocityTolerance)
+          continue;
         const double v_oo_x = v.first.toValue()(0);
         const double om_oo_z = v.second.toValue()(2);
         const double L =
           _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(0);
         const double e_f =
           _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(2);
-        const double k_fl =
-          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(9);
-        const double k_fr =
-          _calibrationDesignVariables.intrinsicOdoDesignVariable
-          ->getValue()(10);
         const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
         const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
-        if ((v_oo_x - e_f * om_oo_z) / cos(phi_L) / k_fl < 0)
-          continue;
-        if ((v_oo_x + e_f * om_oo_z) / cos(phi_R) / k_fr < 0)
-          continue;
         if (fabs(cos(phi_L)) < std::numeric_limits<double>::epsilon() ||
             fabs(cos(phi_R)) < std::numeric_limits<double>::epsilon())
           continue;
         auto e_fws = boost::make_shared<ErrorTermFws>(v.first, v.second,
           _calibrationDesignVariables.intrinsicOdoDesignVariable.get(),
           Eigen::Vector2d(it->second.left, it->second.right),
-          _options.fwsCovariance);
+          (Eigen::Matrix2d() << (_options.flwPercentError * it->second.left) *
+            (_options.flwPercentError * it->second.left), 0, 0,
+            (_options.frwPercentError * it->second.right) *
+            (_options.frwPercentError * it->second.right)).finished());
         batch->addErrorTerm(e_fws);
       }
     }
@@ -376,24 +388,17 @@ namespace aslam {
             it->second.left < _options.wheelSpeedSensorCutoff ||
             it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
-        auto v = getOdometryVelocities(it->first, _translationSpline,
+        auto v = getOdometryVelocities(timestamp, _translationSpline,
           _rotationSpline);
-        const double v_oo_x = v.first.toValue()(0);
-        const double om_oo_z = v.second.toValue()(2);
-        const double e_r =
-          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(1);
-        const double k_rl =
-          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(7);
-        const double k_rr =
-          _calibrationDesignVariables.intrinsicOdoDesignVariable->getValue()(8);
-        if ((v_oo_x - e_r * om_oo_z) / k_rl < 0)
-          continue;
-        if ((v_oo_x + e_r * om_oo_z) / k_rr < 0)
+        if (v.first.toValue()(0) < _options.linearVelocityTolerance)
           continue;
         auto e_rws = boost::make_shared<ErrorTermRws>(v.first, v.second,
           _calibrationDesignVariables.intrinsicOdoDesignVariable.get(),
           Eigen::Vector2d(it->second.left, it->second.right),
-          _options.rwsCovariance);
+          (Eigen::Matrix2d() << (_options.rlwPercentError * it->second.left) *
+            (_options.rlwPercentError * it->second.left), 0, 0,
+            (_options.rrwPercentError * it->second.right) *
+            (_options.rrwPercentError * it->second.right)).finished());
         batch->addErrorTerm(e_rws);
       }
     }
@@ -405,7 +410,7 @@ namespace aslam {
         if (_translationSpline->getMinTime() > timestamp ||
             _translationSpline->getMaxTime() < timestamp)
           continue;
-        auto v = getOdometryVelocities(it->first, _translationSpline,
+        auto v = getOdometryVelocities(timestamp, _translationSpline,
           _rotationSpline);
         if (std::fabs(v.first.toValue()(0)) < _options.linearVelocityTolerance)
           continue;
@@ -413,7 +418,8 @@ namespace aslam {
           it->second.value).finished());
         auto e_st = boost::make_shared<ErrorTermSteering>(v.first, v.second,
           _calibrationDesignVariables.intrinsicOdoDesignVariable.get(), meas,
-          _options.steeringCovariance);
+          (Eigen::Matrix<double, 1, 1>() <<
+          _options.steeringVariance).finished());
         batch->addErrorTerm(e_st);
       }
     }
@@ -425,9 +431,12 @@ namespace aslam {
         auto timestamp = it.getTime();
         auto v = getOdometryVelocities(timestamp, _translationSpline,
           _rotationSpline);
+        if (std::fabs(v.first.toValue()(0)) < _options.linearVelocityTolerance)
+          continue;
         ErrorTermVehicleModel::Covariance Q(
           ErrorTermVehicleModel::Covariance::Zero());
-        Q(0, 0) = 0.1; Q(1, 1) = 0.1; Q(2, 2) = 0.1; Q(3, 3) = 0.1;
+        Q(0, 0) = _options.vyVariance; Q(1, 1) = _options.vzVariance;
+        Q(2, 2) = _options.omxVariance; Q(3, 3) = _options.omyVariance;
         auto e_vm = boost::make_shared<ErrorTermVehicleModel>(v.first,
           v.second, Q);
         batch->addErrorTerm(e_vm);
