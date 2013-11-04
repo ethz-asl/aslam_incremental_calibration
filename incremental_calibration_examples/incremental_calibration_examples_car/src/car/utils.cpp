@@ -19,6 +19,7 @@
 #include "aslam/calibration/car/utils.h"
 
 #include <cmath>
+#include <utility>
 #include <limits>
 
 #include <aslam/DiscreteTrajectory.hpp>
@@ -87,6 +88,64 @@ namespace aslam {
           it->second.x, it->second.y, it->second.z)));
     }
 
+    void simulateNavigationMeasurements(const SplineTrajectory& trajectory,
+        double frequency, const sm::kinematics::Transformation& T_io,
+        MeasurementsContainer<ApplanixNavigationMeasurement>::Type&
+        measurements) {
+      const Trajectory::NsecTime dT =
+        sm::timing::secToNsec(1.0 / frequency);
+      Trajectory::NsecTime t = trajectory.minTime();
+      sm::kinematics::EulerAnglesYawPitchRoll ypr;
+      while (t <= trajectory.maxTime()) {
+        auto T_wo = trajectory.T(t);
+        auto T_wi = T_wo * T_io.inverse();
+        auto t_wi = T_wi.t();
+        auto C_wi = T_wi.C();
+        auto C_wi_params = ypr.rotationMatrixToParameters(T_wo.C());
+        auto v_ow = trajectory.linearVelocity(t);
+        auto C_wo = T_wo.C();
+        auto v_oo = C_wo.transpose() * v_ow;
+        auto om_ow = trajectory.angularVelocity(t);
+        auto om_oo = C_wo.transpose() * om_ow;
+        auto C_io = T_io.C();
+        auto v_io = v_oo + om_oo.cross(C_io.transpose() * T_io.t());
+        auto v_ii = C_io * v_io;
+        auto v_iw = C_wi * v_ii;
+        auto om_ii = C_io * om_oo;
+        auto a_ow = trajectory.linearAcceleration(t);
+        auto a_oo = C_wo.transpose() * a_ow;
+        auto a_ii = C_io * a_oo;
+        ApplanixNavigationMeasurement data;
+        data.x = t_wi(1);
+        data.y = t_wi(0);
+        data.z = -t_wi(2);
+        data.roll = C_wi_params(2);
+        data.pitch = C_wi_params(1);
+        data.yaw = C_wi_params(0);
+        data.v_x = v_iw(1);
+        data.v_y = v_iw(0);
+        data.v_z = -v_iw(2);
+        data.om_x = om_ii(0);
+        data.om_y = om_ii(1);
+        data.om_z = om_ii(2);
+        data.a_x = a_ii(0);
+        data.a_y = a_ii(1);
+        data.a_z = a_ii(2);
+        data.v = v_ii(0);
+        data.x_sigma2 = 1e-6;
+        data.y_sigma2 = 1e-6;
+        data.z_sigma2 = 1e-6;
+        data.roll_sigma2 = 1e-6;
+        data.pitch_sigma2 = 1e-6;
+        data.yaw_sigma2 = 1e-6;
+        data.v_x_sigma2 = 1e-6;
+        data.v_y_sigma2 = 1e-6;
+        data.v_z_sigma2 = 1e-6;
+        measurements.push_back(std::make_pair(t, data));
+        t += dT;
+      }
+    }
+
     void simulateRearWheelsSpeedMeasurements(const SplineTrajectory& trajectory,
         double frequency, double sigma2_rl, double sigma2_rr, double e_r, double
         k_rl, double k_rr, const sm::kinematics::Transformation& T_io,
@@ -124,6 +183,37 @@ namespace aslam {
         noisyData.right = fabs(round(trueData.right + rrDist.getSample()));
         noisyMeasurements.push_back(std::make_pair(t, noisyData));
         t += T;
+      }
+    }
+
+    void simulateRearWheelsSpeedMeasurements(const SplineTrajectory& trajectory,
+        double frequency, double lwPercentError, double rwPercentError,
+        double e_r, double k_rl, double k_rr,
+        MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
+        MeasurementsContainer<WheelsSpeedMeasurement>::Type&
+        noisyMeasurements) {
+      const Trajectory::NsecTime dT =
+        sm::timing::secToNsec(1.0 / frequency);
+      Trajectory::NsecTime t = trajectory.minTime();
+      while (t <= trajectory.maxTime()) {
+        auto C_wo = trajectory.C(t);
+        auto v_oo = C_wo.transpose() * trajectory.linearVelocity(t);
+        auto om_oo = C_wo.transpose() * trajectory.angularVelocity(t);
+        const double v_oo_x = v_oo(0);
+        const double om_oo_z = om_oo(2);
+        WheelsSpeedMeasurement trueData;
+        trueData.left = fabs(round((v_oo_x - e_r * om_oo_z) / k_rl));
+        trueData.right = fabs(round((v_oo_x + e_r * om_oo_z) / k_rr));
+        trueMeasurements.push_back(std::make_pair(t, trueData));
+        WheelsSpeedMeasurement noisyData;
+        const NormalDistribution<1> lDist(0, lwPercentError * trueData.left *
+          lwPercentError * trueData.left);
+        const NormalDistribution<1> rDist(0, rwPercentError * trueData.right *
+          rwPercentError * trueData.right);
+        noisyData.left = fabs(round(trueData.left + lDist.getSample()));
+        noisyData.right = fabs(round(trueData.right + rDist.getSample()));
+        noisyMeasurements.push_back(std::make_pair(t, noisyData));
+        t += dT;
       }
     }
 
@@ -172,6 +262,44 @@ namespace aslam {
           noisyMeasurements.push_back(std::make_pair(t, noisyData));
         }
         t += T;
+      }
+    }
+
+    void simulateFrontWheelsSpeedMeasurements(const SplineTrajectory&
+        trajectory, double frequency, double lwPercentError, double
+        rwPercentError, double e_f, double L, double k_fl, double k_fr,
+        MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
+        MeasurementsContainer<WheelsSpeedMeasurement>::Type&
+        noisyMeasurements) {
+      const Trajectory::NsecTime dT =
+        sm::timing::secToNsec(1.0 / frequency);
+      Trajectory::NsecTime t = trajectory.minTime();
+      while (t <= trajectory.maxTime()) {
+        auto C_wo = trajectory.C(t);
+        auto v_oo = C_wo.transpose() * trajectory.linearVelocity(t);
+        auto om_oo = C_wo.transpose() * trajectory.angularVelocity(t);
+        const double v_oo_x = v_oo(0);
+        const double om_oo_z = om_oo(2);
+        const double phi_L = atan(L * om_oo_z / (v_oo_x - e_f * om_oo_z));
+        const double phi_R = atan(L * om_oo_z / (v_oo_x + e_f * om_oo_z));
+        if (fabs(cos(phi_L)) > std::numeric_limits<double>::epsilon() ||
+            fabs(cos(phi_R) > std::numeric_limits<double>::epsilon())) {
+          WheelsSpeedMeasurement trueData;
+          trueData.left = fabs(round((v_oo_x - e_f * om_oo_z) / cos(phi_L) /
+            k_fl));
+          trueData.right = fabs(round((v_oo_x + e_f * om_oo_z) / cos(phi_R) /
+            k_fr));
+          trueMeasurements.push_back(std::make_pair(t, trueData));
+          WheelsSpeedMeasurement noisyData;
+          const NormalDistribution<1> lDist(0, lwPercentError * trueData.left *
+            lwPercentError * trueData.left);
+          const NormalDistribution<1> rDist(0, rwPercentError * trueData.right *
+            rwPercentError * trueData.right);
+          noisyData.left = fabs(round(trueData.left + lDist.getSample()));
+          noisyData.right = fabs(round(trueData.right + rDist.getSample()));
+          noisyMeasurements.push_back(std::make_pair(t, noisyData));
+        }
+        t += dT;
       }
     }
 

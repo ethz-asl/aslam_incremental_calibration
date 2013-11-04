@@ -68,7 +68,27 @@
     </marginalizer>
     <incremental>
       <miTol>0.5</miTol>
-      <windowDuration>20</windowDuration>
+      <windowDuration>1e18</windowDuration>
     </incremental>
   </optimizer>
+  <simulation>
+    <numSteps>10000</numSteps>
+    <stepX>0.1</stepX>
+    <stepY>0.0</stepY>
+    <stepZ>0</stepZ>
+    <stepYaw>0</stepYaw>
+    <stepPitch>0</stepPitch>
+    <stepRoll>0</stepRoll>
+    <stepSigmaX>0.0</stepSigmaX>
+    <stepSigmaY>0.0</stepSigmaY>
+    <stepSigmaZ>0.0</stepSigmaZ>
+    <stepSigmaYaw>0.0</stepSigmaYaw>
+    <stepSigmaPitch>0.0</stepSigmaPitch>
+    <stepSigmaRoll>0.0</stepSigmaRoll>
+    <stepTime>10000000</stepTime>
+    <splineKnotsPerSecond>5</splineKnotsPerSecond>
+    <splineLambda>1e-1</splineLambda>
+    <applanixFrequency>100</applanixFrequency>
+    <wheelSpeedFrequency>60</wheelSpeedFrequency>
+  </simulation>
 </calibrator>

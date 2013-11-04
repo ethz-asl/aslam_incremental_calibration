@@ -127,3 +127,6 @@ target_link_libraries(calibrateCarOdometrySimulationBatchTest ${PROJECT_NAME}
 rosbuild_add_executable(odometryVelocities src/car/odometryVelocities.cpp)
 target_link_libraries(odometryVelocities ${PROJECT_NAME}
   ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
+
+rosbuild_add_executable(calibrateCarSimulation src/car/calibrateCarSimulation.cpp)
+target_link_libraries(calibrateCarSimulation ${PROJECT_NAME})

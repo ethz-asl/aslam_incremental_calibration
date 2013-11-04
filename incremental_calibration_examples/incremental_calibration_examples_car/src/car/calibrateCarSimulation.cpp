@@ -16,72 +16,102 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrateCar.cpp
-    \brief This file calibrates the car parameters from a ROS bag file.
+/** \file calibrateCarSimulation.cpp
+    \brief This file calibrates the car parameters from a simulation.
   */
 
 #include <iostream>
-#include <vector>
-#include <string>
+
+#include <Eigen/Core>
 
 #include <boost/make_shared.hpp>
 
-#include <rosbag/bag.h>
-#include <rosbag/view.h>
-#include <rosbag/message_instance.h>
-
-#include <sm/timing/TimestampCorrector.hpp>
-#include <sm/timing/NsecTimeUtilities.hpp>
-
-#include <sm/kinematics/rotations.hpp>
-#include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
-
 #include <sm/BoostPropertyTree.hpp>
+
+#include <sm/kinematics/Transformation.hpp>
+#include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
+#include <sm/kinematics/quaternion_algebra.hpp>
+
+#include <aslam/TrajectoryUtilities.hpp>
+#include <aslam/DiscreteTrajectory.hpp>
+#include <aslam/SplineTrajectory.hpp>
 
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
 
-#include <poslv/VehicleNavigationSolutionMsg.h>
-#include <poslv/VehicleNavigationPerformanceMsg.h>
-#include <poslv/TimeTaggedDMIDataMsg.h>
-
-#include <can_prius/FrontWheelsSpeedMsg.h>
-#include <can_prius/RearWheelsSpeedMsg.h>
-#include <can_prius/Steering1Msg.h>
-
-#include <libposlv/geo-tools/Geo.h>
-
-#include <aslam/splines/OPTBSpline.hpp>
-
-#include <bsplines/EuclideanBSpline.hpp>
-#include <bsplines/NsecTimePolicy.hpp>
-
-#include <aslam/calibration/core/IncrementalEstimator.h>
-#include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
+#include <aslam/calibration/core/IncrementalEstimator.h>
+//#include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 
-#include "aslam/calibration/car/CarCalibrator.h"
+#include "aslam/calibration/car/MeasurementsContainer.h"
 #include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
 #include "aslam/calibration/car/WheelsSpeedMeasurement.h"
-#include "aslam/calibration/car/SteeringMeasurement.h"
-#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
-#include "aslam/calibration/car/OptimizationProblemSpline.h"
+#include "aslam/calibration/car/utils.h"
+#include "aslam/calibration/car/CarCalibrator.h"
 
+
+//#include <aslam/splines/OPTBSpline.hpp>
+
+//#include <bsplines/EuclideanBSpline.hpp>
+//#include <bsplines/NsecTimePolicy.hpp>
+
+
+//#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
+//#include "aslam/calibration/car/SteeringMeasurement.h"
+//#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
+//#include "aslam/calibration/car/OptimizationProblemSpline.h"
+
+using namespace aslam;
 using namespace aslam::calibration;
+using namespace sm;
 using namespace sm::kinematics;
 using namespace sm::timing;
-using namespace sm;
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
-    std::cerr << "Usage: " << argv[0] << " <ros_bag_file> <conf_file>"
-      << std::endl;
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " <conf_file>" << std::endl;
     return -1;
   }
 
   std::cout << "Parsing configuration parameters..." << std::endl;
   BoostPropertyTree propertyTree;
-  propertyTree.loadXml(argv[2]);
+  propertyTree.loadXml(argv[1]);
+  const size_t numSimulationSteps =
+    propertyTree.getInt("calibrator/simulation/numSteps");
+  const double simulationStepX =
+    propertyTree.getDouble("calibrator/simulation/stepX");
+  const double simulationStepY =
+    propertyTree.getDouble("calibrator/simulation/stepY");
+  const double simulationStepZ =
+    propertyTree.getDouble("calibrator/simulation/stepZ");
+  const double simulationStepYaw =
+    propertyTree.getDouble("calibrator/simulation/stepYaw");
+  const double simulationStepPitch =
+    propertyTree.getDouble("calibrator/simulation/stepPitch");
+  const double simulationStepRoll =
+    propertyTree.getDouble("calibrator/simulation/stepRoll");
+  const double simulationStepSigmaX =
+    propertyTree.getDouble("calibrator/simulation/stepSigmaX");
+  const double simulationStepSigmaY =
+    propertyTree.getDouble("calibrator/simulation/stepSigmaY");
+  const double simulationStepSigmaZ =
+    propertyTree.getDouble("calibrator/simulation/stepSigmaZ");
+  const double simulationStepSigmaYaw =
+    propertyTree.getDouble("calibrator/simulation/stepSigmaYaw");
+  const double simulationStepSigmaPitch =
+    propertyTree.getDouble("calibrator/simulation/stepSigmaPitch");
+  const double simulationStepSigmaRoll =
+    propertyTree.getDouble("calibrator/simulation/stepSigmaRoll");
+  const size_t simulationStepTime =
+    propertyTree.getInt("calibrator/simulation/stepTime");
+  const size_t simulationSplineKnotsPerSecond =
+    propertyTree.getInt("calibrator/simulation/splineKnotsPerSecond");
+  const double simulationSplineLambda =
+    propertyTree.getDouble("calibrator/simulation/splineLambda");
+  const double applanixFrequency =
+    propertyTree.getDouble("calibrator/simulation/applanixFrequency");
+  const double wheelSpeedFrequency =
+    propertyTree.getDouble("calibrator/simulation/wheelSpeedFrequency");
   const double translationSplineLambda =
     propertyTree.getDouble("calibrator/splines/translationSplineLambda");
   const double rotationSplineLambda =
@@ -187,16 +217,46 @@ int main(int argc, char** argv) {
   const bool useVm =
     propertyTree.getBool("calibrator/odometry/sensors/vm");
 
-  rosbag::Bag bag(argv[1]);
-  std::vector<std::string> topics;
-  topics.push_back(std::string("/can_prius/front_wheels_speed"));
-  topics.push_back(std::string("/can_prius/rear_wheels_speed"));
-  topics.push_back(std::string("/can_prius/steering1"));
-  topics.push_back(std::string("/poslv/vehicle_navigation_solution"));
-  topics.push_back(std::string("/poslv/vehicle_navigation_performance"));
-  topics.push_back(std::string("/poslv/time_tagged_dmi_data"));
-  rosbag::View view(bag, rosbag::TopicQuery(topics));
-  std::cout << "Processing BAG file..." << std::endl;
+  std::cout << "Generating trajectory..." << std::endl;
+  auto ypr = boost::make_shared<EulerAnglesYawPitchRoll>();
+  const Transformation deterministicStep(r2quat(ypr->parametersToRotationMatrix(
+    Eigen::Vector3d(simulationStepYaw, simulationStepPitch, simulationStepRoll))
+    ), Eigen::Vector3d(simulationStepX, simulationStepY, simulationStepZ));
+  const Eigen::Vector3d translationStdDev(simulationStepSigmaX,
+    simulationStepSigmaY, simulationStepSigmaZ);
+  const Eigen::Vector3d yawPitchRollStdDev(simulationStepSigmaYaw,
+    simulationStepSigmaPitch, simulationStepSigmaRoll);
+  DiscreteTrajectory discreteTrajectory = createTrajectoryRandomWalk(0,
+    Transformation(), numSimulationSteps, deterministicStep, translationStdDev,
+    yawPitchRollStdDev, simulationStepTime);
+  SplineTrajectory splineTrajectory;
+  splineTrajectory.initialize(discreteTrajectory,
+    simulationSplineKnotsPerSecond, simulationSplineLambda);
+
+  std::cout << "Simulating measurements..." << std::endl;
+  MeasurementsContainer<ApplanixNavigationMeasurement>::Type
+    navigationMeasurements;
+  const Transformation T_io(r2quat(ypr->parametersToRotationMatrix(
+    Eigen::Vector3d(C_io_yaw, C_io_pitch, C_io_roll))),
+    Eigen::Vector3d(t_io_x, t_io_y, t_io_z));
+  simulateNavigationMeasurements(splineTrajectory, applanixFrequency, T_io,
+    navigationMeasurements);
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    trueRearWheelsSpeedMeasurements;
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    rearWheelsSpeedMeasurements;
+  simulateRearWheelsSpeedMeasurements(splineTrajectory, wheelSpeedFrequency,
+    rlwPercentError, rrwPercentError, e_r, k_rl, k_rr,
+    trueRearWheelsSpeedMeasurements, rearWheelsSpeedMeasurements);
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    trueFrontWheelsSpeedMeasurements;
+  MeasurementsContainer<WheelsSpeedMeasurement>::Type
+    frontWheelsSpeedMeasurements;
+  simulateFrontWheelsSpeedMeasurements(splineTrajectory, wheelSpeedFrequency,
+    flwPercentError, frwPercentError, e_f, L, k_fl, k_fr,
+    trueFrontWheelsSpeedMeasurements, frontWheelsSpeedMeasurements);
+
+  std::cout << "Optimizing..." << std::endl;
   CarCalibrator::CalibrationDesignVariables dv;
   dv.intrinsicOdoDesignVariable =
     boost::make_shared<VectorDesignVariable<12> >(
@@ -206,7 +266,6 @@ int main(int argc, char** argv) {
   dv.extrinsicOdoTranslationDesignVariable =
     boost::make_shared<EuclideanPoint>(Eigen::Vector3d(t_io_x, t_io_y, t_io_z));
   dv.extrinsicOdoTranslationDesignVariable->setActive(true);
-  auto ypr = boost::make_shared<EulerAnglesYawPitchRoll>();
   dv.extrinsicOdoRotationDesignVariable =
     boost::make_shared<RotationQuaternion>(ypr->parametersToRotationMatrix(
     Eigen::Vector3d(C_io_yaw, C_io_pitch, C_io_roll)));
@@ -244,112 +303,15 @@ int main(int argc, char** argv) {
   calibratorOptions.verbose = true;
   calibratorOptions.windowDuration = windowDuration;
   CarCalibrator calibrator(estimator, dv, calibratorOptions);
-  poslv::VehicleNavigationPerformanceMsgConstPtr lastVnp;
-  bool firstVNS = true;
-  double latRef = 0;
-  double longRef = 0;
-  double altRef = 0;
-  size_t viewCounter = 0;
-  TimestampCorrector<double> timestampCorrector1;
-  TimestampCorrector<double> timestampCorrector2;
-  for (auto it = view.begin(); it != view.end(); ++it) {
-    std::cout << std::fixed << std::setw(3)
-      << viewCounter++ / (double)view.size() * 100 << " %" << '\r';
-    if (it->getTopic() == "/poslv/vehicle_navigation_performance") {
-      poslv::VehicleNavigationPerformanceMsgConstPtr vnp(
-        it->instantiate<poslv::VehicleNavigationPerformanceMsg>());
-      lastVnp = vnp;
-    }
-    if (it->getTopic() == "/poslv/vehicle_navigation_solution") {
-      if (!lastVnp)
-        continue;
-      poslv::VehicleNavigationSolutionMsgConstPtr vns(
-        it->instantiate<poslv::VehicleNavigationSolutionMsg>());
-      if (firstVNS) {
-        latRef = vns->latitude;
-        longRef = vns->longitude;
-        altRef = vns->altitude;
-        firstVNS = false;
-      }
-      double x_ecef, y_ecef, z_ecef;
-      Geo::wgs84ToEcef(vns->latitude, vns->longitude, vns->altitude, x_ecef,
-        y_ecef, z_ecef);
-      double x_ned, y_ned, z_ned;
-      Geo::ecefToNed(x_ecef, y_ecef, z_ecef, latRef, longRef, altRef, x_ned,
-        y_ned, z_ned);
-      ApplanixNavigationMeasurement data;
-      data.x = x_ned;
-      data.y = y_ned;
-      data.z = z_ned;
-      data.yaw = angleMod(deg2rad(vns->heading));
-      data.pitch = deg2rad(vns->pitch);
-      data.roll = deg2rad(vns->roll);
-      data.v_x = vns->northVelocity;
-      data.v_y = vns->eastVelocity;
-      data.v_z = vns->downVelocity;
-      data.om_x = deg2rad(vns->angularRateLong);
-      data.om_y = deg2rad(vns->angularRateTrans);
-      data.om_z = deg2rad(vns->angularRateDown);
-      data.a_x = vns->accLong;
-      data.a_y = vns->accTrans;
-      data.a_z = vns->accDown;
-      data.v = vns->speed;
-      data.x_sigma2 = lastVnp->northPositionRMSError *
-        lastVnp->northPositionRMSError;
-      data.y_sigma2 = lastVnp->eastPositionRMSError *
-        lastVnp->eastPositionRMSError;
-      data.z_sigma2 = lastVnp->downPositionRMSError *
-        lastVnp->downPositionRMSError;
-      data.roll_sigma2 = deg2rad(lastVnp->rollRMSError) *
-        deg2rad(lastVnp->rollRMSError);
-      data.pitch_sigma2 = deg2rad(lastVnp->pitchRMSError) *
-        deg2rad(lastVnp->pitchRMSError);
-      data.yaw_sigma2 = deg2rad(lastVnp->headingRMSError) *
-        deg2rad(lastVnp->headingRMSError);
-      data.v_x_sigma2 = lastVnp->northVelocityRMSError *
-        lastVnp->northVelocityRMSError;
-      data.v_y_sigma2 = lastVnp->eastVelocityRMSError *
-        lastVnp->eastVelocityRMSError;
-      data.v_z_sigma2 = lastVnp->downVelocityRMSError *
-        lastVnp->downVelocityRMSError;
-      calibrator.addNavigationMeasurement(data,
-        round(timestampCorrector1.correctTimestamp(
-        secToNsec(vns->timeDistance.time1), vns->header.stamp.toNSec())));
-    }
-    if (it->getTopic() == "/can_prius/front_wheels_speed" && useFws) {
-      can_prius::FrontWheelsSpeedMsgConstPtr fws(
-        it->instantiate<can_prius::FrontWheelsSpeedMsg>());
-      WheelsSpeedMeasurement data;
-      data.left = fws->Left;
-      data.right = fws->Right;
-      calibrator.addFrontWheelsMeasurement(data, fws->header.stamp.toNSec());
-    }
-    if (it->getTopic() == "/can_prius/rear_wheels_speed" && useRws) {
-      can_prius::RearWheelsSpeedMsgConstPtr rws(
-        it->instantiate<can_prius::RearWheelsSpeedMsg>());
-      WheelsSpeedMeasurement data;
-      data.left = rws->Left;
-      data.right = rws->Right;
-      calibrator.addRearWheelsMeasurement(data, rws->header.stamp.toNSec());
-    }
-    if (it->getTopic() == "/can_prius/steering1" && useSt) {
-      can_prius::Steering1MsgConstPtr st(
-        it->instantiate<can_prius::Steering1Msg>());
-      SteeringMeasurement data;
-      data.value = st->value;
-      calibrator.addSteeringMeasurement(data, st->header.stamp.toNSec());
-    }
-    if (it->getTopic() == "/poslv/time_tagged_dmi_data" && useDMI) {
-      poslv::TimeTaggedDMIDataMsgConstPtr dmi(
-        it->instantiate<poslv::TimeTaggedDMIDataMsg>());
-      ApplanixDMIMeasurement data;
-      data.signedDistanceTraveled = dmi->signedDistanceTraveled;
-      data.unsignedDistanceTraveled = dmi->unsignedDistanceTraveled;
-      calibrator.addDMIMeasurement(data,
-        round(timestampCorrector2.correctTimestamp(
-        secToNsec(dmi->timeDistance.time1), dmi->header.stamp.toNSec())));
-    }
-  }
+  for (auto it = navigationMeasurements.cbegin();
+      it != navigationMeasurements.cend(); ++it)
+    calibrator.addNavigationMeasurement(it->second, it->first);
+  for (auto it = rearWheelsSpeedMeasurements.cbegin();
+      it != rearWheelsSpeedMeasurements.cend(); ++it)
+    calibrator.addRearWheelsMeasurement(it->second, it->first);
+  for (auto it = frontWheelsSpeedMeasurements.cbegin();
+      it != frontWheelsSpeedMeasurements.cend(); ++it)
+    calibrator.addFrontWheelsMeasurement(it->second, it->first);
 
   if (calibrator.unprocessedMeasurements())
     calibrator.addMeasurements();
@@ -372,23 +334,9 @@ int main(int argc, char** argv) {
     << estimator->getMarginalizedCovariance().diagonal().transpose()
     << std::endl;
 
-  std::cout << "Outputting spline data after optimization..." << std::endl;
-  std::ofstream applanixSplineFile("applanix-spline.txt");
-  auto problem = estimator->getProblem();
-  size_t numBatches = problem->getNumOptimizationProblems();
-  for (size_t i = 0; i < numBatches; ++i) {
-    auto batch = problem->getOptimizationProblem(i);
-    auto spline = dynamic_cast<const OptimizationProblemSpline*>(batch)
-      ->getTranslationSpline();
-    for (auto it = spline->begin(); it != spline->end(); ++it) {
-      auto translationExpressionFactory =
-        spline->getExpressionFactoryAt<0>(it.getTime());
-      applanixSplineFile << std::fixed << std::setprecision(18)
-        << it.getTime() << " "
-        << translationExpressionFactory.getValueExpression().toValue().
-        transpose() << std::endl;
-    }
-  }
+  std::cout << std::fixed << std::setprecision(18) << "Null-space: "
+    << std::endl
+    << estimator->getMarginalizedNullSpace() << std::endl;
 
   return 0;
 }

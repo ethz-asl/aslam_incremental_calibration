@@ -60,10 +60,20 @@ namespace aslam {
     void generateTrajectory(const MeasurementsContainer<
       ApplanixNavigationMeasurement>::Type& measurements, DiscreteTrajectory&
       trajectory);
+    /// Simulates Applanix navigation measurements from a spline
+    void simulateNavigationMeasurements(const SplineTrajectory& trajectory,
+      double frequency, const sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<ApplanixNavigationMeasurement>::Type& measurements);
     /// Simulates rear wheels speed measurements
     void simulateRearWheelsSpeedMeasurements(const SplineTrajectory& trajectory,
       double frequency, double sigma2_rl, double sigma2_rr, double e_r, double
       k_rl, double k_rr, const sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& noisyMeasurements);
+    /// Simulates rear wheels speed measurements
+    void simulateRearWheelsSpeedMeasurements(const SplineTrajectory& trajectory,
+      double frequency, double lwPercentError, double rwPercentError,
+      double e_r, double k_rl, double k_rr,
       MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
       MeasurementsContainer<WheelsSpeedMeasurement>::Type& noisyMeasurements);
     /// Simulates front wheels speed measurements
@@ -71,6 +81,12 @@ namespace aslam {
       trajectory, double frequency, double sigma2_fl, double sigma2_fr, double
       e_f, double L, double k_fl, double k_fr, const
       sm::kinematics::Transformation& T_io,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
+      MeasurementsContainer<WheelsSpeedMeasurement>::Type& noisyMeasurements);
+    /// Simulates front wheels speed measurements
+    void simulateFrontWheelsSpeedMeasurements(const SplineTrajectory&
+      trajectory, double frequency, double lwPercentError, double
+      rwPercentError, double e_f, double L, double k_fl, double k_fr,
       MeasurementsContainer<WheelsSpeedMeasurement>::Type& trueMeasurements,
       MeasurementsContainer<WheelsSpeedMeasurement>::Type& noisyMeasurements);
     /// Simulates steering measurements
