@@ -179,7 +179,8 @@ namespace aslam {
       addFrontWheelsErrorTerms(_frontWheelsSpeedMeasurements, batch);
       addRearWheelsErrorTerms(_rearWheelsSpeedMeasurements, batch);
       addSteeringErrorTerms(_steeringMeasurements, batch);
-      addVehicleErrorTerms(batch);
+      if (_options.useVm)
+        addVehicleErrorTerms(batch);
       clearMeasurements();
       _currentBatchStartTimestamp = _lastTimestamp;
       batch->setGroupsOrdering({0, 1});

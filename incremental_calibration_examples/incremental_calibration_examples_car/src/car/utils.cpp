@@ -97,34 +97,51 @@ namespace aslam {
       Trajectory::NsecTime t = trajectory.minTime();
       sm::kinematics::EulerAnglesYawPitchRoll ypr;
       while (t <= trajectory.maxTime()) {
+        // transformation from odometry frame into ENU world frame
         auto T_wo = trajectory.T(t);
+        // transformation vectors from Applanix frame into ENU world frame
         auto T_wi = T_wo * T_io.inverse();
-        auto t_wi = T_wi.t();
-        auto C_wi = T_wi.C();
-        auto C_wi_params = ypr.rotationMatrixToParameters(T_wo.C());
+        // ENU-NED rotation matrix
+        Eigen::Matrix3d C_ENU_NED(
+          (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished());
+        // translation in NED frame
+        auto t_wi = C_ENU_NED * T_wi.t();
+        // rotation in NED frame
+        auto C_wi = C_ENU_NED * T_wi.C();
+        auto C_wi_params = ypr.rotationMatrixToParameters(C_wi);
+        // velocity of odometry frame w.r. to world ENU frame in world frame
         auto v_ow = trajectory.linearVelocity(t);
+        // transforms vectors from odometry frame into ENU world frame
         auto C_wo = T_wo.C();
+        // velocity of odometry frame w.r. to world ENU frame in odom. frame
         auto v_oo = C_wo.transpose() * v_ow;
+        // velocity of odometry frame w.r. to world ENU frame in world frame
         auto om_ow = trajectory.angularVelocity(t);
+        // velocity of odometry frame w.r. to world ENU frame in odom. frame
         auto om_oo = C_wo.transpose() * om_ow;
+        // transforms vectors in odometry frame into Applanix frame
         auto C_io = T_io.C();
-        auto v_io = v_oo + om_oo.cross(C_io.transpose() * T_io.t());
+        // velocity of Applanix frame w.r. world ENU frame in odometry frame
+        auto v_io = v_oo + om_oo.cross(C_io.transpose() * T_io.inverse().t());
+        // velocity of Applanix frame w.r. world ENU frame in Applanix frame
         auto v_ii = C_io * v_io;
+        // velocity of Applanix frame w.r. world ENU frame in NED frame
         auto v_iw = C_wi * v_ii;
+        // velocity of Applanix frame w.r. world ENU frame in Applanix frame
         auto om_ii = C_io * om_oo;
         auto a_ow = trajectory.linearAcceleration(t);
         auto a_oo = C_wo.transpose() * a_ow;
         auto a_ii = C_io * a_oo;
         ApplanixNavigationMeasurement data;
-        data.x = t_wi(1);
-        data.y = t_wi(0);
-        data.z = -t_wi(2);
+        data.x = t_wi(0);
+        data.y = t_wi(1);
+        data.z = t_wi(2);
         data.roll = C_wi_params(2);
         data.pitch = C_wi_params(1);
         data.yaw = C_wi_params(0);
-        data.v_x = v_iw(1);
-        data.v_y = v_iw(0);
-        data.v_z = -v_iw(2);
+        data.v_x = v_iw(0);
+        data.v_y = v_iw(1);
+        data.v_z = v_iw(2);
         data.om_x = om_ii(0);
         data.om_y = om_ii(1);
         data.om_z = om_ii(2);

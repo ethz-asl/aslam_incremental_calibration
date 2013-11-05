@@ -32,6 +32,8 @@
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 #include <sm/kinematics/quaternion_algebra.hpp>
 
+#include <sm/timing/NsecTimeUtilities.hpp>
+
 #include <aslam/TrajectoryUtilities.hpp>
 #include <aslam/DiscreteTrajectory.hpp>
 #include <aslam/SplineTrajectory.hpp>
@@ -41,25 +43,12 @@
 
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/core/IncrementalEstimator.h>
-//#include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 
 #include "aslam/calibration/car/MeasurementsContainer.h"
 #include "aslam/calibration/car/ApplanixNavigationMeasurement.h"
 #include "aslam/calibration/car/WheelsSpeedMeasurement.h"
 #include "aslam/calibration/car/utils.h"
 #include "aslam/calibration/car/CarCalibrator.h"
-
-
-//#include <aslam/splines/OPTBSpline.hpp>
-
-//#include <bsplines/EuclideanBSpline.hpp>
-//#include <bsplines/NsecTimePolicy.hpp>
-
-
-//#include "aslam/calibration/car/WheelsSpeedMeasurement.h"
-//#include "aslam/calibration/car/SteeringMeasurement.h"
-//#include "aslam/calibration/car/ApplanixDMIMeasurement.h"
-//#include "aslam/calibration/car/OptimizationProblemSpline.h"
 
 using namespace aslam;
 using namespace aslam::calibration;
@@ -226,9 +215,42 @@ int main(int argc, char** argv) {
     simulationStepSigmaY, simulationStepSigmaZ);
   const Eigen::Vector3d yawPitchRollStdDev(simulationStepSigmaYaw,
     simulationStepSigmaPitch, simulationStepSigmaRoll);
-  DiscreteTrajectory discreteTrajectory = createTrajectoryRandomWalk(0,
-    Transformation(), numSimulationSteps, deterministicStep, translationStdDev,
-    yawPitchRollStdDev, simulationStepTime);
+  DiscreteTrajectory discreteTrajectory;
+  Trajectory::NsecTime t = 0;
+  Transformation T_km1(r2quat(ypr->parametersToRotationMatrix(
+    Eigen::Vector3d(M_PI / 8, 0, 0))), Eigen::Vector3d(0, 0, 0));
+  while (t < 100000000000) {
+    auto C_km1 = T_km1.C();
+    auto t_km1 = T_km1.t();
+    Eigen::Vector3d v(10, 0, 0);
+    Eigen::Vector3d t_k = t_km1 + C_km1 * v *
+      nsecToSec(simulationStepTime);
+    double yaw;
+    if (t < 100000000000 / 2)
+      yaw = M_PI / 32;
+    else
+      yaw = -M_PI / 32;
+    Eigen::Vector3d om(0, 0, yaw);
+    Eigen::Vector3d incOm = (om * nsecToSec(simulationStepTime));
+    const double normIncOm = incOm.norm();
+    Eigen::Matrix3d C_k;
+    if (normIncOm != 0) {
+      Eigen::Vector3d incOmNorm = incOm / normIncOm;
+      Eigen::Matrix3d incOmCross;
+      incOmCross << 0, -incOmNorm(2), incOmNorm(1), incOmNorm(2), 0,
+        -incOmNorm(0), -incOmNorm(1), incOmNorm(0), 0;
+      C_k = C_km1 * (cos(normIncOm) * Eigen::Matrix3d::Identity()
+        + (1 - cos(normIncOm)) * incOmNorm * incOmNorm.transpose() -
+        sin(normIncOm) * incOmCross).transpose();
+    }
+    else
+      C_k = C_km1;
+    Transformation T_k(r2quat(C_k), t_k);
+    discreteTrajectory.addPose(t, T_k);
+    t += simulationStepTime;
+    T_km1 = T_k;
+  }
+  discreteTrajectory.saveCsvAtSupportTimes("trajectory.csv");
   SplineTrajectory splineTrajectory;
   splineTrajectory.initialize(discreteTrajectory,
     simulationSplineKnotsPerSecond, simulationSplineLambda);
@@ -241,6 +263,22 @@ int main(int argc, char** argv) {
     Eigen::Vector3d(t_io_x, t_io_y, t_io_z));
   simulateNavigationMeasurements(splineTrajectory, applanixFrequency, T_io,
     navigationMeasurements);
+  
+  std::cout << "Outputting raw data to MATLAB..." << std::endl;
+  std::ofstream applanixRawMATLABFile("applanix-raw.txt");
+  for (auto it = navigationMeasurements.cbegin();
+      it != navigationMeasurements.cend(); ++it)
+    applanixRawMATLABFile << std::fixed << std::setprecision(18)
+      << it->first << " "
+      << it->second.x << " " << it->second.y << " " << it->second.z << " "
+      << it->second.yaw << " " << it->second.pitch << " "
+      << it->second.roll << " "
+      << it->second.v_x << " " << it->second.v_y << " " << it->second.v_z << " "
+      << it->second.om_x << " " << it->second.om_y << " "
+      << it->second.om_z << " "
+      << it->second.a_x << " " << it->second.a_y << " " << it->second.a_z << " "
+      << std::endl;
+
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
     trueRearWheelsSpeedMeasurements;
   MeasurementsContainer<WheelsSpeedMeasurement>::Type
@@ -306,11 +344,11 @@ int main(int argc, char** argv) {
   for (auto it = navigationMeasurements.cbegin();
       it != navigationMeasurements.cend(); ++it)
     calibrator.addNavigationMeasurement(it->second, it->first);
-  for (auto it = rearWheelsSpeedMeasurements.cbegin();
-      it != rearWheelsSpeedMeasurements.cend(); ++it)
+  for (auto it = trueRearWheelsSpeedMeasurements.cbegin();
+      it != trueRearWheelsSpeedMeasurements.cend(); ++it)
     calibrator.addRearWheelsMeasurement(it->second, it->first);
-  for (auto it = frontWheelsSpeedMeasurements.cbegin();
-      it != frontWheelsSpeedMeasurements.cend(); ++it)
+  for (auto it = trueFrontWheelsSpeedMeasurements.cbegin();
+      it != trueFrontWheelsSpeedMeasurements.cend(); ++it)
     calibrator.addFrontWheelsMeasurement(it->second, it->first);
 
   if (calibrator.unprocessedMeasurements())

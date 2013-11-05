@@ -74,7 +74,7 @@
   <simulation>
     <numSteps>10000</numSteps>
     <stepX>0.1</stepX>
-    <stepY>0.0</stepY>
+    <stepY>0.1</stepY>
     <stepZ>0</stepZ>
     <stepYaw>0</stepYaw>
     <stepPitch>0</stepPitch>
@@ -86,8 +86,8 @@
     <stepSigmaPitch>0.0</stepSigmaPitch>
     <stepSigmaRoll>0.0</stepSigmaRoll>
     <stepTime>10000000</stepTime>
-    <splineKnotsPerSecond>5</splineKnotsPerSecond>
-    <splineLambda>1e-1</splineLambda>
+    <splineKnotsPerSecond>99</splineKnotsPerSecond>
+    <splineLambda>1e+2</splineLambda>
     <applanixFrequency>100</applanixFrequency>
     <wheelSpeedFrequency>60</wheelSpeedFrequency>
   </simulation>
