@@ -20,13 +20,13 @@
 
 #include <algorithm>
 #include <utility>
+#include <vector>
+#include <ostream>
 
 #include <boost/make_shared.hpp>
 
 #include <sm/PropertyTree.hpp>
 
-#include <aslam/backend/Optimizer2Options.hpp>
-#include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
@@ -45,18 +45,20 @@ namespace aslam {
 /******************************************************************************/
 
     IncrementalEstimator::IncrementalEstimator(size_t groupId,
-        const Options& options) :
+        const Options& options, const LinearSolverOptions&
+        linearSolverOptions, const OptimizerOptions& optimizerOptions) :
         _problem(boost::make_shared<IncrementalOptimizationProblem>()),
         _margGroupId(groupId),
         _mi(0),
         _svLogSum(0),
         _options(options),
-        _optimizer(boost::make_shared<Optimizer>()),
+        _optimizer(boost::make_shared<Optimizer>(optimizerOptions)),
         _nRank(0),
         _qrTol(0) {
       // create linear solver and trust region policy for the optimizer
-      aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
-      optOptions.linearSystemSolver = boost::make_shared<LinearSolver>();
+      OptimizerOptions& optOptions = _optimizer->options();
+      optOptions.linearSystemSolver =
+        boost::make_shared<LinearSolver>(linearSolverOptions);
       optOptions.trustRegionPolicy = boost::make_shared<TrustRegionPolicy>();
       _optimizer->initializeLinearSolver();
       _optimizer->initializeTrustRegionPolicy();
@@ -65,18 +67,28 @@ namespace aslam {
       _optimizer->setProblem(_problem);
     }
 
-    IncrementalEstimator::IncrementalEstimator(const sm::PropertyTree& config) {
-      Options options;
-      options._miTol = config.getDouble("miTol", options._miTol);
-      options._qrTol = config.getDouble("qrTol", options._qrTol);
-      options._verbose = config.getBool("verbose", options._verbose);
-      options._colNorm = config.getBool("colNorm", options._colNorm);
-      options._maxIterations = config.getInt("maxIterations",
-        options._maxIterations);
-      options._normTol = config.getDouble("normTol", options._normTol);
-      options._epsTolSVD = config.getDouble("epsTolSVD", options._epsTolSVD);
-      size_t groupId = config.getInt("groupId");
-      IncrementalEstimator(groupId, options);
+    IncrementalEstimator::IncrementalEstimator(const sm::PropertyTree& config) :
+        _mi(0),
+        _svLogSum(0),
+        _nRank(0),
+        _qrTol(0) {
+      // create the optimizer, linear solver, and trust region policy
+      _optimizer = boost::make_shared<Optimizer>(
+        sm::PropertyTree(config, "optimizer"),
+        boost::make_shared<LinearSolver>(
+        sm::PropertyTree(config, "optimizer/linearSolver")),
+        boost::make_shared<TrustRegionPolicy>());
+
+      // create the problem and attach it to the optimizer
+      _problem = boost::make_shared<IncrementalOptimizationProblem>();
+      _optimizer->setProblem(_problem);
+
+      // parse the options and set them
+      _options._miTol = config.getDouble("miTol", _options._miTol);
+      _options._normTol = config.getDouble("normTol", _options._normTol);
+      _options._epsTolSVD = config.getDouble("epsTolSVD", _options._epsTolSVD);
+      _options._verbose = config.getBool("verbose", _options._verbose);
+      _margGroupId = config.getInt("groupId");
     }
 
     IncrementalEstimator::~IncrementalEstimator() {
@@ -98,6 +110,26 @@ namespace aslam {
 
     IncrementalEstimator::Options& IncrementalEstimator::getOptions() {
       return _options;
+    }
+
+    const IncrementalEstimator::LinearSolverOptions&
+        IncrementalEstimator::getLinearSolverOptions() const {
+      return _optimizer->getSolver<LinearSolver>()->getOptions();
+    }
+
+    IncrementalEstimator::LinearSolverOptions&
+        IncrementalEstimator::getLinearSolverOptions() {
+      return _optimizer->getSolver<LinearSolver>()->getOptions();
+    }
+
+    const IncrementalEstimator::OptimizerOptions&
+        IncrementalEstimator::getOptimizerOptions() const {
+      return _optimizer->options();
+    }
+
+    IncrementalEstimator::OptimizerOptions&
+        IncrementalEstimator::getOptimizerOptions() {
+      return _optimizer->options();
     }
 
     double IncrementalEstimator::getMutualInformation() const {
@@ -167,14 +199,6 @@ namespace aslam {
 /* Methods                                                                    */
 /******************************************************************************/
 
-    aslam::backend::SolutionReturnValue IncrementalEstimator::optimize() {
-      // init the optimizer
-      initOptimizer();
-
-      // optimize
-      return _optimizer->optimize();
-    }
-
     IncrementalEstimator::ReturnValue IncrementalEstimator::reoptimize() {
       // query the time
       const double timeStart = Timestamp::now();
@@ -183,7 +207,7 @@ namespace aslam {
       orderMarginalizedDesignVariables();
 
       // optimize
-      aslam::backend::SolutionReturnValue srv = optimize();
+      aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
       // return value
       ReturnValue ret;
@@ -210,8 +234,8 @@ namespace aslam {
       ret._numIterations = srv.iterations;
       ret._JStart = srv.JStart;
       ret._JFinal = srv.JFinal;
-      ret._elapsedTime = Timestamp::now() - timeStart;
       ret._cholmodMemoryUsage = getCholmodMemoryUsage();
+      ret._elapsedTime = Timestamp::now() - timeStart;
 
       return ret;
     }
@@ -228,10 +252,11 @@ namespace aslam {
       orderMarginalizedDesignVariables();
 
       // save design variables in case the batch is rejected
-      _problem->saveDesignVariables();
+      if (!force)
+        _problem->saveDesignVariables();
 
       // optimize
-      aslam::backend::SolutionReturnValue srv = optimize();
+      aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
       // check if the solution is valid
       bool solutionValid = true;
@@ -239,11 +264,17 @@ namespace aslam {
           srv.JFinal >= srv.JStart)
         solutionValid = false;
 
-      // batch is kept?
-      bool keepBatch = false;
-
       // return value
       ReturnValue ret;
+
+      // fill the rank and QR tolerance from the linear solver
+      ret._rank = _optimizer->getSolver<LinearSolver>()->getRank();
+      ret._qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
+
+      // fill statistics from optimizer
+      ret._numIterations = srv.iterations;
+      ret._JStart = srv.JStart;
+      ret._JFinal = srv.JFinal;
 
       // analyze marginalized system
       const size_t dim = _problem->getGroupDim(_margGroupId);
@@ -252,54 +283,34 @@ namespace aslam {
         ret._NS, ret._CS, ret._Sigma, ret._SigmaP, ret._Omega,
         _options._normTol, _options._epsTolSVD);
 
-      // first round of estimation?
-      if (!_svLogSum && solutionValid) {
+      // compute MI
+      ret._mi = 0.5 * (svLogSum - _svLogSum);
+
+      // batch is kept? MI improvement or rank goes up or force
+      bool keepBatch = false;
+      if (((ret._mi > _options._miTol || ret._CS.cols() > _CS.cols()) &&
+          solutionValid) || force) {
+        // warning for rank going down
+        if (ret._CS.cols() < _CS.cols() && _options._verbose)
+          std::cerr << "WARNING: RANK GOING DOWN!" << std::endl;
+
         keepBatch = true;
+
+        // update internal variables
         _svLogSum = svLogSum;
-        ret._mi = 0;
+        _mi = ret._mi;
         _NS = ret._NS;
         _CS = ret._CS;
         _Sigma = ret._Sigma;
         _SigmaP = ret._SigmaP;
         _Omega = ret._Omega;
-        _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
-        _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
+        _nRank = ret._rank;
+        _qrTol = ret._qrTol;
       }
-      else {
-        // compute MI
-        const double mi = 0.5 * (svLogSum - _svLogSum);
-        ret._mi = mi;
-
-        // warning for rank going down
-        if (ret._CS.cols() < _CS.cols() && _options._verbose)
-          std::cerr << "WARNING: RANK GOING DOWN!" << std::endl;
-
-        // MI improvement or rank goes up
-        if ((mi > _options._miTol || ret._CS.cols() > _CS.cols())
-            && solutionValid) {
-          keepBatch = true;
-          _svLogSum = svLogSum;
-          _mi = mi;
-          _NS = ret._NS;
-          _CS = ret._CS;
-          _Sigma = ret._Sigma;
-          _SigmaP = ret._SigmaP;
-          _Omega = ret._Omega;
-          _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
-          _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
-        }
-      }
-
-      // update output structure
-      ret._batchAccepted = keepBatch || force;
-      ret._rank = _optimizer->getSolver<LinearSolver>()->getRank();
-      ret._qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
-      ret._numIterations = srv.iterations;
-      ret._JStart = srv.JStart;
-      ret._JFinal = srv.JFinal;
+      ret._batchAccepted = keepBatch;
 
       // remove batch if necessary
-      if (!keepBatch && !force) {
+      if (!keepBatch) {
         // kick out the problem from the container
         _problem->remove(problem);
 
@@ -328,7 +339,7 @@ namespace aslam {
       orderMarginalizedDesignVariables();
 
       // optimize back
-      optimize();
+      _optimizer->optimize();
 
       // update mutual information
       const size_t dim = _problem->getGroupDim(_margGroupId);
@@ -336,9 +347,10 @@ namespace aslam {
       const double svLogSum = marginalize(getJacobianTranspose(), numCols - dim,
         _NS, _CS, _Sigma, _SigmaP, _Omega, _options._normTol,
         _options._epsTolSVD);
-      _mi = svLogSum - _svLogSum;
+      _mi = svLogSum - _svLogSum; // not really correct! hard to recover.
       _svLogSum = svLogSum;
       _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
+      _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
     }
 
     void IncrementalEstimator::removeBatch(const BatchSP& batch) {
@@ -347,8 +359,7 @@ namespace aslam {
         removeBatch(std::distance(_problem->getOptimizationProblemBegin(), it));
     }
 
-    size_t IncrementalEstimator::getNumBatches() const
-    {
+    size_t IncrementalEstimator::getNumBatches() const {
       return _problem->getNumOptimizationProblems();
     }
 
@@ -366,20 +377,6 @@ namespace aslam {
           _problem->setGroupsOrdering(groupsOrdering);
         }
       }
-    }
-
-    void IncrementalEstimator::initOptimizer() {
-      // linear solver options
-      aslam::backend::SparseQRLinearSolverOptions& linearSolverOptions =
-        _optimizer->getSolver<LinearSolver>()->getOptions();
-      linearSolverOptions.colNorm = _options._colNorm;
-      linearSolverOptions.qrTol = _options._qrTol;
-      linearSolverOptions.normTol = _options._normTol;
-
-      // optimizer options
-      aslam::backend::Optimizer2Options& optOptions = _optimizer->options();
-      optOptions.verbose = _options._verbose;
-      optOptions.maxIterations = _options._maxIterations;
     }
 
     void IncrementalEstimator::restoreLinearSolver() {

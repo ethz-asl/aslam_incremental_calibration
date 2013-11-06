@@ -24,11 +24,12 @@
 #ifndef ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 #define ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 
-#include <vector>
-
 #include <boost/shared_ptr.hpp>
 
 #include <Eigen/Core>
+
+#include <aslam/backend/SparseQRLinearSolverOptions.h>
+#include <aslam/backend/Optimizer2Options.hpp>
 
 namespace sm {
 
@@ -42,7 +43,6 @@ namespace aslam {
     class GaussNewtonTrustRegionPolicy;
     class Optimizer2;
     template<typename I> class CompressedColumnMatrix;
-    struct SolutionReturnValue;
 
   }
   namespace calibration {
@@ -70,33 +70,28 @@ namespace aslam {
       typedef IncrementalEstimator Self;
       /// Solver type
       typedef aslam::backend::SparseQrLinearSystemSolver LinearSolver;
+      /// Solver options type
+      typedef aslam::backend::SparseQRLinearSolverOptions LinearSolverOptions;
       /// Trust region type
       typedef aslam::backend::GaussNewtonTrustRegionPolicy TrustRegionPolicy;
       /// Optimizer type
       typedef aslam::backend::Optimizer2 Optimizer;
+      /// Optimizer options type
+      typedef aslam::backend::Optimizer2Options OptimizerOptions;
       /// Optimizer type (shared_ptr)
       typedef boost::shared_ptr<Optimizer> OptimizerSP;
       /// Options for the incremental estimator
       struct Options {
         Options() :
             _miTol(0.5),
-            _qrTol(0.02),
             _verbose(true),
-            _colNorm(true),
-            _maxIterations(20),
             _normTol(1e-8),
             _epsTolSVD(1e-4) {
         }
         /// Mutual information threshold
         double _miTol;
-        /// QR treshold for rank-deficiency
-        double _qrTol;
         /// Verbosity of the optimizer
         bool _verbose;
-        /// Perform column normalization
-        bool _colNorm;
-        /// Maximum number of iterations for the optimizer
-        size_t _maxIterations;
         /// Tolerance for zero 2-norm column
         double _normTol;
         /// EPS tolerance for SVD tolerance computation
@@ -140,7 +135,9 @@ namespace aslam {
         @{
         */
       /// Constructs estimator with group to marginalize and options
-      IncrementalEstimator(size_t groupId, const Options& options = Options());
+      IncrementalEstimator(size_t groupId, const Options& options = Options(),
+        const LinearSolverOptions& linearSolverOptions = LinearSolverOptions(),
+        const OptimizerOptions& optimizerOptions = OptimizerOptions());
       /// Constructs estimator with configuration in property tree
       IncrementalEstimator(const sm::PropertyTree& config);
       /// Copy constructor
@@ -181,6 +178,14 @@ namespace aslam {
       const Options& getOptions() const;
       /// Returns the current options
       Options& getOptions();
+      /// Returns the linear solver options
+      const LinearSolverOptions& getLinearSolverOptions() const;
+      /// Returns the linear solver options
+      LinearSolverOptions& getLinearSolverOptions();
+      /// Returns the optimizer options
+      const OptimizerOptions& getOptimizerOptions() const;
+      /// Returns the optimizer options
+      OptimizerOptions& getOptimizerOptions();
       /// Returns the last computed mutual information
       double getMutualInformation() const;
       /// Return the marginalized group ID
@@ -217,12 +222,8 @@ namespace aslam {
       /** \name Protected methods
         @{
         */
-      /// Runs an optimization with current setup
-      aslam::backend::SolutionReturnValue optimize();
       /// Ensures the marginalized variables are well located
       void orderMarginalizedDesignVariables();
-      /// Inits the optimizer
-      void initOptimizer();
       /// Restores the linear solver
       void restoreLinearSolver();
       /** @}
