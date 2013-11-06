@@ -23,6 +23,8 @@
 
 #include <boost/make_shared.hpp>
 
+#include <sm/PropertyTree.hpp>
+
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
@@ -61,6 +63,20 @@ namespace aslam {
 
       // attach the problem to the optimizer
       _optimizer->setProblem(_problem);
+    }
+
+    IncrementalEstimator::IncrementalEstimator(const sm::PropertyTree& config) {
+      Options options;
+      options._miTol = config.getDouble("miTol", options._miTol);
+      options._qrTol = config.getDouble("qrTol", options._qrTol);
+      options._verbose = config.getBool("verbose", options._verbose);
+      options._colNorm = config.getBool("colNorm", options._colNorm);
+      options._maxIterations = config.getInt("maxIterations",
+        options._maxIterations);
+      options._normTol = config.getDouble("normTol", options._normTol);
+      options._epsTolSVD = config.getDouble("epsTolSVD", options._epsTolSVD);
+      size_t groupId = config.getInt("groupId");
+      IncrementalEstimator(groupId, options);
     }
 
     IncrementalEstimator::~IncrementalEstimator() {

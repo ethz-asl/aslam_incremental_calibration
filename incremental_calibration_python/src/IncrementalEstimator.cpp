@@ -1,16 +1,17 @@
 #include <numpy_eigen/boost_python_headers.hpp>
 #include <aslam/calibration/core/IncrementalEstimator.h>
 #include <sm/python/stl_converters.hpp>
+#include <aslam/backend/CompressedColumnMatrix.hpp>
 
-boost::python::list getPermutationVector(const aslam::calibration::IncrementalEstimator * ie)
-{
-    boost::python::list out;
-    std::vector<ssize_t> vec = ie->getPermutationVector();
+//boost::python::list getPermutationVector(const aslam::calibration::IncrementalEstimator * ie)
+//{
+//    boost::python::list out;
+//    std::vector<ssize_t> vec = ie->getPermutationVector();
 
-    sm::python::stlToList(vec.begin(), vec.end(), out);
+//    sm::python::stlToList(vec.begin(), vec.end(), out);
 
-    return out;
-}
+//    return out;
+//}
 
 void exportIncrementalEstimator()
 {
@@ -22,6 +23,9 @@ void exportIncrementalEstimator()
         .def_readwrite("qrTol",&IncrementalEstimator::Options::_qrTol)
         .def_readwrite("verbose",&IncrementalEstimator::Options::_verbose)
         .def_readwrite("colNorm",&IncrementalEstimator::Options::_colNorm)
+        .def_readwrite("maxIterations",&IncrementalEstimator::Options::_maxIterations)
+        .def_readwrite("normTol",&IncrementalEstimator::Options::_normTol)
+        .def_readwrite("epsTolSVD",&IncrementalEstimator::Options::_epsTolSVD)
         ;
 
     class_<IncrementalEstimator::ReturnValue>("IncrementalEstimatorReturnValue", init<>())
@@ -33,6 +37,12 @@ void exportIncrementalEstimator()
         .def_readwrite("JStart",&IncrementalEstimator::ReturnValue::_JStart)
         .def_readwrite("JFinal",&IncrementalEstimator::ReturnValue::_JFinal)
         .def_readwrite("elapsedTime",&IncrementalEstimator::ReturnValue::_elapsedTime)
+        .def_readwrite("cholmodMemoryUsage",&IncrementalEstimator::ReturnValue::_cholmodMemoryUsage)
+        .def_readwrite("NS",&IncrementalEstimator::ReturnValue::_NS)
+        .def_readwrite("CS",&IncrementalEstimator::ReturnValue::_CS)
+        .def_readwrite("Sigma",&IncrementalEstimator::ReturnValue::_Sigma)
+        .def_readwrite("SigmaP",&IncrementalEstimator::ReturnValue::_SigmaP)
+        .def_readwrite("Omega",&IncrementalEstimator::ReturnValue::_Omega)
         ;
 
     IncrementalEstimator::Options & (IncrementalEstimator::*getOptions)() = &IncrementalEstimator::getOptions;
@@ -60,6 +70,6 @@ void exportIncrementalEstimator()
     .def("getJacobianTranspose", &IncrementalEstimator::getJacobianTranspose, return_internal_reference<>())
     .def("getRank", &IncrementalEstimator::getRank)
     .def("getQRTol", &IncrementalEstimator::getQRTol)
-    .def("getR", &IncrementalEstimator::getR,return_internal_reference<>())       
+//    .def("getR", &IncrementalEstimator::getR,return_internal_reference<>())       
     ;
 }

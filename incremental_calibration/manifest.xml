@@ -9,6 +9,7 @@
   <review status="unreviewed" notes=""/>
   <url>https://github.com/ethz-asl/aslam_incremental_calibration</url>
   <depend package="aslam_backend"/>
+  <depend package="sm_property_tree"/>
 
   <export>
     <cpp cflags="`pkg-config --cflags eigen3` `rosboost-cfg --cflags`

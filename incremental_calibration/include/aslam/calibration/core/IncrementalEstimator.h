@@ -30,6 +30,11 @@
 
 #include <Eigen/Core>
 
+namespace sm {
+
+  class PropertyTree;
+
+}
 namespace aslam {
   namespace backend {
 
@@ -136,6 +141,8 @@ namespace aslam {
         */
       /// Constructs estimator with group to marginalize and options
       IncrementalEstimator(size_t groupId, const Options& options = Options());
+      /// Constructs estimator with configuration in property tree
+      IncrementalEstimator(const sm::PropertyTree& config);
       /// Copy constructor
       IncrementalEstimator(const Self& other) = delete;
       /// Copy assignment operator
