@@ -281,6 +281,33 @@ namespace aslam {
         NsecTimePolicy>::CONF::ManifoldConf(), _options.rotSplineOrder));
       BSplineFitter<RotationSpline>::initUniformSpline(*_rotationSpline,
         timestamps, rotPoses, numSegments, _options.rotSplineLambda);
+
+      std::cout << "Outputting spline data before optimization..." << std::endl;
+      std::ofstream applanixSplineFile("applanix-spline.txt");
+      for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<2>(*it);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<1>(*it);
+        Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression()).toRotationMatrix();
+        applanixSplineFile << std::fixed << std::setprecision(18)
+          << *it << " "
+          << translationExpressionFactory.getValueExpression().toValue().
+            transpose() << " "
+          << ypr.rotationMatrixToParameters(C_wi).transpose() << " "
+          << translationExpressionFactory.getValueExpression(1).toValue().
+            transpose() << " "
+          << -(C_wi.transpose() *
+            rotationExpressionFactory.getAngularVelocityExpression().toValue()).
+            transpose() << " "
+          << (C_wi.transpose() *
+            translationExpressionFactory.getValueExpression(2).toValue()).
+            transpose()
+          << std::endl;
+      }
+
+
       batch->addSpline(_translationSpline, 0);
       batch->addSpline(_rotationSpline, 0);
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {

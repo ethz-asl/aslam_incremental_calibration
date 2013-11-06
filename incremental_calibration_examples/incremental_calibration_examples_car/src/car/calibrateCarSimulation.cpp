@@ -218,19 +218,21 @@ int main(int argc, char** argv) {
   DiscreteTrajectory discreteTrajectory;
   Trajectory::NsecTime t = 0;
   Transformation T_km1(r2quat(ypr->parametersToRotationMatrix(
-    Eigen::Vector3d(M_PI / 8, 0, 0))), Eigen::Vector3d(0, 0, 0));
+    Eigen::Vector3d(M_PI / 8, M_PI / 8, 0))), Eigen::Vector3d(0, 0, 0));
+  double yaw = M_PI / 32;
+  double pitch = 0;
   while (t < 100000000000) {
     auto C_km1 = T_km1.C();
     auto t_km1 = T_km1.t();
     Eigen::Vector3d v(10, 0, 0);
     Eigen::Vector3d t_k = t_km1 + C_km1 * v *
       nsecToSec(simulationStepTime);
-    double yaw;
-    if (t < 100000000000 / 2)
-      yaw = M_PI / 32;
-    else
-      yaw = -M_PI / 32;
-    Eigen::Vector3d om(0, 0, yaw);
+    if (t % 10000000000 == 0) {
+      yaw = -yaw;
+    }
+    if (t % 50000000000)
+      pitch = M_PI / 32;
+    Eigen::Vector3d om(0, pitch, yaw);
     Eigen::Vector3d incOm = (om * nsecToSec(simulationStepTime));
     const double normIncOm = incOm.norm();
     Eigen::Matrix3d C_k;
@@ -263,7 +265,7 @@ int main(int argc, char** argv) {
     Eigen::Vector3d(t_io_x, t_io_y, t_io_z));
   simulateNavigationMeasurements(splineTrajectory, applanixFrequency, T_io,
     navigationMeasurements);
-  
+
   std::cout << "Outputting raw data to MATLAB..." << std::endl;
   std::ofstream applanixRawMATLABFile("applanix-raw.txt");
   for (auto it = navigationMeasurements.cbegin();

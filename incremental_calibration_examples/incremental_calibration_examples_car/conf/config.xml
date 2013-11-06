@@ -53,14 +53,14 @@
       <fws>true</fws>
       <rws>true</rws>
       <st>true</st>
-      <vm>true</vm>
+      <vm>false</vm>
     </sensors>
   </odometry>
   <optimizer>
     <maxIterations>20</maxIterations>
     <linearSolver>
       <colNorm>true</colNorm>
-      <qrTol>0.02</qrTol>
+      <qrTol>0.01</qrTol>
       <normTol>1e-8</normTol>
     </linearSolver>
     <marginalizer>
@@ -86,8 +86,8 @@
     <stepSigmaPitch>0.0</stepSigmaPitch>
     <stepSigmaRoll>0.0</stepSigmaRoll>
     <stepTime>10000000</stepTime>
-    <splineKnotsPerSecond>99</splineKnotsPerSecond>
-    <splineLambda>1e+2</splineLambda>
+    <splineKnotsPerSecond>5</splineKnotsPerSecond>
+    <splineLambda>1e+4</splineLambda>
     <applanixFrequency>100</applanixFrequency>
     <wheelSpeedFrequency>60</wheelSpeedFrequency>
   </simulation>
