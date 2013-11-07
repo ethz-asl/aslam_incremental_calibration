@@ -12,10 +12,9 @@
   <depend package="sm_property_tree"/>
 
   <export>
-    <cpp cflags="`pkg-config --cflags eigen3` `rosboost-cfg --cflags`
-      `pkg-config opencv --cflags --libs` -I${prefix}/include"
+    <cpp cflags="-I${prefix}/include"
          lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib
-         -lincremental_calibration"/>
+           -lincremental_calibration"/>
   </export>
 
 </package>

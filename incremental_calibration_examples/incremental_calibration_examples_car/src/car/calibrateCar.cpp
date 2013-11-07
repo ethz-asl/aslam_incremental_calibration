@@ -21,10 +21,11 @@
   */
 
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <string>
 
-#include <boost/make_shared.hpp>
+#include <Eigen/Core>
 
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -35,6 +36,7 @@
 
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
+#include <sm/kinematics/quaternion_algebra.hpp>
 
 #include <sm/BoostPropertyTree.hpp>
 
@@ -51,13 +53,7 @@
 
 #include <libposlv/geo-tools/Geo.h>
 
-#include <aslam/splines/OPTBSpline.hpp>
-
-#include <bsplines/EuclideanBSpline.hpp>
-#include <bsplines/NsecTimePolicy.hpp>
-
 #include <aslam/calibration/core/IncrementalEstimator.h>
-#include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 
 #include "aslam/calibration/car/CarCalibrator.h"
@@ -79,113 +75,17 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  std::cout << "Parsing configuration parameters..." << std::endl;
+  std::cout << "Loading configuration parameters..." << std::endl;
   BoostPropertyTree propertyTree;
   propertyTree.loadXml(argv[2]);
-  const double translationSplineLambda =
-    propertyTree.getDouble("calibrator/splines/translationSplineLambda");
-  const double rotationSplineLambda =
-    propertyTree.getDouble("calibrator/splines/rotationSplineLambda");
-  const int splineKnotsPerSecond =
-    propertyTree.getInt("calibrator/splines/splineKnotsPerSecond");
-  const int translationSplineOrder =
-    propertyTree.getInt("calibrator/splines/translationSplineOrder");
-  const int rotationSplineOrder =
-    propertyTree.getInt("calibrator/splines/rotationSplineOrder");
-  const double L =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/wheelBase");
-  const double e_r =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/halfRearTrack");
-  const double e_f =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/halfFrontTrack");
-  const double a0 =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "steeringCoefficient0");
-  const double a1 =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "steeringCoefficient1");
-  const double a2 =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "steeringCoefficient2");
-  const double a3 =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "steeringCoefficient3");
-  const double k_rl =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "rearLeftWheelCoefficient");
-  const double k_rr =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "rearRightWheelCoefficient");
-  const double k_fl =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "frontLeftWheelCoefficient");
-  const double k_fr =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/"
-    "frontRightWheelCoefficient");
-  const double k_dmi =
-    propertyTree.getDouble("calibrator/odometry/intrinsic/dmiCoefficient");
-  const double t_io_x =
-    propertyTree.getDouble("calibrator/odometry/extrinsic/translation/x");
-  const double t_io_y =
-    propertyTree.getDouble("calibrator/odometry/extrinsic/translation/y");
-  const double t_io_z =
-    propertyTree.getDouble("calibrator/odometry/extrinsic/translation/z");
-  const double C_io_yaw =
-    propertyTree.getDouble("calibrator/odometry/extrinsic/rotation/yaw");
-  const double C_io_pitch =
-    propertyTree.getDouble("calibrator/odometry/extrinsic/rotation/pitch");
-  const double C_io_roll =
-    propertyTree.getDouble("calibrator/odometry/extrinsic/rotation/roll");
-  const int hallSensorCutOff =
-    propertyTree.getInt("calibrator/odometry/noise/hallSensorCutoff");
-  const double rlwPercentError =
-    propertyTree.getDouble("calibrator/odometry/noise/rlwPercentError");
-  const double rrwPercentError =
-    propertyTree.getDouble("calibrator/odometry/noise/rrwPercentError");
-  const double flwPercentError =
-    propertyTree.getDouble("calibrator/odometry/noise/flwPercentError");
-  const double frwPercentError =
-    propertyTree.getDouble("calibrator/odometry/noise/frwPercentError");
-  const double sigma2_dmi =
-    propertyTree.getDouble("calibrator/odometry/noise/sigma2_dmi");
-  const double dmiPercentError =
-    propertyTree.getDouble("calibrator/odometry/noise/dmiPercentError");
-  const double sigma2_st =
-    propertyTree.getDouble("calibrator/odometry/noise/sigma2_st");
-  const double minSpeed =
-    propertyTree.getDouble("calibrator/odometry/noise/minSpeed");
-  const double sigma2_vy =
-    propertyTree.getDouble("calibrator/odometry/noise/sigma2_vy");
-  const double sigma2_vz =
-    propertyTree.getDouble("calibrator/odometry/noise/sigma2_vz");
-  const double sigma2_omx =
-    propertyTree.getDouble("calibrator/odometry/noise/sigma2_omx");
-  const double sigma2_omy =
-    propertyTree.getDouble("calibrator/odometry/noise/sigma2_omy");
-  const bool colNorm =
-    propertyTree.getBool("calibrator/optimizer/linearSolver/colNorm");
-  const double qrTol =
-    propertyTree.getDouble("calibrator/optimizer/linearSolver/qrTol");
-  const double normTol =
-    propertyTree.getDouble("calibrator/optimizer/linearSolver/normTol");
-  const double epsTol =
-    propertyTree.getDouble("calibrator/optimizer/marginalizer/epsTol");
-  const double miTol =
-    propertyTree.getDouble("calibrator/optimizer/incremental/miTol");
-  const double windowDuration =
-    propertyTree.getDouble("calibrator/optimizer/incremental/windowDuration");
-  const int maxIterations =
-    propertyTree.getInt("calibrator/optimizer/maxIterations");
   const bool useDMI =
-    propertyTree.getBool("calibrator/odometry/sensors/dmi");
+    propertyTree.getBool("car/calibrator/odometry/sensors/dmi/active");
   const bool useFws =
-    propertyTree.getBool("calibrator/odometry/sensors/fws");
+    propertyTree.getBool("car/calibrator/odometry/sensors/fws/active");
   const bool useRws =
-    propertyTree.getBool("calibrator/odometry/sensors/rws");
+    propertyTree.getBool("car/calibrator/odometry/sensors/rws/active");
   const bool useSt =
-    propertyTree.getBool("calibrator/odometry/sensors/st");
-  const bool useVm =
-    propertyTree.getBool("calibrator/odometry/sensors/vm");
+    propertyTree.getBool("car/calibrator/odometry/sensors/st/active");
 
   rosbag::Bag bag(argv[1]);
   std::vector<std::string> topics;
@@ -197,53 +97,7 @@ int main(int argc, char** argv) {
   topics.push_back(std::string("/poslv/time_tagged_dmi_data"));
   rosbag::View view(bag, rosbag::TopicQuery(topics));
   std::cout << "Processing BAG file..." << std::endl;
-  CarCalibrator::CalibrationDesignVariables dv;
-  dv.intrinsicOdoDesignVariable =
-    boost::make_shared<VectorDesignVariable<12> >(
-    (VectorDesignVariable<12>::Container() <<
-    L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr, k_dmi).finished());
-  dv.intrinsicOdoDesignVariable->setActive(true);
-  dv.extrinsicOdoTranslationDesignVariable =
-    boost::make_shared<EuclideanPoint>(Eigen::Vector3d(t_io_x, t_io_y, t_io_z));
-  dv.extrinsicOdoTranslationDesignVariable->setActive(true);
-  auto ypr = boost::make_shared<EulerAnglesYawPitchRoll>();
-  dv.extrinsicOdoRotationDesignVariable =
-    boost::make_shared<RotationQuaternion>(ypr->parametersToRotationMatrix(
-    Eigen::Vector3d(C_io_yaw, C_io_pitch, C_io_roll)));
-  dv.extrinsicOdoRotationDesignVariable->setActive(true);
-  IncrementalEstimator::Options estimatorOptions;
-  estimatorOptions._miTol = miTol;
-  estimatorOptions._qrTol = qrTol;
-  estimatorOptions._verbose = true;
-  estimatorOptions._colNorm = colNorm;
-  estimatorOptions._maxIterations = maxIterations;
-  estimatorOptions._normTol = normTol;
-  estimatorOptions._epsTolSVD = epsTol;
-  auto estimator = boost::make_shared<IncrementalEstimator>(1,
-    estimatorOptions);
-  CarCalibrator::Options calibratorOptions;
-  calibratorOptions.transSplineLambda = translationSplineLambda;
-  calibratorOptions.rotSplineLambda = rotationSplineLambda;
-  calibratorOptions.splineKnotsPerSecond = splineKnotsPerSecond;
-  calibratorOptions.transSplineOrder = translationSplineOrder;
-  calibratorOptions.rotSplineOrder = rotationSplineOrder;
-  calibratorOptions.linearVelocityTolerance = minSpeed;
-  calibratorOptions.dmiPercentError = dmiPercentError;
-  calibratorOptions.dmiVariance = sigma2_dmi;
-  calibratorOptions.flwPercentError = flwPercentError;
-  calibratorOptions.frwPercentError = frwPercentError;
-  calibratorOptions.rlwPercentError = rlwPercentError;
-  calibratorOptions.rrwPercentError = rrwPercentError;
-  calibratorOptions.steeringVariance = sigma2_st;
-  calibratorOptions.wheelSpeedSensorCutoff = hallSensorCutOff;
-  calibratorOptions.vyVariance = sigma2_vy;
-  calibratorOptions.vzVariance = sigma2_vz;
-  calibratorOptions.omxVariance = sigma2_omx;
-  calibratorOptions.omyVariance = sigma2_omy;
-  calibratorOptions.useVm = useVm;
-  calibratorOptions.verbose = true;
-  calibratorOptions.windowDuration = windowDuration;
-  CarCalibrator calibrator(estimator, dv, calibratorOptions);
+  CarCalibrator calibrator(PropertyTree(propertyTree, "car/calibrator"));
   poslv::VehicleNavigationPerformanceMsgConstPtr lastVnp;
   bool firstVNS = true;
   double latRef = 0;
@@ -355,40 +209,22 @@ int main(int argc, char** argv) {
     calibrator.addMeasurements();
 
   std::cout << "final calibration: " << std::endl;
-  std::cout << "Odometry intrinsic: " << std::endl
-    << std::fixed << std::setprecision(18) <<
-    *dv.intrinsicOdoDesignVariable << std::endl;
+  auto dv = calibrator.getCalibrationDesignVariables();
+  std::cout << "Odometry intrinsic: " << std::endl << std::fixed
+    << std::setprecision(18) << *dv.intrinsicOdoDesignVariable << std::endl;
   Eigen::MatrixXd t_io;
   dv.extrinsicOdoTranslationDesignVariable->getParameters(t_io);
   std::cout << "IMU-odometry translation: " << std::endl <<
     t_io.transpose() << std::endl;
   Eigen::MatrixXd q_io;
   dv.extrinsicOdoRotationDesignVariable->getParameters(q_io);
+  EulerAnglesYawPitchRoll ypr;
   std::cout << "IMU-odometry rotation: " << std::endl <<
-    ypr->rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
+    ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
 
-  std::cout << std::fixed << std::setprecision(18) << "Covariance: "
-    << std::endl
-    << estimator->getMarginalizedCovariance().diagonal().transpose()
-    << std::endl;
-
-  std::cout << "Outputting spline data after optimization..." << std::endl;
-  std::ofstream applanixSplineFile("applanix-spline.txt");
-  auto problem = estimator->getProblem();
-  size_t numBatches = problem->getNumOptimizationProblems();
-  for (size_t i = 0; i < numBatches; ++i) {
-    auto batch = problem->getOptimizationProblem(i);
-    auto spline = dynamic_cast<const OptimizationProblemSpline*>(batch)
-      ->getTranslationSpline();
-    for (auto it = spline->begin(); it != spline->end(); ++it) {
-      auto translationExpressionFactory =
-        spline->getExpressionFactoryAt<0>(it.getTime());
-      applanixSplineFile << std::fixed << std::setprecision(18)
-        << it.getTime() << " "
-        << translationExpressionFactory.getValueExpression().toValue().
-        transpose() << std::endl;
-    }
-  }
+  std::cout << "Covariance: " << std::fixed << std::setprecision(18)
+    << std::endl << calibrator.getEstimator()
+      ->getMarginalizedCovariance().diagonal().transpose() << std::endl;
 
   return 0;
 }

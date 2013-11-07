@@ -255,8 +255,12 @@ namespace aslam {
           auto it = std::find(_designVariables[groupId].begin(),
             _designVariables[groupId].end(), dv);
           _designVariables[groupId].erase(it);
-          if (_designVariables[groupId].empty())
+          if (_designVariables[groupId].empty()) {
             _designVariables.erase(groupId);
+            auto it = std::find(_groupsOrdering.begin(), _groupsOrdering.end(),
+              groupId);
+            _groupsOrdering.erase(it);
+          }
           _designVariablesBackup.erase(const_cast<DesignVariable*>(dv));
         }
       }

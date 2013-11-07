@@ -25,7 +25,6 @@
 #define ASLAM_CALIBRATION_CAR_CALIBRATOR_H
 
 #include <utility>
-#include <vector>
 
 #include <Eigen/Core>
 
@@ -41,6 +40,11 @@
 
 #include "aslam/calibration/car/MeasurementsContainer.h"
 
+namespace sm {
+
+  class PropertyTree;
+
+}
 namespace bsplines {
 
   struct NsecTimePolicy;
@@ -85,9 +89,13 @@ namespace aslam {
             dmiPercentError(0.1),
             dmiVariance(1),
             flwPercentError(0.1),
+            flwVariance(1000),
             frwPercentError(0.1),
+            frwVariance(1000),
             rlwPercentError(0.1),
+            rlwVariance(1000),
             rrwPercentError(0.1),
+            rrwVariance(1000),
             steeringVariance(0.1),
             wheelSpeedSensorCutoff(350),
             vyVariance(1e-1),
@@ -117,12 +125,20 @@ namespace aslam {
         double dmiVariance;
         /// Percent error for front left wheel speed measurements
         double flwPercentError;
+        /// Variance for front left wheel speed measurements
+        double flwVariance;
         /// Percent error for front right wheel speed measurements
         double frwPercentError;
+        /// Variance for front right wheel speed measurements
+        double frwVariance;
         /// Percent error for rear left wheel speed measurements
         double rlwPercentError;
+        /// Variance for rear left wheel speed measurements
+        double rlwVariance;
         /// Percent error for rear right wheel speed measurements
         double rrwPercentError;
+        /// Variance for rear right wheel speed measurements
+        double rrwVariance;
         /// Variance for steering measurement
         double steeringVariance;
         /// Wheel speed sensor cutoff
@@ -198,6 +214,8 @@ namespace aslam {
       CarCalibrator(const IncrementalEstimatorSP& estimator, const
         CalibrationDesignVariables& calibrationDesignVariables, const Options&
         options = Options());
+      /// Constructs calibrator with configuration in property tree
+      CarCalibrator(const sm::PropertyTree& config);
       /// Copy constructor
       CarCalibrator(const Self& other) = delete;
       /// Copy assignment operator

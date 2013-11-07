@@ -33,6 +33,8 @@
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/three_point_methods.hpp>
 
+#include <sm/BoostPropertyTree.hpp>
+
 #include <aslam/backend/CompressedColumnMatrix.hpp>
 
 #include <aslam/calibration/statistics/UniformDistribution.h>
@@ -51,14 +53,23 @@
 using namespace aslam::calibration;
 using namespace aslam::backend;
 using namespace sm::kinematics;
+using namespace sm;
 
 int main(int argc, char** argv) {
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " <conf_file>" << std::endl;
+    return -1;
+  }
+
+  // load configuration file
+  BoostPropertyTree propertyTree;
+  propertyTree.loadXml(argv[1]);
 
   // steps to simulate
-  const size_t steps = 5000;
+  const size_t steps = propertyTree.getInt("lrf/problem/steps");
 
   // timestep size
-  const double T = 0.1;
+  const double T = propertyTree.getDouble("lrf/problem/timestep");
 
   // true state
   std::vector<Eigen::Vector3d> x_true;
@@ -70,8 +81,10 @@ int main(int argc, char** argv) {
 
   // true control input
   std::vector<Eigen::Vector3d> u_true;
-  const double sineWaveAmplitude = 1.0;
-  const double sineWaveFrequency = 0.01;
+  const double sineWaveAmplitude = propertyTree.getDouble(
+    "lrf/problem/sineWaveAmplitude");
+  const double sineWaveFrequency = propertyTree.getDouble(
+    "lrf/problem/sineWaveFrequency");
   genSineWavePath(u_true, steps, sineWaveAmplitude, sineWaveFrequency, T);
 
   // measured control input
@@ -79,11 +92,13 @@ int main(int argc, char** argv) {
   u_noise.reserve(steps);
 
   // number of landmarks
-  const size_t nl = 17;
+  const size_t nl = propertyTree.getInt("lrf/problem/numLandmarks");
 
   // playground size
-  const Eigen::Vector2d min(0, 0);
-  const Eigen::Vector2d max(30, 30);
+  const Eigen::Vector2d min(propertyTree.getDouble("lrf/problem/groundMinX"),
+    propertyTree.getDouble("lrf/problem/groundMinY"));
+  const Eigen::Vector2d max(propertyTree.getDouble("lrf/problem/groundMaxX"),
+    propertyTree.getDouble("lrf/problem/groundMaxY"));
 
   // bearing measurements
   std::vector<std::vector<double> > b;
@@ -97,27 +112,34 @@ int main(int argc, char** argv) {
 
   // covariance matrix for motion model
   Eigen::Matrix3d Q = Eigen::Matrix3d::Zero();
-  Q(0, 0) = 0.00044;
-  Q(1, 1) = 1e-6;
-  Q(2, 2) = 0.00082;
+  Q(0, 0) = propertyTree.getDouble("lrf/problem/motion/sigma2_x");
+  Q(1, 1) = propertyTree.getDouble("lrf/problem/motion/sigma2_y");
+  Q(2, 2) = propertyTree.getDouble("lrf/problem/motion/sigma2_t");
 
   // covariance matrix for observation model
   Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
-  R(0, 0) = 0.00090;
-  R(1, 1) = 0.00067;
+  R(0, 0) = propertyTree.getDouble("lrf/problem/observation/sigma2_r");
+  R(1, 1) = propertyTree.getDouble("lrf/problem/observation/sigma2_b");
 
   // landmark positions
   std::vector<Eigen::Vector2d> x_l;
   UniformDistribution<double, 2>(min, max).getSamples(x_l, nl);
 
   // true calibration parameters
-  const Eigen::Vector3d Theta(0.219, 0.1, 0.78);
+  const Eigen::Vector3d Theta(propertyTree.getDouble("lrf/problem/thetaTrue/x"),
+    propertyTree.getDouble("lrf/problem/thetaTrue/y"),
+    propertyTree.getDouble("lrf/problem/thetaTrue/t"));
 
   // guessed calibration parameters
-  const Eigen::Vector3d Theta_hat(0.23, 0.11, 0.8);
+  const Eigen::Vector3d Theta_hat(
+    propertyTree.getDouble("lrf/problem/thetaHat/x"),
+    propertyTree.getDouble("lrf/problem/thetaHat/y"),
+    propertyTree.getDouble("lrf/problem/thetaHat/t"));
 
   // initial state
-  const Eigen::Vector3d x_0(1.0, 1.0, M_PI / 4);
+  const Eigen::Vector3d x_0(propertyTree.getDouble("lrf/problem/x0/x"),
+    propertyTree.getDouble("lrf/problem/x0/y"),
+    propertyTree.getDouble("lrf/problem/x0/t"));
   x_true.push_back(x_0);
   x_odom.push_back(x_0);
   u_noise.push_back(Eigen::Vector3d::Zero());
@@ -179,10 +201,11 @@ int main(int argc, char** argv) {
   std::cout << "calibration before: " << *dv_Theta << std::endl;
 
   // create incremental estimator
-  IncrementalEstimator incrementalEstimator(2);
+  IncrementalEstimator incrementalEstimator(PropertyTree(propertyTree,
+    "lrf/estimator"));
 
   // batch size
-  const size_t batchSize = 200;
+  const size_t batchSize = propertyTree.getInt("lrf/estimator/batchSize");
 
   // run over the dataset
   for (size_t i = 0; i < steps; i += batchSize) {

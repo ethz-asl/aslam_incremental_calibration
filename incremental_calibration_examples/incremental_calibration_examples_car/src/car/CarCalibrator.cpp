@@ -26,6 +26,8 @@
 #include <sm/kinematics/quaternion_algebra.hpp>
 #include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 
+#include <sm/PropertyTree.hpp>
+
 #include <bsplines/BSplineFitter.hpp>
 #include <bsplines/NsecTimePolicy.hpp>
 
@@ -79,6 +81,120 @@ namespace aslam {
           !calibrationDesignVariables.extrinsicOdoRotationDesignVariable)
         throw InvalidOperationException("CarCalibrator::CarCalibrator(): "
           "all pointers must be initialized");
+    }
+
+    CarCalibrator::CarCalibrator(const sm::PropertyTree& config) :
+        _currentBatchStartTimestamp(-1),
+        _lastTimestamp(-1) {
+      // create the underlying estimator
+      _estimator = boost::make_shared<IncrementalEstimator>(
+        sm::PropertyTree(config, "estimator"));
+
+      // sets the options for the calibrator
+      _options.windowDuration = config.getDouble("windowDuration",
+        _options.windowDuration);
+      _options.transSplineLambda = config.getDouble("splines/transSplineLambda",
+        _options.transSplineLambda);
+      _options.rotSplineLambda = config.getDouble("splines/rotSplineLambda",
+        _options.rotSplineLambda);
+      _options.splineKnotsPerSecond = config.getInt(
+        "splines/splineKnotsPerSecond", _options.splineKnotsPerSecond);
+      _options.transSplineOrder = config.getInt("splines/transSplineOrder",
+        _options.transSplineOrder);
+      _options.rotSplineOrder = config.getInt("splines/rotSplineOrder",
+        _options.rotSplineOrder);
+      _options.linearVelocityTolerance = config.getDouble(
+        "odometry/linearVelocityTolerance", _options.linearVelocityTolerance);
+      _options.dmiPercentError = config.getDouble(
+        "odometry/sensors/dmi/noise/dmiPercentError", _options.dmiPercentError);
+      _options.dmiVariance = config.getDouble(
+        "odometry/sensors/dmi/noise/dmiVariance", _options.dmiVariance);
+      _options.flwPercentError = config.getDouble(
+        "odometry/sensors/fws/noise/flwPercentError", _options.flwPercentError);
+      _options.flwVariance = config.getDouble(
+        "odometry/sensors/fws/noise/flwVariance", _options.flwVariance);
+      _options.frwPercentError = config.getDouble(
+        "odometry/sensors/fws/noise/frwPercentError", _options.frwPercentError);
+      _options.frwVariance = config.getDouble(
+        "odometry/sensors/dmi/fws/frwVariance", _options.frwVariance);
+      _options.rlwPercentError = config.getDouble(
+        "odometry/sensors/rws/noise/rlwPercentError", _options.rlwPercentError);
+      _options.rlwVariance = config.getDouble(
+        "odometry/sensors/rws/noise/rlwVariance", _options.rlwVariance);
+      _options.rrwPercentError = config.getDouble(
+        "odometry/sensors/rws/noise/rrwPercentError", _options.rrwPercentError);
+      _options.rrwVariance = config.getDouble(
+        "odometry/sensors/rws/noise/rrwVariance", _options.rrwVariance);
+      _options.steeringVariance = config.getDouble(
+        "odometry/sensors/st/noise/steeringVariance",
+        _options.steeringVariance);
+      _options.wheelSpeedSensorCutoff = config.getInt(
+        "odometry/sensors/wheelSpeedSensorCutoff",
+        _options.wheelSpeedSensorCutoff);
+      _options.vyVariance = config.getDouble(
+        "odometry/constraints/noise/vyVariance", _options.vyVariance);
+      _options.vzVariance = config.getDouble(
+        "odometry/constraints/noise/vzVariance", _options.vzVariance);
+      _options.omxVariance = config.getDouble(
+        "odometry/constraints/noise/omxVariance", _options.omxVariance);
+      _options.omyVariance = config.getDouble(
+        "odometry/constraints/noise/omyVariance", _options.omyVariance);
+      _options.useVm = config.getBool("odometry/constraints/active",
+        _options.useVm);
+      _options.verbose = config.getBool("verbose", _options.verbose);
+
+      // create the odometry intrinsic calibration variables
+      const double L = config.getDouble("odometry/intrinsics/wheelBase");
+      const double e_r = config.getDouble("odometry/intrinsics/halfRearTrack");
+      const double e_f = config.getDouble("odometry/intrinsics/halfFrontTrack");
+      const double a0 =
+        config.getDouble("odometry/intrinsics/steeringCoefficient0");
+      const double a1 =
+        config.getDouble("odometry/intrinsics/steeringCoefficient1");
+      const double a2 =
+        config.getDouble("odometry/intrinsics/steeringCoefficient2");
+      const double a3 =
+        config.getDouble("odometry/intrinsics/steeringCoefficient3");
+      const double k_rl =
+        config.getDouble("odometry/intrinsics/rlwCoefficient");
+      const double k_rr =
+        config.getDouble("odometry/intrinsics/rrwCoefficient");
+      const double k_fl =
+        config.getDouble("odometry/intrinsics/flwCoefficient");
+      const double k_fr =
+        config.getDouble("odometry/intrinsics/frwCoefficient");
+      const double k_dmi =
+        config.getDouble("odometry/intrinsics/dmiCoefficient");
+      _calibrationDesignVariables.intrinsicOdoDesignVariable =
+        boost::make_shared<VectorDesignVariable<12> >(
+        (VectorDesignVariable<12>::Container() <<
+        L, e_r, e_f, a0, a1, a2, a3, k_rl, k_rr, k_fl, k_fr, k_dmi).finished());
+      _calibrationDesignVariables.intrinsicOdoDesignVariable->setActive(true);
+
+      // create the odometry extrinsic calibration variables
+      const double t_io_x =
+        config.getDouble("odometry/extrinsics/translation/x");
+      const double t_io_y =
+        config.getDouble("odometry/extrinsics/translation/y");
+      const double t_io_z =
+        config.getDouble("odometry/extrinsics/translation/z");
+      const double C_io_yaw =
+        config.getDouble("odometry/extrinsics/rotation/yaw");
+      const double C_io_pitch =
+        config.getDouble("odometry/extrinsics/rotation/pitch");
+      const double C_io_roll =
+        config.getDouble("odometry/extrinsics/rotation/roll");
+      _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable =
+        boost::make_shared<EuclideanPoint>(Eigen::Vector3d(t_io_x, t_io_y,
+        t_io_z));
+      _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable
+        ->setActive(true);
+      EulerAnglesYawPitchRoll ypr;
+      _calibrationDesignVariables.extrinsicOdoRotationDesignVariable =
+        boost::make_shared<RotationQuaternion>(ypr.parametersToRotationMatrix(
+        Eigen::Vector3d(C_io_yaw, C_io_pitch, C_io_roll)));
+      _calibrationDesignVariables.extrinsicOdoRotationDesignVariable
+        ->setActive(true);
     }
 
     CarCalibrator::~CarCalibrator() {
@@ -281,33 +397,6 @@ namespace aslam {
         NsecTimePolicy>::CONF::ManifoldConf(), _options.rotSplineOrder));
       BSplineFitter<RotationSpline>::initUniformSpline(*_rotationSpline,
         timestamps, rotPoses, numSegments, _options.rotSplineLambda);
-
-      std::cout << "Outputting spline data before optimization..." << std::endl;
-      std::ofstream applanixSplineFile("applanix-spline.txt");
-      for (auto it = timestamps.cbegin(); it != timestamps.cend(); ++it) {
-        auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<2>(*it);
-        auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(*it);
-        Eigen::Matrix3d C_wi = Vector2RotationQuaternionExpressionAdapter::adapt(
-          rotationExpressionFactory.getValueExpression()).toRotationMatrix();
-        applanixSplineFile << std::fixed << std::setprecision(18)
-          << *it << " "
-          << translationExpressionFactory.getValueExpression().toValue().
-            transpose() << " "
-          << ypr.rotationMatrixToParameters(C_wi).transpose() << " "
-          << translationExpressionFactory.getValueExpression(1).toValue().
-            transpose() << " "
-          << -(C_wi.transpose() *
-            rotationExpressionFactory.getAngularVelocityExpression().toValue()).
-            transpose() << " "
-          << (C_wi.transpose() *
-            translationExpressionFactory.getValueExpression(2).toValue()).
-            transpose()
-          << std::endl;
-      }
-
-
       batch->addSpline(_translationSpline, 0);
       batch->addSpline(_rotationSpline, 0);
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {

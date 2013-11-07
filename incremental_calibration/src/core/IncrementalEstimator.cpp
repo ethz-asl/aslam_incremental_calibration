@@ -227,7 +227,7 @@ namespace aslam {
       _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
 
       // update output structure
-      ret._batchAccepted = false;
+      ret._batchAccepted = true;
       ret._mi = 0.0;
       ret._rank = _nRank;
       ret._qrTol = _qrTol;
@@ -311,14 +311,15 @@ namespace aslam {
 
       // remove batch if necessary
       if (!keepBatch) {
-        // kick out the problem from the container
-        _problem->remove(problem);
-
         // restore variables
         _problem->restoreDesignVariables();
 
+        // kick out the problem from the container
+        _problem->remove(problem);
+
         // restore the linear solver
-        restoreLinearSolver();
+        if (_problem->getNumOptimizationProblems() > 0)
+          restoreLinearSolver();
       }
 
       // insert elapsed time

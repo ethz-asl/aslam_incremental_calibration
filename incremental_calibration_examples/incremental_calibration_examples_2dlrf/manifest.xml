@@ -11,5 +11,12 @@
 
   <depend package="incremental_calibration"/>
   <depend package="sm_kinematics"/>
+  <depend package="sm_property_tree"/>
+
+  <export>
+    <cpp cflags="-I${prefix}/include"
+         lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib
+          -lincremental_calibration_examples_2dlrf.so" />
+  </export>
 
 </package>

@@ -89,8 +89,10 @@ namespace aslam {
       error(0) = _v_oo.toValue()(1);
 //      error(1) = _v_oo.toValue()(2);
       error(1) = 0;
-      error(2) = _om_oo.toValue()(0);
-      error(3) = _om_oo.toValue()(1);
+//      error(2) = _om_oo.toValue()(0);
+//      error(3) = _om_oo.toValue()(1);
+      error(2) = 0;
+      error(3) = 0;
       setError(error);
       return evaluateChiSquaredError();
     }
@@ -104,8 +106,8 @@ namespace aslam {
 
       // Jacobian with respect to om_oo
       Eigen::Matrix<double, 4, 3> Ho = Eigen::Matrix<double, 4, 3>::Zero();
-      Ho(2, 0) = 1.0;
-      Ho(3, 1) = 1.0;
+//      Ho(2, 0) = 1.0;
+//      Ho(3, 1) = 1.0;
 
       // pass the Jacobians with the chain rule
       _v_oo.evaluateJacobians(jacobians, Hv);
