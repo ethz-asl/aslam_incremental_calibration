@@ -29,6 +29,36 @@
 #include <aslam/backend/Optimizer2Options.hpp>
 #include <aslam/backend/SparseQRLinearSolverOptions.h>
 
+/// This functions gets rid of the reference
+Eigen::MatrixXd getMarginalizedCovariance(const
+    aslam::calibration::IncrementalEstimator* ie) {
+  return ie->getMarginalizedCovariance();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getProjectedMarginalizedCovariance(const
+    aslam::calibration::IncrementalEstimator* ie) {
+  return ie->getProjectedMarginalizedCovariance();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getMarginalizedNullSpace(const
+    aslam::calibration::IncrementalEstimator* ie) {
+  return ie->getMarginalizedNullSpace();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getMarginalizedColumnSpace(const
+    aslam::calibration::IncrementalEstimator* ie) {
+  return ie->getMarginalizedColumnSpace();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getMarginalizedInformationMatrix(const
+    aslam::calibration::IncrementalEstimator* ie) {
+  return ie->getMarginalizedInformationMatrix();
+}
+
 void exportIncrementalEstimator() {
   using namespace boost::python;
   using namespace aslam::backend;
@@ -109,20 +139,11 @@ void exportIncrementalEstimator() {
       &IncrementalEstimator::getMarginalRankDeficiency)
     .def("getQRTol", &IncrementalEstimator::getQRTol)
     .def("getCholmodMemoryUsage", &IncrementalEstimator::getCholmodMemoryUsage)
-    .def("getMarginalizedCovariance",
-      &IncrementalEstimator::getMarginalizedCovariance,
-      return_internal_reference<>())
+    .def("getMarginalizedCovariance", &getMarginalizedCovariance)
     .def("getProjectedMarginalizedCovariance",
-      &IncrementalEstimator::getProjectedMarginalizedCovariance,
-      return_internal_reference<>())
-    .def("getMarginalizedNullSpace",
-      &IncrementalEstimator::getMarginalizedNullSpace,
-      return_internal_reference<>())
-    .def("getMarginalizedColumnSpace",
-      &IncrementalEstimator::getMarginalizedColumnSpace,
-      return_internal_reference<>())
-    .def("getMarginalizedInformationMatrix",
-      &IncrementalEstimator::getMarginalizedInformationMatrix,
-      return_internal_reference<>())
+      &getProjectedMarginalizedCovariance)
+    .def("getMarginalizedNullSpace", &getMarginalizedNullSpace)
+    .def("getMarginalizedColumnSpace", &getMarginalizedColumnSpace)
+    .def("getMarginalizedInformationMatrix", &getMarginalizedInformationMatrix)
     ;
 }
