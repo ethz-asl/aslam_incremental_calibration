@@ -12,7 +12,7 @@
   <depend package="numpy_eigen"/>
   <depend package="sm_python"/>
   <depend package="incremental_calibration"/>
-  <depend package="incremental_calibration_vision"/>
+<!--  <depend package="incremental_calibration_vision"/>-->
 
 <export>
   <python path="${prefix}/src"/>
