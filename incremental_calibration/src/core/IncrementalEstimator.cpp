@@ -140,7 +140,7 @@ namespace aslam {
       return _margGroupId;
     }
 
-    const aslam::backend::CompressedColumnMatrix<ssize_t>&
+    const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
         IncrementalEstimator::getJacobianTranspose() const {
       return _optimizer->getSolver<LinearSolver>()->getJacobianTranspose();
     }

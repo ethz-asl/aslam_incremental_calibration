@@ -24,6 +24,8 @@
 #ifndef ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 #define ASLAM_CALIBRATION_CORE_INCREMENTAL_ESTIMATOR_H
 
+#include <cstddef>
+
 #include <boost/shared_ptr.hpp>
 
 #include <Eigen/Core>
@@ -191,7 +193,7 @@ namespace aslam {
       /// Return the marginalized group ID
       size_t getMargGroupId() const;
       /// Returns the current Jacobian tranpose if available
-      const aslam::backend::CompressedColumnMatrix<ssize_t>&
+      const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
         getJacobianTranspose() const;
       /// Returns the current estimated numerical rank
       size_t getRank() const;

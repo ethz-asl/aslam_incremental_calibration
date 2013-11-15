@@ -42,7 +42,9 @@ rosbuild_add_library(${PROJECT_NAME}
   src/core/IncrementalEstimator.cpp
   src/core/OptimizationProblem.cpp
   src/core/IncrementalOptimizationProblem.cpp
+  src/core/LinearSolver.cpp
   src/algorithms/marginalize.cpp
+  src/algorithms/linalg.cpp
 )
 
 rosbuild_add_gtest(${PROJECT_NAME}_test
@@ -51,5 +53,6 @@ rosbuild_add_gtest(${PROJECT_NAME}_test
   test/AlgorithmsTest.cpp
   test/OptimizationProblemTest.cpp
   test/IncrementalOptimizationProblemTest.cpp
+  test/LinearSolverTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
