@@ -191,7 +191,7 @@ namespace aslam {
     }
 
     void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
-        cholmod_sparse* A_rt, cholmod_sparse* Omega, cholmod_sparse* A_rtQ,
+        cholmod_sparse* A_rt, cholmod_sparse** Omega, cholmod_sparse** A_rtQ,
         cholmod_common* cholmod) {
       if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
         throw InvalidOperationException("reduceLeftHandSide(): "
@@ -208,15 +208,14 @@ namespace aslam {
         throw InvalidOperationException("reduceLeftHandSide(): "
           "SuiteSparseQR_qmult failed");
       try {
-        A_rtQ = columnSubmatrix(A_rtQFull, 0, factor->QRsym->n, cholmod);
+        *A_rtQ = columnSubmatrix(A_rtQFull, 0, factor->QRsym->n, cholmod);
       }
       catch (const InvalidOperationException& e) {
         cholmod_l_free_sparse(&A_rtQFull, cholmod);
         throw;
       }
       cholmod_l_free_sparse(&A_rtQFull, cholmod);
-      cholmod_sparse* A_rtQ2 = cholmod_l_aat(A_rtQ, NULL, 0, 1, cholmod);
-      cholmod_l_free_sparse(&A_rtQ, cholmod);
+      cholmod_sparse* A_rtQ2 = cholmod_l_aat(*A_rtQ, NULL, 0, 1, cholmod);
       if (A_rtQ2 == NULL)
         throw InvalidOperationException("reduceLeftHandSide(): "
           "cholmod_l_aat failed");
@@ -232,10 +231,10 @@ namespace aslam {
       alpha[0] = 1;
       double beta[2];
       beta[0] = -1;
-      Omega = cholmod_l_add(A_rt2, A_rtQ2, alpha, beta, 1, 1, cholmod);
+      *Omega = cholmod_l_add(A_rt2, A_rtQ2, alpha, beta, 1, 1, cholmod);
       cholmod_l_free_sparse(&A_rt2, cholmod);
       cholmod_l_free_sparse(&A_rtQ2, cholmod);
-      if (Omega == NULL)
+      if (*Omega == NULL)
         throw InvalidOperationException("reduceLeftHandSide(): "
           "cholmod_l_add failed");
     }
@@ -326,15 +325,15 @@ namespace aslam {
     }
 
     void solveSVD(const cholmod_dense* b, const Eigen::VectorXd& sv, const
-        Eigen::MatrixXd& U, double rank, Eigen::VectorXd& x) {
+        Eigen::MatrixXd& U, std::ptrdiff_t rank, Eigen::VectorXd& x) {
       Eigen::Map<const Eigen::VectorXd> bEigen(
         reinterpret_cast<const double*>(b->x), b->nrow);
       x = U.leftCols(rank) * sv.head(rank).asDiagonal().inverse() *
         U.leftCols(rank).adjoint() * bEigen;
     }
 
-    void solveQR(SuiteSparseQR_factorization<double>* factor, cholmod_dense* b,
-        cholmod_sparse* A_r, const Eigen::VectorXd& x_r, cholmod_dense* x_l,
+    cholmod_dense* solveQR(SuiteSparseQR_factorization<double>* factor,
+        cholmod_dense* b, cholmod_sparse* A_r, const Eigen::VectorXd& x_r,
         cholmod_common* cholmod) {
       if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
         throw InvalidOperationException("solveQR(): QR factorization is null");
@@ -376,12 +375,13 @@ namespace aslam {
       if (QtbmA_rx_r == NULL)
         throw InvalidOperationException("solveQR(): "
           "SuiteSparseQR_qmult failed");
-      x_l = SuiteSparseQR_solve<double>(SPQR_RETX_EQUALS_B, factor, QtbmA_rx_r,
-        cholmod);
+      cholmod_dense* x_l = SuiteSparseQR_solve<double>(SPQR_RETX_EQUALS_B,
+        factor, QtbmA_rx_r, cholmod);
       cholmod_l_free_dense(&QtbmA_rx_r, cholmod);
       if (x_l == NULL)
         throw InvalidOperationException("solveQR(): "
           "SuiteSparseQR_solve failed");
+      return x_l;
     }
 
   }

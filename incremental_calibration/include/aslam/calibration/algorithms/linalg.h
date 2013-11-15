@@ -148,7 +148,7 @@ namespace aslam {
        *             (owned by caller)
        */
        void reduceLeftHandSide(SuiteSparseQR_factorization<double>*
-        factor, cholmod_sparse* A_rt, cholmod_sparse* Omega, cholmod_sparse*
+        factor, cholmod_sparse* A_rt, cholmod_sparse** Omega, cholmod_sparse**
         A_rtQ, cholmod_common* cholmod);
       /** 
        * This function returns the reduced right-hand side of a system.
@@ -196,18 +196,17 @@ namespace aslam {
        * This function solves the rest of the system with the QR factorization.
        * \brief Solver for rest of the system
        * 
-       * \return void
+       * \return QR solution for the left side of the original matrix
+       *         (owned by caller)
        * \param[in] factor QR factorization of the left side of the original
        *            matrix
        * \param[in] b original right-hand side
        * \param[in] A_r right side of the original matrix
        * \param[in] x_r LS solution for the right side of the original matrix
        * \param[in] cholmod cholmod workspace
-       * \param[out] x_l QR solution for the left side of the original matrix
-       *             (owned by caller)
        */
-      void solveQR(SuiteSparseQR_factorization<double>* factor, cholmod_dense*
-        b, cholmod_sparse* A_r, const Eigen::VectorXd& x_r, cholmod_dense* x_l,
+      cholmod_dense* solveQR(SuiteSparseQR_factorization<double>* factor,
+        cholmod_dense* b, cholmod_sparse* A_r, const Eigen::VectorXd& x_r,
         cholmod_common* cholmod);
     /** @}
       */

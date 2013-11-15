@@ -20,10 +20,32 @@
     \brief This file tests the VectorDesignVariable class.
   */
 
+#include <cstddef>
+
 #include <gtest/gtest.h>
 
+#include <Eigen/Core>
+
+#include <cholmod.h>
+
+#include <aslam/backend/CompressedColumnMatrix.hpp>
+
 #include "aslam/calibration/core/LinearSolver.h"
+#include "aslam/calibration/algorithms/linalg.h"
 
 TEST(AslamCalibrationTestSuite, testLinearSolver) {
   aslam::calibration::LinearSolver linearSolver;
+  const Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 10);
+  const Eigen::VectorXd x = Eigen::VectorXd::Random(10);
+  const Eigen::VectorXd b = A * x;
+  aslam::backend::CompressedColumnMatrix<std::ptrdiff_t> A_CCM;
+  A_CCM.fromDense(A);
+  cholmod_sparse A_CS;
+  A_CCM.getView(&A_CS);
+  cholmod_dense b_CD;
+  aslam::calibration::eigenDenseToCholmodDenseView(b, &b_CD);
+  Eigen::VectorXd x_est;
+  linearSolver.solve(&A_CS, &b_CD, 2, x_est);
+  std::cout << "x: " << x.transpose() << std::endl;
+  std::cout << "x_est: " << x_est.transpose() << std::endl;
 }

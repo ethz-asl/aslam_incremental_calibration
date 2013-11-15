@@ -96,7 +96,20 @@ namespace aslam {
       virtual bool solveSystem(Eigen::VectorXd& x);
       /// Helper function for dog leg implementation / steepest descent solution
       virtual double rhsJtJrhs();
-      /// Solve a system of equations
+      /** 
+       * This function solves a system of equation using marginalization.
+       * \brief Marginalization solver
+       * 
+       * \return void
+       * \param[in] A sparse matrix left-hand side
+       * \param[in] b dense vector right-hand side
+       * \param[in] j starting column index for the marginalization
+       * \param[out] x solution
+       */
+      void solve(cholmod_sparse* A, cholmod_dense* b, std::ptrdiff_t j,
+        Eigen::VectorXd& x);
+      /// Clear the existing symbolic factorization
+      void clearFactorization();
       /** @}
         */
 

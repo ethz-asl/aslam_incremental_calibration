@@ -18,7 +18,12 @@
 
 #include "aslam/calibration/core/LinearSolver.h"
 
+#include <algorithm>
+
 #include <sm/PropertyTree.hpp>
+
+#include "aslam/calibration/algorithms/linalg.h"
+#include "aslam/calibration/exceptions/InvalidOperationException.h"
 
 namespace aslam {
   namespace calibration {
@@ -77,6 +82,87 @@ namespace aslam {
         std::vector<aslam::backend::DesignVariable*>& dvs, const
         std::vector<aslam::backend::ErrorTerm*>& errors, bool
         useDiagonalConditioner) {
+    }
+
+    void LinearSolver::solve(cholmod_sparse* A, cholmod_dense* b,
+        std::ptrdiff_t j, Eigen::VectorXd& x) {
+      cholmod_sparse* A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
+      if (!_factor) {
+        _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
+          SPQR_DEFAULT_TOL, A_l, &_cholmod);
+        if (_factor == NULL) {
+          cholmod_l_free_sparse(&A_l, &_cholmod);
+          throw InvalidOperationException("LinearSolver::solve(): "
+            "SuiteSparseQR_symbolic failed");
+        }
+      }
+      // TODO: add tolerance here if needed
+      const int status = SuiteSparseQR_numeric<double>(SPQR_DEFAULT_TOL, A_l,
+        _factor, &_cholmod);
+      cholmod_l_free_sparse(&A_l, &_cholmod);
+      if (!status)
+        throw InvalidOperationException("LinearSolver::solve(): "
+          "SuiteSparseQR_numeric failed");
+      cholmod_sparse* A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
+      cholmod_sparse* A_rt = cholmod_l_transpose(A_r, 1, &_cholmod);
+      if (A_rt == NULL) {
+        cholmod_l_free_sparse(&A_r, &_cholmod);
+        throw InvalidOperationException("LinearSolver::solve(): "
+          "cholmod_l_transpose failed");
+      }
+      cholmod_sparse* Omega = NULL;
+      cholmod_sparse* A_rtQ = NULL;
+      try {
+        reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
+      }
+      catch (...) {
+        cholmod_l_free_sparse(&A_r, &_cholmod);
+        cholmod_l_free_sparse(&A_rt, &_cholmod);
+        throw;
+      }
+      Eigen::VectorXd sv;
+      Eigen::MatrixXd U;
+      analyzeSVD(Omega, sv, U);
+      cholmod_l_free_sparse(&Omega, &_cholmod);
+      cholmod_dense* b_r;
+      try {
+        b_r = reduceRightHandSide(_factor, A_rt, A_rtQ, b, &_cholmod);
+      }
+      catch (...) {
+        cholmod_l_free_sparse(&A_r, &_cholmod);
+        cholmod_l_free_sparse(&A_rt, &_cholmod);
+        cholmod_l_free_sparse(&A_rtQ, &_cholmod);
+        throw;
+      }
+      cholmod_l_free_sparse(&A_rt, &_cholmod);
+      cholmod_l_free_sparse(&A_rtQ, &_cholmod);
+      std::ptrdiff_t nrank = estimateNumericalRank(sv, rankTol(sv));
+      std::cout << "numerical rank: " << nrank << std::endl;
+      Eigen::VectorXd x_r;
+      solveSVD(b_r, sv, U, nrank, x_r);
+      std::cout << "svd solution: " << x_r.transpose() << std::endl;
+      cholmod_free_dense(&b_r, &_cholmod);
+      cholmod_dense* x_l;
+      try {
+        x_l = solveQR(_factor, b, A_r, x_r, &_cholmod);
+      }
+      catch (...) {
+        cholmod_l_free_sparse(&A_r, &_cholmod);
+        throw;
+      }
+      cholmod_l_free_sparse(&A_r, &_cholmod);
+      x.resize(A->ncol);
+      const double* x_l_val = reinterpret_cast<const double*>(x_l->x);
+      std::copy(x_l_val, x_l_val + x_l->nzmax, x.data());
+      cholmod_l_free_dense(&x_l, &_cholmod);
+      x.tail(x_r.size()) = x_r;
+    }
+
+    void LinearSolver::clearFactorization() {
+      if (_factor) {
+        SuiteSparseQR_free<double>(&_factor, &_cholmod);
+        _factor = NULL;
+      }
     }
 
   }
