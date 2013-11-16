@@ -38,7 +38,7 @@ namespace aslam {
       if (A == NULL)
         throw InvalidOperationException("columnSubmatrix(): "
           "input matrix is null");
-      if (colEndIdx <= colStartIdx)
+      if (colEndIdx < colStartIdx)
         throw OutOfBoundException<std::ptrdiff_t>(colEndIdx,
           "columnSubmatrix(): colStartIdx must be lower than colEndIdx",
           __FILE__, __LINE__);
@@ -69,7 +69,7 @@ namespace aslam {
       if (A == NULL)
         throw InvalidOperationException("rowSubmatrix(): "
           "input matrix is null");
-      if (rowEndIdx <= rowStartIdx)
+      if (rowEndIdx < rowStartIdx)
         throw OutOfBoundException<std::ptrdiff_t>(rowEndIdx,
           "rowSubmatrix(): rowStartIdx must be lower than rowEndIdx",
           __FILE__, __LINE__);
@@ -155,8 +155,11 @@ namespace aslam {
         reinterpret_cast<const std::ptrdiff_t*>(in->p);
       const double* values = reinterpret_cast<const double*>(in->x);
       for (std::ptrdiff_t c = 0; c < static_cast<std::ptrdiff_t>(in->ncol); ++c)
-        for (std::ptrdiff_t v = col_ptr[c]; v < col_ptr[c + 1]; ++v)
+        for (std::ptrdiff_t v = col_ptr[c]; v < col_ptr[c + 1]; ++v) {
           out(row_ind[v], c) = values[v];
+          if (in->stype && c != row_ind[v])
+            out(c, row_ind[v]) = values[v];
+        }
     }
 
     void eigenDenseToCholmodDenseView(const Eigen::VectorXd& in, cholmod_dense*
@@ -202,6 +205,10 @@ namespace aslam {
       if (cholmod == NULL)
         throw InvalidOperationException("reduceLeftHandSide(): "
           "cholmod is null");
+      if (Omega == NULL)
+        throw InvalidOperationException("reduceLeftHandSide(): Omega is null");
+      if (A_rtQ == NULL)
+        throw InvalidOperationException("reduceLeftHandSide(): A_rtQ is null");
       cholmod_sparse* A_rtQFull = SuiteSparseQR_qmult<double>(SPQR_XQ, factor,
         A_rt, cholmod);
       if (A_rtQFull == NULL)
@@ -356,7 +363,7 @@ namespace aslam {
       double alpha[2];
       alpha[0] = 1;
       double beta[2];
-      beta[0] = 1;
+      beta[0] = 0;
       if (!cholmod_l_sdmult(A_r, 0, alpha, beta, &x_rCholmod, A_rx_r,
           cholmod)) {
         cholmod_l_free_dense(&A_rx_r, cholmod);
@@ -366,7 +373,7 @@ namespace aslam {
         reinterpret_cast<const double*>(b->x), b->nrow);
       Eigen::Map<const Eigen::VectorXd> A_rx_rEigen(
         reinterpret_cast<const double*>(A_rx_r->x), A_rx_r->nrow);
-      Eigen::VectorXd bmA_rx_rEigen = bEigen - A_rx_rEigen;
+      const Eigen::VectorXd bmA_rx_rEigen = bEigen - A_rx_rEigen;
       cholmod_l_free_dense(&A_rx_r, cholmod);
       cholmod_dense bmA_rx_r;
       eigenDenseToCholmodDenseView(bmA_rx_rEigen, &bmA_rx_r);

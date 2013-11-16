@@ -143,9 +143,8 @@ namespace aslam {
        *            matrix
        * \param[in] A_rt transpose of the right side of the original matrix
        * \param[in] cholmod cholmod workspace
-       * \param[out] Omega reduced matrix (owned by caller)
+       * \param[out] Omega reduced matrix
        * \param[out] A_rtQ A_r' * Q, used subsequently by reduceRightHandSide
-       *             (owned by caller)
        */
        void reduceLeftHandSide(SuiteSparseQR_factorization<double>*
         factor, cholmod_sparse* A_rt, cholmod_sparse** Omega, cholmod_sparse**

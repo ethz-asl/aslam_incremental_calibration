@@ -35,8 +35,8 @@
 
 TEST(AslamCalibrationTestSuite, testLinearSolver) {
   aslam::calibration::LinearSolver linearSolver;
-  const Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 10);
-  const Eigen::VectorXd x = Eigen::VectorXd::Random(10);
+  Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 30);
+  const Eigen::VectorXd x = Eigen::VectorXd::Random(30);
   const Eigen::VectorXd b = A * x;
   aslam::backend::CompressedColumnMatrix<std::ptrdiff_t> A_CCM;
   A_CCM.fromDense(A);
@@ -45,7 +45,6 @@ TEST(AslamCalibrationTestSuite, testLinearSolver) {
   cholmod_dense b_CD;
   aslam::calibration::eigenDenseToCholmodDenseView(b, &b_CD);
   Eigen::VectorXd x_est;
-  linearSolver.solve(&A_CS, &b_CD, 2, x_est);
-  std::cout << "x: " << x.transpose() << std::endl;
-  std::cout << "x_est: " << x_est.transpose() << std::endl;
+  linearSolver.solve(&A_CS, &b_CD, 29, x_est);
+  ASSERT_NEAR((b - A * x_est).norm(), 0, 1e-9);
 }

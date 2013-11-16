@@ -137,10 +137,8 @@ namespace aslam {
       cholmod_l_free_sparse(&A_rt, &_cholmod);
       cholmod_l_free_sparse(&A_rtQ, &_cholmod);
       std::ptrdiff_t nrank = estimateNumericalRank(sv, rankTol(sv));
-      std::cout << "numerical rank: " << nrank << std::endl;
       Eigen::VectorXd x_r;
       solveSVD(b_r, sv, U, nrank, x_r);
-      std::cout << "svd solution: " << x_r.transpose() << std::endl;
       cholmod_free_dense(&b_r, &_cholmod);
       cholmod_dense* x_l;
       try {
