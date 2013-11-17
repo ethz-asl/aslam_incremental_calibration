@@ -20,6 +20,8 @@
 
 #include <algorithm>
 
+#include <SuiteSparseQR.hpp>
+
 #include <sm/PropertyTree.hpp>
 
 #include "aslam/calibration/algorithms/linalg.h"
@@ -44,8 +46,7 @@ namespace aslam {
     }
 
     LinearSolver::~LinearSolver() {
-      if (_factor)
-        SuiteSparseQR_free(&_factor, &_cholmod);
+      clearFactorization();
       cholmod_l_finish(&_cholmod);
     }
 
@@ -62,7 +63,7 @@ namespace aslam {
     }
 
     std::string LinearSolver::name() const {
-      return std::string("marginal_spqr");
+      return std::string("marginal_spqr_svd");
     }
 
 /******************************************************************************/
@@ -86,27 +87,77 @@ namespace aslam {
 
     void LinearSolver::solve(cholmod_sparse* A, cholmod_dense* b,
         std::ptrdiff_t j, Eigen::VectorXd& x) {
+      if (A->nrow != b->nrow)
+        throw InvalidOperationException("LinearSolver::solve(): "
+          "inconsistent A and b");
       cholmod_sparse* A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
+      cholmod_dense* G_l = NULL;
+      if (_options.columnScaling) {
+        try {
+          G_l = columnScalingMatrix(A_l, &_cholmod, _options.epsNorm);
+        }
+        catch (...) {
+          cholmod_l_free_sparse(&A_l, &_cholmod);
+          throw;
+        }
+        if (!cholmod_l_scale(G_l, CHOLMOD_COL, A_l, &_cholmod)) {
+          cholmod_l_free_dense(&G_l, &_cholmod);
+          cholmod_l_free_sparse(&A_l, &_cholmod);
+          throw InvalidOperationException("LinearSolver::solve(): "
+            "cholmod_l_scale failed");
+        }
+      }
+      if (_factor && _factor->QRsym &&
+          (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
+          _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol)))
+        clearFactorization();
       if (!_factor) {
         _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
           SPQR_DEFAULT_TOL, A_l, &_cholmod);
         if (_factor == NULL) {
           cholmod_l_free_sparse(&A_l, &_cholmod);
+          if (G_l)
+            cholmod_l_free_dense(&G_l, &_cholmod);
           throw InvalidOperationException("LinearSolver::solve(): "
             "SuiteSparseQR_symbolic failed");
         }
       }
       // TODO: add tolerance here if needed
-      const int status = SuiteSparseQR_numeric<double>(SPQR_DEFAULT_TOL, A_l,
-        _factor, &_cholmod);
+      const int status = SuiteSparseQR_numeric<double>(qrTol(A_l,
+       _options.epsQR), A_l, _factor, &_cholmod);
       cholmod_l_free_sparse(&A_l, &_cholmod);
-      if (!status)
+      if (!status) {
+        if (G_l)
+          cholmod_l_free_dense(&G_l, &_cholmod);
         throw InvalidOperationException("LinearSolver::solve(): "
           "SuiteSparseQR_numeric failed");
+      }
       cholmod_sparse* A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
+      cholmod_dense* G_r = NULL;
+      if (_options.columnScaling) {
+        try {
+          G_r = columnScalingMatrix(A_r, &_cholmod, _options.epsNorm);
+        }
+        catch (...) {
+          cholmod_l_free_sparse(&A_r, &_cholmod);
+          cholmod_l_free_dense(&G_l, &_cholmod);
+          throw;
+        }
+        if (!cholmod_l_scale(G_r, CHOLMOD_COL, A_r, &_cholmod)) {
+          cholmod_l_free_sparse(&A_r, &_cholmod);
+          cholmod_l_free_dense(&G_r, &_cholmod);
+          cholmod_l_free_dense(&G_l, &_cholmod);
+          throw InvalidOperationException("LinearSolver::solve(): "
+            "cholmod_l_scale failed");
+        }
+      }
       cholmod_sparse* A_rt = cholmod_l_transpose(A_r, 1, &_cholmod);
       if (A_rt == NULL) {
         cholmod_l_free_sparse(&A_r, &_cholmod);
+        if (G_l)
+          cholmod_l_free_dense(&G_l, &_cholmod);
+        if (G_r)
+          cholmod_l_free_dense(&G_r, &_cholmod);
         throw InvalidOperationException("LinearSolver::solve(): "
           "cholmod_l_transpose failed");
       }
@@ -118,6 +169,10 @@ namespace aslam {
       catch (...) {
         cholmod_l_free_sparse(&A_r, &_cholmod);
         cholmod_l_free_sparse(&A_rt, &_cholmod);
+        if (G_l)
+          cholmod_l_free_dense(&G_l, &_cholmod);
+        if (G_r)
+          cholmod_l_free_dense(&G_r, &_cholmod);
         throw;
       }
       Eigen::VectorXd sv;
@@ -132,21 +187,42 @@ namespace aslam {
         cholmod_l_free_sparse(&A_r, &_cholmod);
         cholmod_l_free_sparse(&A_rt, &_cholmod);
         cholmod_l_free_sparse(&A_rtQ, &_cholmod);
+        if (G_l)
+          cholmod_l_free_dense(&G_l, &_cholmod);
+        if (G_r)
+          cholmod_l_free_dense(&G_r, &_cholmod);
         throw;
       }
       cholmod_l_free_sparse(&A_rt, &_cholmod);
       cholmod_l_free_sparse(&A_rtQ, &_cholmod);
-      std::ptrdiff_t nrank = estimateNumericalRank(sv, rankTol(sv));
+      std::ptrdiff_t nrank = estimateNumericalRank(sv, rankTol(sv,
+        _options.epsRank));
       Eigen::VectorXd x_r;
       solveSVD(b_r, sv, U, nrank, x_r);
-      cholmod_free_dense(&b_r, &_cholmod);
+      cholmod_l_free_dense(&b_r, &_cholmod);
       cholmod_dense* x_l;
       try {
         x_l = solveQR(_factor, b, A_r, x_r, &_cholmod);
       }
       catch (...) {
         cholmod_l_free_sparse(&A_r, &_cholmod);
+        if (G_l)
+          cholmod_l_free_dense(&G_l, &_cholmod);
+        if (G_r)
+          cholmod_l_free_dense(&G_r, &_cholmod);
         throw;
+      }
+      if (_options.columnScaling) {
+        const double* G_l_val = reinterpret_cast<const double*>(G_l->x);
+        double* x_l_val = reinterpret_cast<double*>(x_l->x);
+        for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(x_l->nrow);
+            ++i)
+          x_l_val[i] = G_l_val[i] * x_l_val[i];
+        cholmod_l_free_dense(&G_l, &_cholmod);
+        Eigen::Map<const Eigen::VectorXd> G_rEigen(
+          reinterpret_cast<const double*>(G_r->x), G_r->nrow);
+        x_r = G_rEigen.array() * x_r.array();
+        cholmod_l_free_dense(&G_r, &_cholmod);
       }
       cholmod_l_free_sparse(&A_r, &_cholmod);
       x.resize(A->ncol);

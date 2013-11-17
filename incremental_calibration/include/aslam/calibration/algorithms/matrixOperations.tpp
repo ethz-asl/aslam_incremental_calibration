@@ -19,6 +19,8 @@
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 
 #include <cmath>
+#include <cstddef>
+
 #include <limits>
 
 namespace aslam {
@@ -50,23 +52,23 @@ namespace aslam {
       const size_t numCols = R.cols();
       const size_t dim = numCols - colBegin;
       Eigen::MatrixXd covariance = Eigen::MatrixXd::Zero(dim, dim);
-      for (ssize_t l = numCols - 1, Sigma_l = dim - 1;
-          l >= (ssize_t)(numCols - dim); --l, --Sigma_l) {
+      for (std::ptrdiff_t l = numCols - 1, Sigma_l = dim - 1;
+          l >= (std::ptrdiff_t)(numCols - dim); --l, --Sigma_l) {
         double temp1 = 0;
-        for (ssize_t j = l + 1, Sigma_j = Sigma_l + 1;
-            j < (ssize_t)numCols; ++j, ++Sigma_j)
+        for (std::ptrdiff_t j = l + 1, Sigma_j = Sigma_l + 1;
+            j < (std::ptrdiff_t)numCols; ++j, ++Sigma_j)
           temp1 += R(l, j) * covariance(Sigma_j, Sigma_l);
         const double R_ll = R(l, l);
         covariance(Sigma_l, Sigma_l) = 1 / R_ll * (1 / R_ll - temp1);
-        for (ssize_t i = l - 1, Sigma_i = Sigma_l - 1;
-            i >= ssize_t(numCols - dim); --i, --Sigma_i) {
+        for (std::ptrdiff_t i = l - 1, Sigma_i = Sigma_l - 1;
+            i >= std::ptrdiff_t(numCols - dim); --i, --Sigma_i) {
           temp1 = 0;
-          for (ssize_t j = i + 1, Sigma_j = Sigma_i + 1;
+          for (std::ptrdiff_t j = i + 1, Sigma_j = Sigma_i + 1;
               j <= l; ++j, ++Sigma_j)
             temp1 += R(i, j) * covariance(Sigma_j, Sigma_l);
           double temp2 = 0;
-          for (ssize_t j = l + 1, Sigma_j = Sigma_l + 1; j < (ssize_t)numCols;
-              ++j, ++Sigma_j)
+          for (std::ptrdiff_t j = l + 1, Sigma_j = Sigma_l + 1;
+              j < (std::ptrdiff_t)numCols; ++j, ++Sigma_j)
             temp2 += R(i, j) * covariance(Sigma_l, Sigma_j);
           covariance(Sigma_i, Sigma_l) = 1 / R(i, i) * (-temp1 - temp2);
           covariance(Sigma_l, Sigma_i) = covariance(Sigma_i, Sigma_l);

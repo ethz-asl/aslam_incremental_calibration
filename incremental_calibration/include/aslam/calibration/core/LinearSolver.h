@@ -24,15 +24,19 @@
 #ifndef ASLAM_CALIBRATION_CORE_LINEAR_SOLVER_H
 #define ASLAM_CALIBRATION_CORE_LINEAR_SOLVER_H
 
+#include <cstddef>
+
 #include <vector>
 #include <string>
+#include <limits>
+
+#include <cholmod.h>
 
 #include <Eigen/Core>
 
-#include <cholmod.h>
-#include <SuiteSparseQR.hpp>
-
 #include <aslam/backend/LinearSystemSolver.hpp>
+
+template <typename Entry> struct SuiteSparseQR_factorization;
 
 namespace sm {
 
@@ -43,13 +47,15 @@ namespace aslam {
   namespace backend {
 
     class DesignVariable;
-    class ErrorTerm;
+    class ErrorTerm; 
 
   }
   namespace calibration {
 
     /** The class LinearSolver implements a specific linear solver for
-        incremental calibration problems.
+        incremental calibration problems. It uses a combination of SPQR and SVD.
+        The right part of the input matrix can be marginalized out and solved
+        by SVD, while the rest of the variables are solved with SPQR.
         \brief Linear solver for incremental calibration
       */
     class LinearSolver :
@@ -60,7 +66,20 @@ namespace aslam {
         */
       /// Options for the linear solver
       struct Options {
-          Options() {}
+        /// Default constructor
+        Options() :
+            columnScaling(false),
+            epsNorm(std::numeric_limits<double>::epsilon()),
+            epsRank(std::numeric_limits<double>::epsilon()),
+            epsQR(std::numeric_limits<double>::epsilon()) {}
+        /// Perform column scaling/normalization
+        bool columnScaling;
+        /// Epsilon for when to consider an element being zero in the norm
+        double epsNorm;
+        /// Epsilon for numerical rank tolerance
+        double epsRank;
+        /// Epsilon for QR tolerance computation
+        double epsQR;
       };
       /// Self type
       typedef LinearSolver Self;

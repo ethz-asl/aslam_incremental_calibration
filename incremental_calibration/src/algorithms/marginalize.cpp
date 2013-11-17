@@ -39,12 +39,13 @@ namespace aslam {
         throw OutOfBoundException<size_t>(j,
           "colNorm(): index must be lower than the number of columns",
           __FILE__, __LINE__);
-      const ssize_t* col_ptr = reinterpret_cast<const ssize_t*>(A->p);
+      const std::ptrdiff_t* col_ptr =
+        reinterpret_cast<const std::ptrdiff_t*>(A->p);
       const double* values = reinterpret_cast<const double*>(A->x);
-      const ssize_t p = col_ptr[j];
-      const ssize_t numElements = col_ptr[j + 1] - p;
+      const std::ptrdiff_t p = col_ptr[j];
+      const std::ptrdiff_t numElements = col_ptr[j + 1] - p;
       double norm = 0;
-      for (ssize_t i = 0; i < numElements; ++i)
+      for (std::ptrdiff_t i = 0; i < numElements; ++i)
         norm += values[p + i] * values[p + i];
       return std::sqrt(norm);
     }
@@ -66,7 +67,7 @@ namespace aslam {
         throw InvalidOperationException("marginalJacobian(): "
           "SuiteSparseQR_qmult failed");
       }
-      ssize_t* colIndices = new ssize_t[J_x->ncol];
+      std::ptrdiff_t* colIndices = new std::ptrdiff_t[J_x->ncol];
       for (size_t i = 0; i < J_x->ncol; ++i)
        colIndices[i] = i;
       cholmod_sparse* J_thetatQ = cholmod_l_submatrix(J_thetatQFull, NULL, -1,
@@ -111,7 +112,7 @@ namespace aslam {
         throw InvalidOperationException("marginalJacobian(): "
           "cholmod_l_add failed");
       }
-      aslam::backend::CompressedColumnMatrix<ssize_t> OmegaCCM;
+      aslam::backend::CompressedColumnMatrix<std::ptrdiff_t> OmegaCCM;
       OmegaCCM.fromCholmodSparse(Omega);
       Eigen::MatrixXd OmegaDense(Omega->nrow, Omega->ncol);
       OmegaCCM.toDenseInto(OmegaDense);
@@ -127,17 +128,18 @@ namespace aslam {
       return OmegaDense;
     }
 
-    double marginalize(const aslam::backend::CompressedColumnMatrix<ssize_t>&
-        Jt, size_t j, Eigen::MatrixXd& NS, Eigen::MatrixXd& CS, Eigen::MatrixXd&
-        Sigma, Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega, double normTol,
-        double epsTol) {
+    double marginalize(const
+        aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>& Jt, size_t j,
+        Eigen::MatrixXd& NS, Eigen::MatrixXd& CS, Eigen::MatrixXd& Sigma,
+        Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega, double normTol, double
+        epsTol) {
       // init cholmod
       cholmod_common cholmod;
       cholmod_l_start(&cholmod);
 
       // convert to cholmod_sparse
       cholmod_sparse JtCs;
-      const_cast<aslam::backend::CompressedColumnMatrix<ssize_t>&>(Jt).
+      const_cast<aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&>(Jt).
         getView(&JtCs);
       cholmod_sparse* J = cholmod_l_transpose(&JtCs, 1, &cholmod);
       if (J == NULL) {
@@ -147,7 +149,7 @@ namespace aslam {
       }
 
       // extract the part corresponding to the state/landmarks/...
-      ssize_t* colIndices = new ssize_t[j];
+      std::ptrdiff_t* colIndices = new std::ptrdiff_t[j];
       for (size_t i = 0; i < j; ++i)
        colIndices[i] = i;
       cholmod_sparse* J_x = cholmod_l_submatrix(J, NULL, -1, colIndices, j, 1,
@@ -161,7 +163,7 @@ namespace aslam {
       }
 
       // extract the part corresponding to the calibration parameters
-      colIndices = new ssize_t[J->ncol - j];
+      colIndices = new std::ptrdiff_t[J->ncol - j];
       for (size_t i = j; i < J->ncol; ++i)
        colIndices[i - j] = i;
       cholmod_sparse* J_theta = cholmod_l_submatrix(J, NULL, -1, colIndices,
@@ -312,7 +314,7 @@ namespace aslam {
       size_t nrank = OmegaScaled.cols();
       const Eigen::VectorXd& SScaled = svdScaled.singularValues();
       const double tol = OmegaScaled.rows() * SScaled(0) * epsTol;
-      for (ssize_t i = OmegaScaled.cols() - 1; i > 0; --i) {
+      for (std::ptrdiff_t i = OmegaScaled.cols() - 1; i > 0; --i) {
         if (SScaled(i) > tol)
           break;
         else

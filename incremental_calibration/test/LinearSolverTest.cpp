@@ -21,30 +21,82 @@
   */
 
 #include <cstddef>
+#include <iostream>
+#include <iomanip>
 
 #include <gtest/gtest.h>
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 #include <cholmod.h>
-
-#include <aslam/backend/CompressedColumnMatrix.hpp>
+#include <SuiteSparseQR.hpp>
 
 #include "aslam/calibration/core/LinearSolver.h"
 #include "aslam/calibration/algorithms/linalg.h"
+#include "aslam/calibration/base/Timestamp.h"
 
 TEST(AslamCalibrationTestSuite, testLinearSolver) {
-  aslam::calibration::LinearSolver linearSolver;
   Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 30);
   const Eigen::VectorXd x = Eigen::VectorXd::Random(30);
   const Eigen::VectorXd b = A * x;
-  aslam::backend::CompressedColumnMatrix<std::ptrdiff_t> A_CCM;
-  A_CCM.fromDense(A);
-  cholmod_sparse A_CS;
-  A_CCM.getView(&A_CS);
+  cholmod_common cholmod;
+  cholmod_l_start(&cholmod);
+  cholmod_sparse* A_CS = aslam::calibration::eigenDenseToCholmodSparseCopy(A,
+    &cholmod);
   cholmod_dense b_CD;
   aslam::calibration::eigenDenseToCholmodDenseView(b, &b_CD);
   Eigen::VectorXd x_est;
-  linearSolver.solve(&A_CS, &b_CD, 29, x_est);
-  ASSERT_NEAR((b - A * x_est).norm(), 0, 1e-9);
+//  std::cout << "SVD-SPQR solver" << std::endl;
+  double before, after, error;
+  aslam::calibration::LinearSolver linearSolver;
+  for (std::ptrdiff_t i = 1; i < x.size(); ++i) {
+    before = aslam::calibration::Timestamp::now();
+    linearSolver.solve(A_CS, &b_CD, i, x_est);
+    after = aslam::calibration::Timestamp::now();
+    error = (b - A * x_est).norm();
+//    std::cout << std::fixed << std::setprecision(18) << "noscale: " << "error: "
+//      << error << " est_diff: " << (x - x_est).norm() << " time: "
+//      << after - before << std::endl;
+    ASSERT_NEAR(error, 0, 1e-9);
+    linearSolver.getOptions().columnScaling = true;
+    before = aslam::calibration::Timestamp::now();
+    linearSolver.solve(A_CS, &b_CD, i, x_est);
+    after = aslam::calibration::Timestamp::now();
+    error = (b - A * x_est).norm();
+//    std::cout << std::fixed << std::setprecision(18) << "onscale: " << "error: "
+//      << error << " est_diff: " << (x - x_est).norm() << " time: "
+//      << after - before << std::endl;
+    linearSolver.getOptions().columnScaling = false;
+    ASSERT_NEAR(error, 0, 1e-9);
+  }
+//  std::cout << "SVD solver" << std::endl;
+  before = aslam::calibration::Timestamp::now();
+  const Eigen::JacobiSVD<Eigen::MatrixXd> svd(A,
+    Eigen::ComputeThinU | Eigen::ComputeThinV);
+  x_est = svd.solve(b);
+  after = aslam::calibration::Timestamp::now();
+  error = (b - A * x_est).norm();
+//  std::cout << std::fixed << std::setprecision(18) << "error: " << error
+//    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
+//    << std::endl;
+//  std::cout << "SPQR solver" << std::endl;
+  before = aslam::calibration::Timestamp::now();
+  SuiteSparseQR_factorization<double>* factor = SuiteSparseQR_factorize<double>(
+    SPQR_ORDERING_BEST, SPQR_DEFAULT_TOL, A_CS, &cholmod);
+  cholmod_dense* Qtb = SuiteSparseQR_qmult<double>(SPQR_QTX, factor, &b_CD,
+    &cholmod);
+  cholmod_dense* x_est_cd = SuiteSparseQR_solve<double>(SPQR_RETX_EQUALS_B,
+    factor, Qtb, &cholmod);
+  cholmod_l_free_dense(&Qtb, &cholmod);
+  aslam::calibration::cholmodDenseToEigenDenseCopy(x_est_cd, x_est);
+  cholmod_l_free_dense(&x_est_cd, &cholmod);
+  SuiteSparseQR_free(&factor, &cholmod);
+  after = aslam::calibration::Timestamp::now();
+  error = (b - A * x_est).norm();
+//  std::cout << std::fixed << std::setprecision(18) << "error: " << error
+//    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
+//    << std::endl;
+  cholmod_l_free_sparse(&A_CS, &cholmod);
+  cholmod_l_finish(&cholmod);
 }

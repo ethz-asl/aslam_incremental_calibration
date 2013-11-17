@@ -21,6 +21,7 @@
   */
 
 #include <cmath>
+#include <cstddef>
 
 #include <vector>
 
@@ -57,14 +58,14 @@ TEST(AslamCalibrationTestSuite, testAlgorithms) {
     OutOfBoundException<size_t>);
   Eigen::MatrixXd J = Eigen::MatrixXd::Random(100, 10);
   Eigen::MatrixXd JCov1 = (J.transpose() * J).inverse();
-  Cholmod<ssize_t> cholmod;
-  CompressedColumnMatrix<ssize_t> JTransposeSparse;
+  Cholmod<std::ptrdiff_t> cholmod;
+  CompressedColumnMatrix<std::ptrdiff_t> JTransposeSparse;
   JTransposeSparse.fromDense(J.transpose());
   cholmod_sparse JTransposeSparseCholmod;
   JTransposeSparse.getView(&JTransposeSparseCholmod);
   cholmod_sparse* RFactorSparseCholmod;
   cholmod.getR(&JTransposeSparseCholmod, &RFactorSparseCholmod);
-  CompressedColumnMatrix<ssize_t> RFactorSparse;
+  CompressedColumnMatrix<std::ptrdiff_t> RFactorSparse;
   RFactorSparse.fromCholmodSparse(RFactorSparseCholmod);
   cholmod.free(RFactorSparseCholmod);
   Eigen::MatrixXd RFactor;

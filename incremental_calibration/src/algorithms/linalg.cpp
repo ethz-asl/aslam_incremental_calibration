@@ -18,6 +18,10 @@
 
 #include "aslam/calibration/algorithms/linalg.h"
 
+#include <cmath>
+
+#include <algorithm>
+
 #include <Eigen/Dense>
 
 #include <cholmod.h>
@@ -177,6 +181,59 @@ namespace aslam {
       out->dtype = CHOLMOD_DOUBLE;
     }
 
+    cholmod_dense* eigenDenseToCholmodDenseCopy(const Eigen::VectorXd& in,
+        cholmod_common* cholmod) {
+      cholmod_dense* out = cholmod_l_allocate_dense(in.size(), 1, in.size(),
+        CHOLMOD_REAL, cholmod);
+      if (out == NULL)
+        throw InvalidOperationException("eigenDenseToCholmodDenseCopy(): "
+          "cholmod_l_allocate_dense failed");
+      double* out_val = reinterpret_cast<double*>(out->x);
+      const double* in_val = in.data();
+      std::copy(in_val, in_val + in.size(), out_val);
+      return out;
+    }
+
+    void cholmodDenseToEigenDenseCopy(const cholmod_dense* in, Eigen::VectorXd&
+        out) {
+      if (in == NULL)
+        throw InvalidOperationException("cholmodDenseToEigenDenseCopy(): "
+          "input matrix is null");
+      out.resize(in->nrow);
+      const double* in_val = reinterpret_cast<const double*>(in->x);
+      std::copy(in_val, in_val + in->nrow, out.data());
+    }
+
+    cholmod_sparse* eigenDenseToCholmodSparseCopy(const Eigen::MatrixXd& in,
+        cholmod_common* cholmod, double eps) {
+      size_t nzmax = 0;
+      for (std::ptrdiff_t i = 0; i < in.rows(); ++i)
+        for (std::ptrdiff_t j = 0; j < in.cols(); ++j)
+          if (std::fabs(in(i, j)) > eps)
+            nzmax++;
+      cholmod_sparse* out = cholmod_l_allocate_sparse(in.rows(), in.cols(),
+        nzmax, 1, 1, 0, CHOLMOD_REAL, cholmod);
+      if (out == NULL)
+        throw InvalidOperationException("eigenDenseToCholmodSparseCopy(): "
+          "cholmod_l_allocate_sparse failed");
+      std::ptrdiff_t* row_ind = reinterpret_cast<std::ptrdiff_t*>(out->i);
+      std::ptrdiff_t* col_ptr = reinterpret_cast<std::ptrdiff_t*>(out->p);
+      double* values = reinterpret_cast<double*>(out->x);
+      std::ptrdiff_t rowIt = 0;
+      std::ptrdiff_t colIt = 1;
+      for (std::ptrdiff_t c = 0; c < in.cols(); ++c) {
+        for (std::ptrdiff_t r = 0; r < in.rows(); ++r)
+          if (std::fabs(in(r, c)) > eps) {
+            values[rowIt] = in(r, c);
+            row_ind[rowIt] = r;
+            rowIt++;
+          }
+        col_ptr[colIt] = rowIt;
+        colIt++;
+      }
+      return out;
+    }
+
     std::ptrdiff_t estimateNumericalRank(const Eigen::VectorXd& sv, double
         tol) {
       std::ptrdiff_t nrank = sv.size();
@@ -191,6 +248,10 @@ namespace aslam {
 
     double rankTol(const Eigen::VectorXd& sv, double eps) {
       return sv(0) * eps;
+    }
+
+    double qrTol(cholmod_sparse* A, double eps) {
+      return SPQR_DEFAULT_TOL;
     }
 
     void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
