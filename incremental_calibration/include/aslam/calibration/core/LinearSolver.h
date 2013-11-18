@@ -34,6 +34,7 @@
 
 #include <Eigen/Core>
 
+#include <aslam/backend/CompressedColumnJacobianTransposeBuilder.hpp>
 #include <aslam/backend/LinearSystemSolver.hpp>
 
 template <typename Entry> struct SuiteSparseQR_factorization;
@@ -70,16 +71,25 @@ namespace aslam {
         Options() :
             columnScaling(false),
             epsNorm(std::numeric_limits<double>::epsilon()),
-            epsRank(std::numeric_limits<double>::epsilon()),
-            epsQR(std::numeric_limits<double>::epsilon()) {}
+            epsSVD(std::numeric_limits<double>::epsilon()),
+            epsQR(std::numeric_limits<double>::epsilon()),
+            svdTol(-1),
+            qrTol(-1),
+            verbose(false) {}
         /// Perform column scaling/normalization
         bool columnScaling;
         /// Epsilon for when to consider an element being zero in the norm
         double epsNorm;
-        /// Epsilon for numerical rank tolerance
-        double epsRank;
+        /// Epsilon for SVD numerical rank
+        double epsSVD;
         /// Epsilon for QR tolerance computation
         double epsQR;
+        /// Fixed tolerance for SVD numerical rank
+        double svdTol;
+        /// Fixed tolerance for QR
+        double qrTol;
+        /// Verbose mode
+        bool verbose;
       };
       /// Self type
       typedef LinearSolver Self;
@@ -112,7 +122,7 @@ namespace aslam {
       /// Build the system of equations assuming things have been set
       virtual void buildSystem(size_t numThreads, bool useMEstimator);
       /// Solve the system of equations assuming things have been set
-      virtual bool solveSystem(Eigen::VectorXd& x);
+      virtual bool solveSystem(Eigen::VectorXd& dx);
       /// Helper function for dog leg implementation / steepest descent solution
       virtual double rhsJtJrhs();
       /** 
@@ -127,8 +137,8 @@ namespace aslam {
        */
       void solve(cholmod_sparse* A, cholmod_dense* b, std::ptrdiff_t j,
         Eigen::VectorXd& x);
-      /// Clear the existing symbolic factorization
-      void clearFactorization();
+      /// Clear the cached variables
+      void clear();
       /** @}
         */
 
@@ -141,6 +151,20 @@ namespace aslam {
       Options& getOptions();
       /// Returns the name of the solver
       virtual std::string name() const;
+      /// Returns the last SVD rank
+      std::ptrdiff_t getSVDRank() const;
+      /// Returns the last SVD rank deficiency
+      std::ptrdiff_t getSVDRankDeficiency() const;
+      /// Returns the last gap in the singular values at the rank
+      double getSvGap() const;
+      /// Returns the last QR rank
+      std::ptrdiff_t getQRRank() const;
+      /// Returns the last QR rank deficiency
+      std::ptrdiff_t getQRRankDeficiency() const;
+      /// Returns the marginalization start index
+      std::ptrdiff_t getMargStartIndex() const;
+      /// Sets the marginalization start index
+      void setMargStartIndex(std::ptrdiff_t index);
       /** @}
         */
 
@@ -165,6 +189,17 @@ namespace aslam {
       cholmod_common _cholmod;
       /// Caching factorization if needed
       SuiteSparseQR_factorization<double>* _factor;
+      /// Caching last estimated numerical rank for SVD
+      std::ptrdiff_t _SVDRank;
+      /// Caching last gap in estimated singular values at the rank
+      double _svGap;
+      /// Caching last estimated numerical rank deficiency for SVD
+      std::ptrdiff_t _SVDRankDeficiency;
+      /// Jacobian builder
+      aslam::backend::CompressedColumnJacobianTransposeBuilder<std::ptrdiff_t>
+        _jacobianBuilder;
+      /// Marginalization start index
+      std::ptrdiff_t _margStartIndex;
       /** @}
         */
 

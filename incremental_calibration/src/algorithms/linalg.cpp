@@ -26,6 +26,7 @@
 
 #include <cholmod.h>
 #include <SuiteSparseQR.hpp>
+#include <spqr.hpp>
 
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
@@ -206,6 +207,9 @@ namespace aslam {
 
     cholmod_sparse* eigenDenseToCholmodSparseCopy(const Eigen::MatrixXd& in,
         cholmod_common* cholmod, double eps) {
+      if (cholmod == NULL)
+        throw InvalidOperationException("eigenDenseToCholmodSparseCopy(): "
+          "cholmod is null");
       size_t nzmax = 0;
       for (std::ptrdiff_t i = 0; i < in.rows(); ++i)
         for (std::ptrdiff_t j = 0; j < in.cols(); ++j)
@@ -247,11 +251,27 @@ namespace aslam {
     }
 
     double rankTol(const Eigen::VectorXd& sv, double eps) {
-      return sv(0) * eps;
+      if (!sv.size())
+        throw InvalidOperationException("rankTol(): empty sv");
+      return sv(0) * eps * sv.size();
     }
 
-    double qrTol(cholmod_sparse* A, double eps) {
-      return SPQR_DEFAULT_TOL;
+    double qrTol(cholmod_sparse* A, cholmod_common* cholmod, double eps) {
+      if (A == NULL)
+        throw InvalidOperationException("qrTol(): input matrix is null");
+      if (cholmod == NULL)
+        throw InvalidOperationException("qrTol(): cholmod is null");
+      return 20 * (A->nrow + A->ncol) * eps *
+        spqr_maxcolnorm<double>(A, cholmod);
+    }
+
+    double svGap(const Eigen::VectorXd& sv, std::ptrdiff_t rank) {
+      if (rank > sv.size() || rank <= 0)
+        throw InvalidOperationException("svGap(): inconsistent rank");
+      if (rank < sv.size())
+        return sv(rank - 1) / sv(rank);
+      else
+        return std::numeric_limits<double>::infinity();
     }
 
     void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
@@ -387,13 +407,20 @@ namespace aslam {
       Eigen::MatrixXd OmegaDense;
       cholmodSparseToEigenDenseCopy(Omega, OmegaDense);
       const Eigen::JacobiSVD<Eigen::MatrixXd> svd(OmegaDense,
-        Eigen::ComputeThinU | Eigen::ComputeThinV);
+        Eigen::ComputeThinU);
       U = svd.matrixU();
       sv = svd.singularValues();
     }
 
     void solveSVD(const cholmod_dense* b, const Eigen::VectorXd& sv, const
         Eigen::MatrixXd& U, std::ptrdiff_t rank, Eigen::VectorXd& x) {
+      if (b == NULL)
+        throw InvalidOperationException("solveSVD(): b is null");
+      if (rank > U.cols())
+        throw InvalidOperationException("solveSVD(): inconsistent rank");
+      if (U.cols() != sv.rows() ||
+          U.rows() != static_cast<std::ptrdiff_t>(b->nrow))
+        throw InvalidOperationException("solveSVD(): inconsistent matrices");
       Eigen::Map<const Eigen::VectorXd> bEigen(
         reinterpret_cast<const double*>(b->x), b->nrow);
       x = U.leftCols(rank) * sv.head(rank).asDiagonal().inverse() *

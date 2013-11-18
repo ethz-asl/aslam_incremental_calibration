@@ -169,10 +169,21 @@ namespace aslam {
      * 
      * \return QR tolerance
      * \param[in] A matrix on which QR is applied
+     * \param[in] cholmod cholmod workspace
      * \param[in] eps machine precision
      */
-    double qrTol(cholmod_sparse* A, double eps =
+    double qrTol(cholmod_sparse* A, cholmod_common* cholmod, double eps =
       std::numeric_limits<double>::epsilon());
+    /** 
+     * This function computes the gap in the singular values for a selected
+     * rank.
+     * \brief Singular values gap estimation
+     * 
+     * \return gap in the singular values for a rank
+     * \param[in] sv vector of singular values
+     * \param[in] rank estimated numerical rank
+     */
+    double svGap(const Eigen::VectorXd& sv, std::ptrdiff_t rank);
     /** 
      * This function returns the matrix where the elements on the left side
      * have been marginalized out.
