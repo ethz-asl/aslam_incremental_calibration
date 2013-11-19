@@ -33,9 +33,9 @@
 #include <sm/kinematics/rotations.hpp>
 #include <sm/kinematics/three_point_methods.hpp>
 
+#include <sm/BoostPropertyTree.hpp>
+
 #include <aslam/backend/Optimizer2Options.hpp>
-#include <aslam/backend/SparseQrLinearSystemSolver.hpp>
-#include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 
@@ -46,6 +46,7 @@
 #include <aslam/calibration/geometry/Transformation.h>
 #include <aslam/calibration/base/Timestamp.h>
 #include <aslam/calibration/algorithms/marginalize.h>
+#include <aslam/calibration/core/LinearSolver.h>
 
 #include "aslam/calibration/2dlrf/utils.h"
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
@@ -54,14 +55,23 @@
 using namespace aslam::calibration;
 using namespace aslam::backend;
 using namespace sm::kinematics;
+using namespace sm;
 
 int main(int argc, char** argv) {
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " <conf_file>" << std::endl;
+    return -1;
+  }
+
+  // load configuration file
+  BoostPropertyTree propertyTree;
+  propertyTree.loadXml(argv[1]);
 
   // steps to simulate
-  const size_t steps = 5000;
+  const size_t steps = propertyTree.getInt("lrf/problem/steps");
 
   // timestep size
-  const double T = 0.1;
+  const double T = propertyTree.getDouble("lrf/problem/timestep");
 
   // true state
   std::vector<Eigen::Vector3d > x_true;
@@ -73,8 +83,10 @@ int main(int argc, char** argv) {
 
   // true control input
   std::vector<Eigen::Vector3d > u_true;
-  const double sineWaveAmplitude = 0.0;
-  const double sineWaveFrequency = 0.01;
+  const double sineWaveAmplitude = propertyTree.getDouble(
+    "lrf/problem/sineWaveAmplitude");
+  const double sineWaveFrequency = propertyTree.getDouble(
+    "lrf/problem/sineWaveFrequency");
   genSineWavePath(u_true, steps, sineWaveAmplitude, sineWaveFrequency, T);
 
   // measured control input
@@ -82,11 +94,13 @@ int main(int argc, char** argv) {
   u_noise.reserve(steps);
 
   // number of landmarks
-  const size_t nl = 17;
+  const size_t nl = propertyTree.getInt("lrf/problem/numLandmarks");
 
   // playground size
-  const Eigen::Vector2d min(0, 0);
-  const Eigen::Vector2d max(30, 30);
+  const Eigen::Vector2d min(propertyTree.getDouble("lrf/problem/groundMinX"),
+    propertyTree.getDouble("lrf/problem/groundMinY"));
+  const Eigen::Vector2d max(propertyTree.getDouble("lrf/problem/groundMaxX"),
+    propertyTree.getDouble("lrf/problem/groundMaxY"));
 
   // bearing measurements
   std::vector<std::vector<double> > b;
@@ -100,24 +114,34 @@ int main(int argc, char** argv) {
 
   // covariance matrix for motion model
   Eigen::Matrix3d Q = Eigen::Matrix3d::Zero();
-  Q(0, 0) = 0.00044; Q(1, 1) = 1e-6; Q(2, 2) = 0.00082;
+  Q(0, 0) = propertyTree.getDouble("lrf/problem/motion/sigma2_x");
+  Q(1, 1) = propertyTree.getDouble("lrf/problem/motion/sigma2_y");
+  Q(2, 2) = propertyTree.getDouble("lrf/problem/motion/sigma2_t");
 
   // covariance matrix for observation model
   Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
-  R(0, 0) = 0.00090; R(1, 1) = 0.00067;
+  R(0, 0) = propertyTree.getDouble("lrf/problem/observation/sigma2_r");
+  R(1, 1) = propertyTree.getDouble("lrf/problem/observation/sigma2_b");
 
   // landmark positions
   std::vector<Eigen::Vector2d > x_l;
   UniformDistribution<double, 2>(min, max).getSamples(x_l, nl);
 
   // true calibration parameters
-  const Eigen::Vector3d Theta(0.219, 0.1, 0.78);
+  const Eigen::Vector3d Theta(propertyTree.getDouble("lrf/problem/thetaTrue/x"),
+    propertyTree.getDouble("lrf/problem/thetaTrue/y"),
+    propertyTree.getDouble("lrf/problem/thetaTrue/t"));
 
   // guessed calibration parameters
-  const Eigen::Vector3d Theta_hat(0.23, 0.11, 0.8);
+  const Eigen::Vector3d Theta_hat(
+    propertyTree.getDouble("lrf/problem/thetaHat/x"),
+    propertyTree.getDouble("lrf/problem/thetaHat/y"),
+    propertyTree.getDouble("lrf/problem/thetaHat/t"));
 
   // initial state
-  const Eigen::Vector3d x_0(1.0, 1.0, M_PI / 4);
+  const Eigen::Vector3d x_0(propertyTree.getDouble("lrf/problem/x0/x"),
+    propertyTree.getDouble("lrf/problem/x0/y"),
+    propertyTree.getDouble("lrf/problem/x0/t"));
   x_true.push_back(x_0);
   x_odom.push_back(x_0);
   u_noise.push_back(Eigen::Vector3d::Zero());
@@ -206,39 +230,62 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Calibration before: " << *dv_Theta << std::endl;
-
-  Optimizer2Options options;
-  options.verbose = true;
-  options.linearSystemSolver = boost::make_shared<SparseQrLinearSystemSolver>();
-  options.trustRegionPolicy =
-    boost::make_shared<GaussNewtonTrustRegionPolicy>();
-  SparseQRLinearSolverOptions linearSolverOptions;
-  linearSolverOptions.colNorm = true;
-  linearSolverOptions.qrTol = 0.02;
-  Optimizer2 optimizer(options);
-  optimizer.getSolver<SparseQrLinearSystemSolver>()
-    ->setOptions(linearSolverOptions);
+  Optimizer2 optimizer(PropertyTree(propertyTree, "lrf/estimator/optimizer"),
+    boost::make_shared<LinearSolver>(),
+    boost::make_shared<GaussNewtonTrustRegionPolicy>());
   optimizer.setProblem(problem);
+  optimizer.initialize();
+  const size_t dim = problem->getGroupDim(2);
+  optimizer.getSolver<LinearSolver>()->setMargStartIndex(
+    optimizer.getSolver<LinearSolver>()->JCols() - dim);
+  optimizer.getSolver<LinearSolver>()->getOptions().verbose = true;
+  optimizer.getSolver<LinearSolver>()->getOptions().epsSVD = 1e-3;
+  optimizer.getSolver<LinearSolver>()->getOptions().columnScaling = true;
   const double before = Timestamp::now();
   optimizer.optimize();
   const double after = Timestamp::now();
   std::cout << "Elapsed time [s]: " << after - before << std::endl;
   std::cout << "Calibration after: " << *dv_Theta << std::endl;
-  const size_t dim = problem->getGroupDim(2);
-  const size_t numCols = optimizer.getSolver<SparseQrLinearSystemSolver>()->
-    getJacobianTranspose().rows();
-  Eigen::MatrixXd NS, CS, Sigma, SigmaP, Omega;
-  marginalize(
-    optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose(),
-    numCols - dim, NS, CS, Sigma, SigmaP, Omega);
-  std::cout << "Sigma: " << std::endl << std::fixed << std::setprecision(18)
-    << Sigma << std::endl;
-  std::cout << "SigmaP: " << std::endl << std::fixed << std::setprecision(18)
-    << SigmaP << std::endl;
-  std::cout << "NS: " << std::endl << std::fixed << std::setprecision(18)
-    << NS << std::endl;
-  std::cout << "CS: " << std::endl << std::fixed << std::setprecision(18)
-    << CS << std::endl;
+  std::cout << "Singular values (scaled): "
+    << optimizer.getSolver<LinearSolver>()
+    ->getSingularValues().transpose() << std::endl;
+  std::cout << "Null space (scaled): " << std::endl
+    << optimizer.getSolver<LinearSolver>()->getNullSpace() << std::endl;
+  std::cout << "Column space (scaled): " << std::endl
+    << optimizer.getSolver<LinearSolver>()->getColumnSpace() << std::endl;
+  optimizer.getSolver<LinearSolver>()->analyzeMarginal();
+  std::cout << "SVD rank: " << optimizer.getSolver<LinearSolver>()->getSVDRank()
+    << std::endl;
+  std::cout << "SVD rank deficiency: " << optimizer.getSolver<LinearSolver>()
+    ->getSVDRankDeficiency() << std::endl;
+  std::cout << "SVD tolerance: " << optimizer.getSolver<LinearSolver>()
+    ->getSVDTolerance() << std::endl;
+  std::cout << "Singular values: " << optimizer.getSolver<LinearSolver>()
+    ->getSingularValues().transpose() << std::endl;
+  std::cout << "QR rank: " << optimizer.getSolver<LinearSolver>()->getQRRank()
+    << std::endl;
+  std::cout << "QR rank deficiency: " << optimizer.getSolver<LinearSolver>()
+    ->getQRRankDeficiency() << std::endl;
+  std::cout << "QR tolerance: " << optimizer.getSolver<LinearSolver>()
+    ->getQRTolerance() << std::endl;
+  std::cout << "Null space: " << std::endl
+    << optimizer.getSolver<LinearSolver>()->getNullSpace() << std::endl;
+  std::cout << "Column space: " << std::endl
+    << optimizer.getSolver<LinearSolver>()->getColumnSpace() << std::endl;
+  std::cout << "Covariance: " << std::endl
+    << optimizer.getSolver<LinearSolver>()->getCovariance() << std::endl;
+  std::cout << "Projected covariance: " << std::endl
+    << optimizer.getSolver<LinearSolver>()->getProjectedCovariance()
+    << std::endl;
+  std::cout << "Peak memory usage (MB): " << optimizer.getSolver<LinearSolver>()
+    ->getPeakMemoryUsage() / 1024.0 / 1024.0 << std::endl;
+  std::cout << "Memory usage (MB): " << optimizer.getSolver<LinearSolver>()
+    ->getMemoryUsage() / 1024.0 / 1024.0 << std::endl;
+  std::cout << "Flop count: " << optimizer.getSolver<LinearSolver>()
+    ->getNumFlops() << std::endl;
+  std::cout << "Log2sum of singular values: "
+    << optimizer.getSolver<LinearSolver>()->getSingularValuesLog2Sum()
+    << std::endl;
 
   // output results to file
   std::ofstream x_true_log("x_true.txt");

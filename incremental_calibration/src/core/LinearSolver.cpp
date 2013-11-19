@@ -18,7 +18,10 @@
 
 #include "aslam/calibration/core/LinearSolver.h"
 
+#include <cmath>
+
 #include <algorithm>
+#include <iostream>
 
 #include <SuiteSparseQR.hpp>
 
@@ -40,20 +43,24 @@ namespace aslam {
     LinearSolver::LinearSolver(const Options& options) :
         _options(options),
         _factor(NULL),
-        _SVDRank(-1),
+        _svdRank(-1),
         _svGap(std::numeric_limits<double>::infinity()),
-        _SVDRankDeficiency(-1),
-        _margStartIndex(-1) {
+        _svdRankDeficiency(-1),
+        _margStartIndex(-1),
+        _svdTolerance(-1) {
       cholmod_l_start(&_cholmod);
+      _cholmod.SPQR_grain = 16; // maybe useless
     }
 
     LinearSolver::LinearSolver(const sm::PropertyTree& config) :
         _factor(NULL),
-        _SVDRank(-1),
+        _svdRank(-1),
         _svGap(std::numeric_limits<double>::infinity()),
-        _SVDRankDeficiency(-1),
-        _margStartIndex(-1) {
+        _svdRankDeficiency(-1),
+        _margStartIndex(-1),
+        _svdTolerance(-1) {
       cholmod_l_start(&_cholmod);
+      _cholmod.SPQR_grain = 16; // maybe useless
       _options.columnScaling = config.getBool("columnScaling",
         _options.columnScaling);
       _options.epsNorm = config.getDouble("epsNorm", _options.epsNorm);
@@ -62,11 +69,15 @@ namespace aslam {
       _options.svdTol = config.getDouble("svdTol", _options.svdTol);
       _options.qrTol = config.getDouble("qrTol", _options.qrTol);
       _options.verbose = config.getBool("verbose", _options.verbose);
+      // TODO: ideally, use constructor delegation, not available for now
     }
 
     LinearSolver::~LinearSolver() {
       clear();
       cholmod_l_finish(&_cholmod);
+      if (_options.verbose && getMemoryUsage())
+        std::cerr << "LinearSolver::~LinearSolver(): cholmod memory leak"
+          << std::endl;
     }
 
 /******************************************************************************/
@@ -86,11 +97,11 @@ namespace aslam {
     }
 
     std::ptrdiff_t LinearSolver::getSVDRank() const {
-      return _SVDRank;
+      return _svdRank;
     }
 
     std::ptrdiff_t LinearSolver::getSVDRankDeficiency() const {
-      return _SVDRankDeficiency;
+      return _svdRankDeficiency;
     }
 
     double LinearSolver::getSvGap() const {
@@ -119,6 +130,79 @@ namespace aslam {
       _margStartIndex = index;
     }
 
+    const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
+        LinearSolver::getJacobianTranspose() const {
+      return _jacobianBuilder.J_transpose();
+    }
+
+    double LinearSolver::getQRTolerance() const {
+      if (_factor && _factor->QRsym && _factor->QRnum)
+        return _factor->tol;
+      else
+        return SPQR_DEFAULT_TOL;
+    }
+
+    double LinearSolver::getSVDTolerance() const {
+      return _svdTolerance;
+    }
+
+    const Eigen::VectorXd& LinearSolver::getSingularValues() const {
+      return _singularValues;
+    }
+
+    const Eigen::MatrixXd& LinearSolver::getMatrixU() const {
+      return _matrixU;
+    }
+
+    Eigen::MatrixXd LinearSolver::getNullSpace() const {
+      if (_svdRank != -1 && _svdRank <= _matrixU.cols())
+        return _matrixU.rightCols(_matrixU.cols() - _svdRank);
+      else
+        return Eigen::MatrixXd(0, 0);
+    }
+
+    Eigen::MatrixXd LinearSolver::getColumnSpace() const {
+      if (_svdRank != -1 && _svdRank <= _matrixU.cols())
+        return _matrixU.leftCols(_svdRank);
+      else
+        return Eigen::MatrixXd(0, 0);
+    }
+
+    Eigen::MatrixXd LinearSolver::getCovariance() const {
+      if (_svdRank != -1 && _svdRank <= _matrixU.cols())
+        return _matrixU.leftCols(_svdRank) *
+          _singularValues.head(_svdRank).asDiagonal().inverse() *
+          _matrixU.leftCols(_svdRank).adjoint();
+      else
+        return Eigen::MatrixXd(0, 0);
+    }
+
+    Eigen::MatrixXd LinearSolver::getProjectedCovariance() const {
+      if (_svdRank != -1)
+        return _singularValues.head(_svdRank).asDiagonal().inverse();
+      else
+        return Eigen::MatrixXd(0, 0);
+    }
+
+    double LinearSolver::getSingularValuesLog2Sum() const {
+      if (_svdRank != -1)
+        return _singularValues.head(_svdRank).array().log().sum() / std::log(2);
+      else
+        return 0;
+    }
+
+    size_t LinearSolver::getPeakMemoryUsage() const {
+      return _cholmod.memory_usage;
+    }
+
+    size_t LinearSolver::getMemoryUsage() const {
+      return _cholmod.memory_inuse;
+    }
+
+    double LinearSolver::getNumFlops() const {
+      return _cholmod.SPQR_xstat[0];
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -140,6 +224,14 @@ namespace aslam {
       bool status = true;
       try {
         solve(J_CS, &e_CD, _margStartIndex, dx);
+        if (_options.verbose) {
+          std::cout << "SVD rank: " << getSVDRank() << std::endl;
+          std::cout << "SVD rank deficiency: " << getSVDRankDeficiency()
+            << std::endl;
+          std::cout << "QR rank: " << getQRRank() << std::endl;
+          std::cout << "QR rank deficiency: " << getQRRankDeficiency()
+            << std::endl;
+        }
       }
       catch (const OutOfBoundException<std::ptrdiff_t>& e) {
         if (_options.verbose)
@@ -152,6 +244,9 @@ namespace aslam {
         status = false;
       }
       catch (...) {
+        if (_options.verbose)
+          std::cerr << "LinearSolver::solveSystem(): unknown exception"
+            << std::endl;
         status = false;
       }
       cholmod_l_free_sparse(&J_CS, &_cholmod);
@@ -194,7 +289,8 @@ namespace aslam {
       }
       if (_factor && _factor->QRsym &&
           (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
-          _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol)))
+          _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
+          _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
         clear();
       if (!_factor) {
         _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
@@ -218,7 +314,15 @@ namespace aslam {
         throw InvalidOperationException("LinearSolver::solve(): "
           "SuiteSparseQR_numeric failed");
       }
-      cholmod_sparse* A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
+      cholmod_sparse* A_r;
+      try {
+        A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
+      }
+      catch (...) {
+        if (G_l)
+          cholmod_l_free_dense(&G_l, &_cholmod);
+        throw;
+      }
       cholmod_dense* G_r = NULL;
       if (_options.columnScaling) {
         try {
@@ -261,9 +365,7 @@ namespace aslam {
           cholmod_l_free_dense(&G_r, &_cholmod);
         throw;
       }
-      Eigen::VectorXd sv;
-      Eigen::MatrixXd U;
-      analyzeSVD(Omega, sv, U);
+      analyzeSVD(Omega, _singularValues, _matrixU);
       cholmod_l_free_sparse(&Omega, &_cholmod);
       cholmod_dense* b_r;
       try {
@@ -281,13 +383,13 @@ namespace aslam {
       }
       cholmod_l_free_sparse(&A_rt, &_cholmod);
       cholmod_l_free_sparse(&A_rtQ, &_cholmod);
-      const double svdTolerance = (_options.svdTol != -1) ? _options.svdTol :
-        rankTol(sv, _options.epsSVD);
-      _SVDRank = estimateNumericalRank(sv, svdTolerance);
-      _SVDRankDeficiency = sv.size() - _SVDRank;
-      _svGap = svGap(sv, _SVDRank);
+      _svdTolerance = (_options.svdTol != -1) ? _options.svdTol :
+        rankTol(_singularValues, _options.epsSVD);
+      _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
+      _svdRankDeficiency = _singularValues.size() - _svdRank;
+      _svGap = svGap(_singularValues, _svdRank);
       Eigen::VectorXd x_r;
-      solveSVD(b_r, sv, U, _SVDRank, x_r);
+      solveSVD(b_r, _singularValues, _matrixU, _svdRank, x_r);
       cholmod_l_free_dense(&b_r, &_cholmod);
       cholmod_dense* x_l;
       try {
@@ -321,14 +423,104 @@ namespace aslam {
       x.tail(x_r.size()) = x_r;
     }
 
+    void LinearSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
+      cholmod_sparse* A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
+      if (_factor && _factor->QRsym &&
+          (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
+          _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
+          _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
+        clear();
+      if (!_factor) {
+        _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
+          SPQR_DEFAULT_TOL, A_l, &_cholmod);
+        if (_factor == NULL) {
+          cholmod_l_free_sparse(&A_l, &_cholmod);
+          throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
+            "SuiteSparseQR_symbolic failed");
+        }
+      }
+      const double qrTolerance = (_options.qrTol != -1) ? _options.qrTol :
+        qrTol(A_l, &_cholmod, _options.epsQR);
+      const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
+        _factor, &_cholmod);
+      cholmod_l_free_sparse(&A_l, &_cholmod);
+      if (!status)
+        throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
+          "SuiteSparseQR_numeric failed");
+      cholmod_sparse* A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
+      cholmod_sparse* A_rt = cholmod_l_transpose(A_r, 1, &_cholmod);
+      if (A_rt == NULL) {
+        cholmod_l_free_sparse(&A_r, &_cholmod);
+        throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
+          "cholmod_l_transpose failed");
+      }
+      cholmod_sparse* Omega = NULL;
+      cholmod_sparse* A_rtQ = NULL;
+      try {
+        reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
+      }
+      catch (...) {
+        cholmod_l_free_sparse(&A_r, &_cholmod);
+        cholmod_l_free_sparse(&A_rt, &_cholmod);
+        throw;
+      }
+      cholmod_l_free_sparse(&A_r, &_cholmod);
+      cholmod_l_free_sparse(&A_rt, &_cholmod);
+      cholmod_l_free_sparse(&A_rtQ, &_cholmod);
+      analyzeSVD(Omega, _singularValues, _matrixU);
+      cholmod_l_free_sparse(&Omega, &_cholmod);
+      if (_svdRank == -1) {
+        _svdTolerance = (_options.svdTol != -1) ? _options.svdTol :
+          rankTol(_singularValues, _options.epsSVD);
+        _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
+        _svdRankDeficiency = _singularValues.size() - _svdRank;
+        _svGap = svGap(_singularValues, _svdRank);
+      }
+    }
+
+    bool LinearSolver::analyzeMarginal() {
+      aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>& Jt =
+        _jacobianBuilder.J_transpose();
+      cholmod_sparse Jt_CS;
+      Jt.getView(&Jt_CS);
+      cholmod_sparse* J_CS = cholmod_l_transpose(&Jt_CS, 1, &_cholmod);
+      if (J_CS == NULL)
+        return false;
+      bool status = true;
+      try {
+        analyzeMarginal(J_CS, _margStartIndex);
+      }
+      catch (const OutOfBoundException<std::ptrdiff_t>& e) {
+        if (_options.verbose)
+          std::cerr << e.what() << std::endl;
+        status = false;
+      }
+      catch (const InvalidOperationException& e) {
+        if (_options.verbose)
+          std::cerr << e.what() << std::endl;
+        status = false;
+      }
+      catch (...) {
+        if (_options.verbose)
+          std::cerr << "LinearSolver::analyzeMarginal(): unknown exception"
+            << std::endl;
+        status = false;
+      }
+      cholmod_l_free_sparse(&J_CS, &_cholmod);
+      return status;
+    }
+
     void LinearSolver::clear() {
       if (_factor) {
         SuiteSparseQR_free<double>(&_factor, &_cholmod);
         _factor = NULL;
       }
-      _SVDRank = -1;
+      _svdRank = -1;
       _svGap = std::numeric_limits<double>::infinity();
-      _SVDRankDeficiency = -1;
+      _svdRankDeficiency = -1;
+      _svdTolerance = -1;
+      _singularValues.resize(0);
+      _matrixU.resize(0, 0);
     }
 
   }

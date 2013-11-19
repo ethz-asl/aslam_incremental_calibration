@@ -2,7 +2,7 @@
   <problem>
     <steps>5000</steps>
     <timestep>0.1</timestep>
-    <sineWaveAmplitude>1.0</sineWaveAmplitude>
+    <sineWaveAmplitude>1</sineWaveAmplitude>
     <sineWaveFrequency>0.01</sineWaveFrequency>
     <numLandmarks>17</numLandmarks>
     <groundMinX>0</groundMinX>
@@ -46,8 +46,8 @@
       <convergenceDeltaX>1e-3</convergenceDeltaX>
       <maxIterations>20</maxIterations>
       <linearSolverMaximumFails>0</linearSolverMaximumFails>
-      <nThreads>4</nThreads>
-      <verbose>false</verbose>
+      <nThreads>8</nThreads>
+      <verbose>true</verbose>
       <linearSolver>
         <colNorm>true</colNorm>
         <normTol>1e-8</normTol>
