@@ -27,15 +27,13 @@
 
 #include <sm/PropertyTree.hpp>
 
-#include <aslam/backend/SparseQrLinearSystemSolver.hpp>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
-#include <aslam/backend/CompressedColumnMatrix.hpp>
 
+#include "aslam/calibration/core/LinearSolver.h"
 #include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 #include "aslam/calibration/base/Timestamp.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
-#include "aslam/calibration/algorithms/marginalize.h"
 
 namespace aslam {
   namespace calibration {
@@ -47,14 +45,21 @@ namespace aslam {
     IncrementalEstimator::IncrementalEstimator(size_t groupId,
         const Options& options, const LinearSolverOptions&
         linearSolverOptions, const OptimizerOptions& optimizerOptions) :
-        _problem(boost::make_shared<IncrementalOptimizationProblem>()),
-        _margGroupId(groupId),
-        _mi(0),
-        _svLogSum(0),
         _options(options),
+        _margGroupId(groupId),
         _optimizer(boost::make_shared<Optimizer>(optimizerOptions)),
-        _nRank(0),
-        _qrTol(0) {
+        _problem(boost::make_shared<IncrementalOptimizationProblem>()),
+        _mutualInformation(0),
+        _svLog2Sum(0),
+        _svdTolerance(0),
+        _qrTolerance(-1),
+        _svdRank(-1),
+        _svdRankDeficiency(-1),
+        _qrRank(-1),
+        _qrRankDeficiency(-1),
+        _peakMemoryUsage(0),
+        _memoryUsage(0),
+        _numFlops(0) {
       // create linear solver and trust region policy for the optimizer
       OptimizerOptions& optOptions = _optimizer->options();
       optOptions.linearSystemSolver =
@@ -68,10 +73,17 @@ namespace aslam {
     }
 
     IncrementalEstimator::IncrementalEstimator(const sm::PropertyTree& config) :
-        _mi(0),
-        _svLogSum(0),
-        _nRank(0),
-        _qrTol(0) {
+        _mutualInformation(0),
+        _svLog2Sum(0),
+        _svdTolerance(0),
+        _qrTolerance(-1),
+        _svdRank(-1),
+        _svdRankDeficiency(-1),
+        _qrRank(-1),
+        _qrRankDeficiency(-1),
+        _peakMemoryUsage(0),
+        _memoryUsage(0),
+        _numFlops(0) {
       // create the optimizer, linear solver, and trust region policy
       _optimizer = boost::make_shared<Optimizer>(
         sm::PropertyTree(config, "optimizer"),
@@ -84,10 +96,8 @@ namespace aslam {
       _optimizer->setProblem(_problem);
 
       // parse the options and set them
-      _options._miTol = config.getDouble("miTol", _options._miTol);
-      _options._normTol = config.getDouble("normTol", _options._normTol);
-      _options._epsTolSVD = config.getDouble("epsTolSVD", _options._epsTolSVD);
-      _options._verbose = config.getBool("verbose", _options._verbose);
+      _options.miTol = config.getDouble("miTol", _options.miTol);
+      _options.verbose = config.getBool("verbose", _options.verbose);
       _margGroupId = config.getInt("groupId");
     }
 
@@ -112,13 +122,12 @@ namespace aslam {
       return _options;
     }
 
-    const IncrementalEstimator::LinearSolverOptions&
-        IncrementalEstimator::getLinearSolverOptions() const {
+    const LinearSolverOptions& IncrementalEstimator::getLinearSolverOptions()
+        const {
       return _optimizer->getSolver<LinearSolver>()->getOptions();
     }
 
-    IncrementalEstimator::LinearSolverOptions&
-        IncrementalEstimator::getLinearSolverOptions() {
+    LinearSolverOptions& IncrementalEstimator::getLinearSolverOptions() {
       return _optimizer->getSolver<LinearSolver>()->getOptions();
     }
 
@@ -132,12 +141,12 @@ namespace aslam {
       return _optimizer->options();
     }
 
-    double IncrementalEstimator::getMutualInformation() const {
-      return _mi;
-    }
-
     size_t IncrementalEstimator::getMargGroupId() const {
       return _margGroupId;
+    }
+
+    double IncrementalEstimator::getMutualInformation() const {
+      return _mutualInformation;
     }
 
     const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
@@ -145,54 +154,60 @@ namespace aslam {
       return _optimizer->getSolver<LinearSolver>()->getJacobianTranspose();
     }
 
-    size_t IncrementalEstimator::getRank() const {
-      return _nRank;
+    std::ptrdiff_t IncrementalEstimator::getRank() const {
+      return _qrRank;
     }
 
-    size_t IncrementalEstimator::getRankDeficiency() const {
-      return _optimizer->getSolver<LinearSolver>()->
-        getJacobianTranspose().rows() - _nRank;
+    std::ptrdiff_t IncrementalEstimator::getRankDeficiency() const {
+      return _qrRankDeficiency;
     }
 
-    size_t IncrementalEstimator::getMarginalRank() const {
-      return _CS.cols();
+    std::ptrdiff_t IncrementalEstimator::getMarginalRank() const {
+      return _svdRank;
     }
 
-    size_t IncrementalEstimator::getMarginalRankDeficiency() const {
-      return _NS.cols();
+    std::ptrdiff_t IncrementalEstimator::getMarginalRankDeficiency() const {
+      return _svdRankDeficiency;
     }
 
-    double IncrementalEstimator::getQRTol() const {
-      return _qrTol;
+    double IncrementalEstimator::getSVDTolerance() const {
+      return _svdTolerance;
     }
 
-    size_t IncrementalEstimator::getCholmodMemoryUsage() const {
-      return _optimizer->getSolver<LinearSolver>()->getMemoryUsage();
+    double IncrementalEstimator::getQRTolerance() const {
+      return _qrTolerance;
+    }
+
+    size_t IncrementalEstimator::getPeakMemoryUsage() const {
+      return _peakMemoryUsage;
+    }
+
+    size_t IncrementalEstimator::getMemoryUsage() const {
+      return _memoryUsage;
+    }
+
+    double IncrementalEstimator::getNumFlops() const {
+      return _numFlops;
     }
 
     const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedNullSpace()
         const {
-      return _NS;
+      return _nullSpace;
     }
 
     const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedColumnSpace()
         const {
-      return _CS;
+      return _columnSpace;
     }
 
     const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedCovariance()
         const {
-      return _Sigma;
+      return _covariance;
     }
 
     const Eigen::MatrixXd&
         IncrementalEstimator::getProjectedMarginalizedCovariance() const {
-      return _SigmaP;
-    }
-
-    const Eigen::MatrixXd&
-        IncrementalEstimator::getMarginalizedInformationMatrix() const {
-      return _Omega;
+      return _projectedCovariance;
     }
 
 /******************************************************************************/
@@ -206,37 +221,57 @@ namespace aslam {
       // ensure marginalized design variables are well located
       orderMarginalizedDesignVariables();
 
+      // set the marginalization index of the linear solver
+      size_t JCols = 0;
+      for (auto it = _problem->getGroupsOrdering().cbegin();
+          it != _problem->getGroupsOrdering().cend(); ++it)
+        JCols += _problem->getGroupDim(*it);
+      const size_t dim = _problem->getGroupDim(_margGroupId);
+      auto linearSolver = _optimizer->getSolver<LinearSolver>();
+      linearSolver->setMargStartIndex(JCols - dim);
+
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
-      // return value
-      ReturnValue ret;
+      // analyze marginal system
+      linearSolver->analyzeMarginal();
 
-      // analyze marginalized system
-      const size_t dim = _problem->getGroupDim(_margGroupId);
-      const size_t numCols = getJacobianTranspose().rows();
-      _svLogSum =  marginalize(getJacobianTranspose(), numCols - dim, ret._NS,
-        ret._CS, ret._Sigma, ret._SigmaP, ret._Omega, _options._normTol,
-        _options._epsTolSVD);
-      _NS = ret._NS;
-      _CS = ret._CS;
-      _Sigma = ret._Sigma;
-      _SigmaP = ret._SigmaP;
-      _Omega = ret._Omega;
-      _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
-      _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
+      // retrieve informations from the linear solver
+      _mutualInformation = 0;
+      _svLog2Sum = linearSolver->getSingularValuesLog2Sum();
+      _nullSpace = linearSolver->getNullSpace();
+      _columnSpace = linearSolver->getColumnSpace();
+      _covariance = linearSolver->getCovariance();
+      _projectedCovariance = linearSolver->getProjectedCovariance();
+      _singularValues = linearSolver->getSingularValues();
+      _svdTolerance = linearSolver->getSVDTolerance();
+      _qrTolerance = linearSolver->getQRTolerance();
+      _svdRank = linearSolver->getSVDRank();
+      _svdRankDeficiency = linearSolver->getSVDRankDeficiency();
+      _qrRank = linearSolver->getQRRank();
+      _qrRankDeficiency = linearSolver->getQRRankDeficiency();
+      _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
+      _memoryUsage = linearSolver->getMemoryUsage();
+      _numFlops = linearSolver->getNumFlops();
 
       // update output structure
-      ret._batchAccepted = true;
-      ret._mi = 0.0;
-      ret._rank = _nRank;
-      ret._qrTol = _qrTol;
-      ret._numIterations = srv.iterations;
-      ret._JStart = srv.JStart;
-      ret._JFinal = srv.JFinal;
-      ret._cholmodMemoryUsage = getCholmodMemoryUsage();
-      ret._elapsedTime = Timestamp::now() - timeStart;
-
+      ReturnValue ret;
+      ret.batchAccepted = true;
+      ret.mutualInformation = 0.0;
+      ret.rank = _qrRank;
+      ret.rankDeficiency = _qrRankDeficiency;
+      ret.marginalRank = _svdRank;
+      ret.marginalRankDeficiency = _svdRankDeficiency;
+      ret.svdTolerance = _svdTolerance;
+      ret.qrTolerance = _qrTolerance;
+      ret.nullSpace = _nullSpace;
+      ret.columnSpace = _columnSpace;
+      ret.covariance = _covariance;
+      ret.projectedCovariance = _projectedCovariance;
+      ret.numIterations = srv.iterations;
+      ret.JStart = srv.JStart;
+      ret.JFinal = srv.JFinal;
+      ret.elapsedTime = Timestamp::now() - timeStart;
       return ret;
     }
 
@@ -255,8 +290,40 @@ namespace aslam {
       if (!force)
         _problem->saveDesignVariables();
 
+      // set the marginalization index of the linear solver
+      size_t JCols = 0;
+      for (auto it = _problem->getGroupsOrdering().cbegin();
+          it != _problem->getGroupsOrdering().cend(); ++it)
+        JCols += _problem->getGroupDim(*it);
+      const size_t dim = _problem->getGroupDim(_margGroupId);
+      auto linearSolver = _optimizer->getSolver<LinearSolver>();
+      linearSolver->setMargStartIndex(JCols - dim);
+
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
+
+      // return value
+      ReturnValue ret;
+
+      // fill statistics from optimizer
+      ret.numIterations = srv.iterations;
+      ret.JStart = srv.JStart;
+      ret.JFinal = srv.JFinal;
+
+      // analyze marginal system
+      linearSolver->analyzeMarginal();
+
+      // fill statistics from the linear solver
+      ret.rank = linearSolver->getQRRank();
+      ret.rankDeficiency = linearSolver->getQRRankDeficiency();
+      ret.marginalRank = linearSolver->getSVDRank();
+      ret.marginalRankDeficiency = linearSolver->getSVDRankDeficiency();
+      ret.svdTolerance = linearSolver->getSVDTolerance();
+      ret.qrTolerance = linearSolver->getQRTolerance();
+      ret.nullSpace = linearSolver->getNullSpace();
+      ret.columnSpace = linearSolver->getColumnSpace();
+      ret.covariance = linearSolver->getCovariance();
+      ret.projectedCovariance = linearSolver->getProjectedCovariance();
 
       // check if the solution is valid
       bool solutionValid = true;
@@ -264,50 +331,40 @@ namespace aslam {
           srv.JFinal >= srv.JStart)
         solutionValid = false;
 
-      // return value
-      ReturnValue ret;
-
-      // fill the rank and QR tolerance from the linear solver
-      ret._rank = _optimizer->getSolver<LinearSolver>()->getRank();
-      ret._qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
-
-      // fill statistics from optimizer
-      ret._numIterations = srv.iterations;
-      ret._JStart = srv.JStart;
-      ret._JFinal = srv.JFinal;
-
-      // analyze marginalized system
-      const size_t dim = _problem->getGroupDim(_margGroupId);
-      const size_t numCols = getJacobianTranspose().rows();
-      const double svLogSum = marginalize(getJacobianTranspose(), numCols - dim,
-        ret._NS, ret._CS, ret._Sigma, ret._SigmaP, ret._Omega,
-        _options._normTol, _options._epsTolSVD);
-
-      // compute MI
-      ret._mi = 0.5 * (svLogSum - _svLogSum);
+      // compute the mutual information
+      const double svLog2Sum = linearSolver->getSingularValuesLog2Sum();
+      ret.mutualInformation = 0.5 * (svLog2Sum - _svLog2Sum);
 
       // batch is kept? MI improvement or rank goes up or force
       bool keepBatch = false;
-      if (((ret._mi > _options._miTol || ret._CS.cols() > _CS.cols()) &&
-          solutionValid) || force) {
+      if (((ret.mutualInformation > _options.miTol ||
+          ret.marginalRank > _svdRank) && solutionValid) || force) {
         // warning for rank going down
-        if (ret._CS.cols() < _CS.cols() && _options._verbose)
-          std::cerr << "WARNING: RANK GOING DOWN!" << std::endl;
+        if (ret.marginalRank < _svdRank && _options.verbose)
+          std::cerr << "IncrementalEstimator::addBatch(): "
+            "WARNING: RANK GOING DOWN!" << std::endl;
 
         keepBatch = true;
 
         // update internal variables
-        _svLogSum = svLogSum;
-        _mi = ret._mi;
-        _NS = ret._NS;
-        _CS = ret._CS;
-        _Sigma = ret._Sigma;
-        _SigmaP = ret._SigmaP;
-        _Omega = ret._Omega;
-        _nRank = ret._rank;
-        _qrTol = ret._qrTol;
+        _mutualInformation = ret.mutualInformation;
+        _svLog2Sum = svLog2Sum;
+        _nullSpace = ret.nullSpace;
+        _columnSpace = ret.columnSpace;
+        _covariance = ret.covariance;
+        _projectedCovariance = ret.projectedCovariance;
+        _singularValues = linearSolver->getSingularValues();
+        _svdTolerance = ret.svdTolerance;
+        _qrTolerance = ret.qrTolerance;
+        _svdRank = ret.marginalRank;
+        _svdRankDeficiency = ret.marginalRankDeficiency;
+        _qrRank = ret.rank;
+        _qrRankDeficiency = ret.rankDeficiency;
+        _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
+        _memoryUsage = linearSolver->getMemoryUsage();
+        _numFlops = linearSolver->getNumFlops();
       }
-      ret._batchAccepted = keepBatch;
+      ret.batchAccepted = keepBatch;
 
       // remove batch if necessary
       if (!keepBatch) {
@@ -323,10 +380,7 @@ namespace aslam {
       }
 
       // insert elapsed time
-      ret._elapsedTime = Timestamp::now() - timeStart;
-
-      // insert memory usage
-      ret._cholmodMemoryUsage = getCholmodMemoryUsage();
+      ret.elapsedTime = Timestamp::now() - timeStart;
 
       // output informations
       return ret;
@@ -336,22 +390,8 @@ namespace aslam {
       // remove the batch
       _problem->remove(idx);
 
-      // ensure marginalized design variables are well located
-      orderMarginalizedDesignVariables();
-
-      // optimize back
-      _optimizer->optimize();
-
-      // update mutual information
-      const size_t dim = _problem->getGroupDim(_margGroupId);
-      const size_t numCols = getJacobianTranspose().rows();
-      const double svLogSum = marginalize(getJacobianTranspose(), numCols - dim,
-        _NS, _CS, _Sigma, _SigmaP, _Omega, _options._normTol,
-        _options._epsTolSVD);
-      _mi = svLogSum - _svLogSum; // not really correct! hard to recover.
-      _svLogSum = svLogSum;
-      _nRank = _optimizer->getSolver<LinearSolver>()->getRank();
-      _qrTol = _optimizer->getSolver<LinearSolver>()->getTol();
+      // reoptimize
+      reoptimize();
     }
 
     void IncrementalEstimator::removeBatch(const BatchSP& batch) {
@@ -405,12 +445,11 @@ namespace aslam {
         dim += et->dimension();
         ets.push_back(et);
       }
-      _optimizer->getSolver<LinearSolver>()->initMatrixStructure(dvs, ets,
-        false);
+      auto linearSolver = _optimizer->getSolver<LinearSolver>();
+      linearSolver->initMatrixStructure(dvs, ets, false);
 
       // build the system
-      _optimizer->getSolver<LinearSolver>()->buildSystem(
-        _optimizer->options().nThreads, true);
+      linearSolver->buildSystem(_optimizer->options().nThreads, true);
     }
 
   }

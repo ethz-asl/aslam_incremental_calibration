@@ -28,7 +28,6 @@
 
 #include <vector>
 #include <string>
-#include <limits>
 
 #include <cholmod.h>
 
@@ -36,6 +35,8 @@
 
 #include <aslam/backend/CompressedColumnJacobianTransposeBuilder.hpp>
 #include <aslam/backend/LinearSystemSolver.hpp>
+
+#include "aslam/calibration/core/LinearSolverOptions.h"
 
 template <typename Entry> struct SuiteSparseQR_factorization;
 
@@ -66,32 +67,8 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
-      /// Options for the linear solver
-      struct Options {
-        /// Default constructor
-        Options() :
-            columnScaling(false),
-            epsNorm(std::numeric_limits<double>::epsilon()),
-            epsSVD(std::numeric_limits<double>::epsilon()),
-            epsQR(std::numeric_limits<double>::epsilon()),
-            svdTol(-1),
-            qrTol(-1),
-            verbose(false) {}
-        /// Perform column scaling/normalization
-        bool columnScaling;
-        /// Epsilon for when to consider an element being zero in the norm
-        double epsNorm;
-        /// Epsilon for SVD numerical rank
-        double epsSVD;
-        /// Epsilon for QR tolerance computation
-        double epsQR;
-        /// Fixed tolerance for SVD numerical rank
-        double svdTol;
-        /// Fixed tolerance for QR
-        double qrTol;
-        /// Verbose mode
-        bool verbose;
-      };
+      /// Linear solver options type
+      typedef LinearSolverOptions Options;
       /// Self type
       typedef LinearSolver Self;
       /** @}
@@ -213,6 +190,15 @@ namespace aslam {
       size_t getMemoryUsage() const;
       /// Returns the current number of flops
       double getNumFlops() const;
+      /// Returns the current time for linear solving
+      double getLinearSolverTime() const;
+      /// Returns the current time for analyzing marginal
+      double getMarginalAnalysisTime() const;
+      /// Returns the current time for symbolic factorization
+      double getSymbolicFactorizationTime() const;
+      /// Returns the current time for numeric factorization
+      double getNumericFactorizationTime() const;
+      /// TODO: we are missing here the Frobenius norm, available in SPQR 3.4
       /** @}
         */
 
@@ -254,6 +240,10 @@ namespace aslam {
       Eigen::VectorXd _singularValues;
       /// Caching current U matrix of SVD
       Eigen::MatrixXd _matrixU;
+      /// Linear solver time
+      double _linearSolverTime;
+      /// Marginal analysis time
+      double _marginalAnalysisTime;
       /** @}
         */
 

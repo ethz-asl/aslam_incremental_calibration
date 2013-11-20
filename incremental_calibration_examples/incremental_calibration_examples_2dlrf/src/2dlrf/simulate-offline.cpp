@@ -45,7 +45,6 @@
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/geometry/Transformation.h>
 #include <aslam/calibration/base/Timestamp.h>
-#include <aslam/calibration/algorithms/marginalize.h>
 #include <aslam/calibration/core/LinearSolver.h>
 
 #include "aslam/calibration/2dlrf/utils.h"
@@ -229,18 +228,17 @@ int main(int argc, char** argv) {
     }
   }
 
+  // optimization
   std::cout << "Calibration before: " << *dv_Theta << std::endl;
   Optimizer2 optimizer(PropertyTree(propertyTree, "lrf/estimator/optimizer"),
-    boost::make_shared<LinearSolver>(),
+    boost::make_shared<LinearSolver>(PropertyTree(propertyTree,
+    "lrf/estimator/optimizer/linearSolver")),
     boost::make_shared<GaussNewtonTrustRegionPolicy>());
   optimizer.setProblem(problem);
   optimizer.initialize();
   const size_t dim = problem->getGroupDim(2);
   optimizer.getSolver<LinearSolver>()->setMargStartIndex(
     optimizer.getSolver<LinearSolver>()->JCols() - dim);
-  optimizer.getSolver<LinearSolver>()->getOptions().verbose = true;
-  optimizer.getSolver<LinearSolver>()->getOptions().epsSVD = 1e-3;
-  optimizer.getSolver<LinearSolver>()->getOptions().columnScaling = true;
   const double before = Timestamp::now();
   optimizer.optimize();
   const double after = Timestamp::now();
@@ -283,6 +281,18 @@ int main(int argc, char** argv) {
     ->getMemoryUsage() / 1024.0 / 1024.0 << std::endl;
   std::cout << "Flop count: " << optimizer.getSolver<LinearSolver>()
     ->getNumFlops() << std::endl;
+  std::cout << "Linear solver time: "
+    << optimizer.getSolver<LinearSolver>()->getLinearSolverTime()
+    << std::endl;
+  std::cout << "Marginal analysis time: "
+    << optimizer.getSolver<LinearSolver>()->getMarginalAnalysisTime()
+    << std::endl;
+  std::cout << "Symbolic factorization time: "
+    << optimizer.getSolver<LinearSolver>()->getSymbolicFactorizationTime()
+    << std::endl;
+  std::cout << "Numeric factorization time: "
+    << optimizer.getSolver<LinearSolver>()->getNumericFactorizationTime()
+    << std::endl;
   std::cout << "Log2sum of singular values: "
     << optimizer.getSolver<LinearSolver>()->getSingularValuesLog2Sum()
     << std::endl;
@@ -313,7 +323,7 @@ int main(int argc, char** argv) {
     l_est(0, i) = dv_x_l[i]->getValue()(0);
     l_est(1, i) = dv_x_l[i]->getValue()(1);
   }
-  Transformation<double, 3> trans(sm::kinematics::threePointSvd(l, l_est));
+  Transformation<double, 3> trans(threePointSvd(l, l_est));
   Eigen::MatrixXd l_est_trans = Eigen::MatrixXd::Zero(3, nl);
   for (size_t i = 0; i < nl; ++i)
     l_est_trans.col(i) = trans(l_est.col(i));

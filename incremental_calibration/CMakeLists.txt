@@ -43,6 +43,7 @@ rosbuild_add_library(${PROJECT_NAME}
   src/core/OptimizationProblem.cpp
   src/core/IncrementalOptimizationProblem.cpp
   src/core/LinearSolver.cpp
+  src/core/LinearSolverOptions.cpp
   src/algorithms/marginalize.cpp
   src/algorithms/linalg.cpp
 )

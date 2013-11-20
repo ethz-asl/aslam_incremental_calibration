@@ -54,7 +54,7 @@ namespace aslam {
         IncrementalOptimizationProblem::getOptimizationProblem(
         const OptimizationProblemsSPCIt& problemIt) const {
       const size_t idx =
-        std::distance(_optimizationProblems.begin(), problemIt);
+        std::distance(_optimizationProblems.cbegin(), problemIt);
       if (idx >= _optimizationProblems.size())
         throw OutOfBoundException<size_t>(idx,
           "IncrementalOptimizationProblem::getOptimizationProblem: "
@@ -75,7 +75,7 @@ namespace aslam {
 
     const OptimizationProblem* IncrementalOptimizationProblem::
         getOptimizationProblem(size_t idx) const {
-      return getOptimizationProblem(_optimizationProblems.begin() + idx);
+      return getOptimizationProblem(_optimizationProblems.cbegin() + idx);
     }
 
     OptimizationProblem* IncrementalOptimizationProblem::

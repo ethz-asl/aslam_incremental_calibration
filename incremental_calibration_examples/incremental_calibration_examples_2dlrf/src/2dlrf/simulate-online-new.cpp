@@ -21,9 +21,10 @@
            mode.
   */
 
-#include <vector>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
+#include <vector>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
@@ -51,7 +52,6 @@
 #include "aslam/calibration/2dlrf/ErrorTermObservation.h"
 
 using namespace aslam::calibration;
-using namespace aslam::backend;
 using namespace sm::kinematics;
 using namespace sm;
 
@@ -251,33 +251,29 @@ int main(int argc, char** argv) {
 
     // add the measurement batch to the estimator
     std::cout << "calibration before batch: " << *dv_Theta << std::endl;
-    IncrementalEstimator::ReturnValue ret =
-      incrementalEstimator.addBatch(batch);
+    auto ret = incrementalEstimator.addBatch(batch);
     std::cout << "calibration after batch: " << *dv_Theta << std::endl;
     auto problem = incrementalEstimator.getProblem();
-    const std::vector<size_t>& groupsOrdering = problem->getGroupsOrdering();
     std::cout << "ordering: ";
-    for (auto it = groupsOrdering.cbegin(); it != groupsOrdering.cend(); ++it)
+    for (auto it = problem->getGroupsOrdering().cbegin(); it !=
+        problem->getGroupsOrdering().cend(); ++it)
       std::cout << *it << " ";
     std::cout << std::endl;
-    std::cout << "rank: " << ret._rank << std::endl;
-    std::cout << "QR tol: " << ret._qrTol << std::endl;
-    std::cout << "MI: " << ret._mi << std::endl;
-    std::cout << "Time [s]: " << ret._elapsedTime << std::endl;
-    std::cout << "Cholmod memory [MB]: " <<
-      ret._cholmodMemoryUsage / 1024.0 / 1024.0 << std::endl;
-    std::cout << "rank: " << incrementalEstimator.getRank() << std::endl;
-    std::cout << "rank deficiency: " << incrementalEstimator.getRankDeficiency()
+    ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+    std::cout << std::endl;
+    std::cout << "MI: " << ret.mutualInformation << std::endl;
+    std::cout << "rank: " << ret.rank << std::endl;
+    std::cout << "rank deficiency: " << ret.rankDeficiency << std::endl;
+    std::cout << "marginal rank: " << ret.marginalRank << std::endl;
+    std::cout << "marginal rank deficiency: " << ret.marginalRankDeficiency
       << std::endl;
-    std::cout << "marginal rank: " << incrementalEstimator.getMarginalRank()
-      << std::endl;
-    std::cout << "marginal rank deficiency: "
-      << incrementalEstimator.getMarginalRankDeficiency() << std::endl;
-    ret._batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+    std::cout << "QR tolerance: " << ret.qrTolerance << std::endl;
+    std::cout << "SVD tolerance: " << ret.svdTolerance << std::endl;
+    std::cout << "time [s]: " << ret.elapsedTime << std::endl;
     std::cout << std::endl;
   }
 
-  std::cout << "calibration after: " << *dv_Theta << std::endl;
+  std::cout << "final calibration: " << *dv_Theta << std::endl;
   std::cout << "covariance: " << std::endl <<
     incrementalEstimator.getMarginalizedCovariance() << std::endl;
 
@@ -288,7 +284,6 @@ int main(int argc, char** argv) {
   // for debugging purpose, output some infos
   std::cout << "MI: " << incrementalEstimator.getMutualInformation()
     << std::endl;
-  std::cout << "QR tol: " << incrementalEstimator.getQRTol() << std::endl;
   std::cout << "rank: " << incrementalEstimator.getRank() << std::endl;
   std::cout << "rank deficiency: " << incrementalEstimator.getRankDeficiency()
     << std::endl;
@@ -296,29 +291,32 @@ int main(int argc, char** argv) {
     << std::endl;
   std::cout << "marginal rank deficiency: "
     << incrementalEstimator.getMarginalRankDeficiency() << std::endl;
+  std::cout << "QR tolerance: " << incrementalEstimator.getQRTolerance()
+    << std::endl;
+  std::cout << "SVD tolerance: " << incrementalEstimator.getSVDTolerance()
+    << std::endl;
   std::cout << "null space: " << std::endl
     << incrementalEstimator.getMarginalizedNullSpace() << std::endl;
   std::cout << "column space: " << std::endl
     << incrementalEstimator.getMarginalizedColumnSpace() << std::endl;
   std::cout << "projected covariance: " << std::endl
     << incrementalEstimator.getProjectedMarginalizedCovariance() << std::endl;
-  std::cout << "information matrix: " << std::endl
-    << incrementalEstimator.getMarginalizedInformationMatrix() << std::endl;
-  std::cout << "Cholmod memory [MB]: "
-    << incrementalEstimator.getCholmodMemoryUsage() / 1024.0 / 1024.0
+  std::cout << "memory usage [MB]: " << incrementalEstimator.getMemoryUsage() /
+    1024.0 / 1024.0 << std::endl;
+  std::cout << "peak memory usage [MB]: "
+    << incrementalEstimator.getPeakMemoryUsage() / 1024.0 / 1024.0 << std::endl;
+  std::cout << "marginalized group: " << incrementalEstimator.getMargGroupId()
     << std::endl;
-  std::cout << "Marginalized group: " << incrementalEstimator.getMargGroupId()
-    << std::endl;
-  std::cout << "Number of batches: " << incrementalEstimator.getNumBatches()
+  std::cout << "number of batches: " << incrementalEstimator.getNumBatches()
     << " out of " << round((double)steps / batchSize) << std::endl;
 
   // fetch the problem
   auto problem = incrementalEstimator.getProblem();
 
   // some other output
-  std::cout << "Number of design variables: " << problem->numDesignVariables()
+  std::cout << "number of design variables: " << problem->numDesignVariables()
     << std::endl;
-  std::cout << "Number of error terms: " << problem->numErrorTerms()
+  std::cout << "number of error terms: " << problem->numErrorTerms()
     << std::endl;
   std::cout << "Jacobian matrix is: "
     << incrementalEstimator.getJacobianTranspose().cols() << "x"

@@ -29,6 +29,7 @@
 
 #include <aslam/backend/CompressedColumnMatrix.hpp>
 
+#include "aslam/calibration/base/Timestamp.h"
 #include "aslam/calibration/algorithms/linalg.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
@@ -47,7 +48,9 @@ namespace aslam {
         _svGap(std::numeric_limits<double>::infinity()),
         _svdRankDeficiency(-1),
         _margStartIndex(-1),
-        _svdTolerance(-1) {
+        _svdTolerance(-1),
+        _linearSolverTime(0),
+        _marginalAnalysisTime(0) {
       cholmod_l_start(&_cholmod);
       _cholmod.SPQR_grain = 16; // maybe useless
     }
@@ -58,7 +61,9 @@ namespace aslam {
         _svGap(std::numeric_limits<double>::infinity()),
         _svdRankDeficiency(-1),
         _margStartIndex(-1),
-        _svdTolerance(-1) {
+        _svdTolerance(-1),
+        _linearSolverTime(0),
+        _marginalAnalysisTime(0) {
       cholmod_l_start(&_cholmod);
       _cholmod.SPQR_grain = 16; // maybe useless
       _options.columnScaling = config.getBool("columnScaling",
@@ -203,6 +208,28 @@ namespace aslam {
       return _cholmod.SPQR_xstat[0];
     }
 
+    double LinearSolver::getLinearSolverTime() const {
+      return _linearSolverTime;
+    }
+
+    double LinearSolver::getMarginalAnalysisTime() const {
+      return _marginalAnalysisTime;
+    }
+
+    double LinearSolver::getSymbolicFactorizationTime() const {
+      if (_factor && _factor->QRsym)
+        return _cholmod.other1[1];
+      else
+        return 0;
+    }
+
+    double LinearSolver::getNumericFactorizationTime() const {
+      if (_factor && _factor->QRnum)
+        return _cholmod.other1[2];
+      else
+        return 0;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -267,6 +294,7 @@ namespace aslam {
 
     void LinearSolver::solve(cholmod_sparse* A, cholmod_dense* b,
         std::ptrdiff_t j, Eigen::VectorXd& x) {
+      const double t0 = Timestamp::now();
       if (A->nrow != b->nrow)
         throw InvalidOperationException("LinearSolver::solve(): "
           "inconsistent A and b");
@@ -293,8 +321,11 @@ namespace aslam {
           _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
         clear();
       if (!_factor) {
+        const double t2 = Timestamp::now();
         _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
           SPQR_DEFAULT_TOL, A_l, &_cholmod);
+        const double t3 = Timestamp::now();
+        _cholmod.other1[1] = t3 - t2;
         if (_factor == NULL) {
           cholmod_l_free_sparse(&A_l, &_cholmod);
           if (G_l)
@@ -305,8 +336,11 @@ namespace aslam {
       }
       const double qrTolerance = (_options.qrTol != -1) ? _options.qrTol :
         qrTol(A_l, &_cholmod, _options.epsQR);
+      const double t2 = Timestamp::now();
       const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
         _factor, &_cholmod);
+      const double t3 = Timestamp::now();
+      _cholmod.other1[2] = t3 - t2;
       cholmod_l_free_sparse(&A_l, &_cholmod);
       if (!status) {
         if (G_l)
@@ -421,9 +455,12 @@ namespace aslam {
       std::copy(x_l_val, x_l_val + x_l->nzmax, x.data());
       cholmod_l_free_dense(&x_l, &_cholmod);
       x.tail(x_r.size()) = x_r;
+      const double t1 = Timestamp::now();
+      _linearSolverTime = t1 - t0;
     }
 
     void LinearSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
+      const double t0 = Timestamp::now();
       cholmod_sparse* A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
       if (_factor && _factor->QRsym &&
           (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
@@ -431,8 +468,11 @@ namespace aslam {
           _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
         clear();
       if (!_factor) {
+        const double t2 = Timestamp::now();
         _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
           SPQR_DEFAULT_TOL, A_l, &_cholmod);
+        const double t3 = Timestamp::now();
+        _cholmod.other1[1] = t3 - t2;
         if (_factor == NULL) {
           cholmod_l_free_sparse(&A_l, &_cholmod);
           throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
@@ -441,8 +481,11 @@ namespace aslam {
       }
       const double qrTolerance = (_options.qrTol != -1) ? _options.qrTol :
         qrTol(A_l, &_cholmod, _options.epsQR);
+      const double t2 = Timestamp::now();
       const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
         _factor, &_cholmod);
+      const double t3 = Timestamp::now();
+      _cholmod.other1[2] = t3 - t2;
       cholmod_l_free_sparse(&A_l, &_cholmod);
       if (!status)
         throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
@@ -476,6 +519,8 @@ namespace aslam {
         _svdRankDeficiency = _singularValues.size() - _svdRank;
         _svGap = svGap(_singularValues, _svdRank);
       }
+      const double t1 = Timestamp::now();
+      _marginalAnalysisTime = t1 - t0;
     }
 
     bool LinearSolver::analyzeMarginal() {
@@ -521,6 +566,8 @@ namespace aslam {
       _svdTolerance = -1;
       _singularValues.resize(0);
       _matrixU.resize(0, 0);
+      _linearSolverTime = 0;
+      _marginalAnalysisTime = 0;
     }
 
   }

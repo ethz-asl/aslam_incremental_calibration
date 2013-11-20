@@ -30,8 +30,9 @@
 
 #include <Eigen/Core>
 
-#include <aslam/backend/SparseQRLinearSolverOptions.h>
 #include <aslam/backend/Optimizer2Options.hpp>
+
+#include "aslam/calibration/core/LinearSolverOptions.h"
 
 namespace sm {
 
@@ -41,7 +42,6 @@ namespace sm {
 namespace aslam {
   namespace backend {
 
-    class SparseQrLinearSystemSolver;
     class GaussNewtonTrustRegionPolicy;
     class Optimizer2;
     template<typename I> class CompressedColumnMatrix;
@@ -51,6 +51,7 @@ namespace aslam {
 
     class OptimizationProblem;
     class IncrementalOptimizationProblem;
+    class LinearSolver;
 
     /** The class IncrementalEstimator implements an incremental estimator
         for robotic calibration problems.
@@ -70,10 +71,6 @@ namespace aslam {
         IncrementalOptimizationProblemSP;
       /// Self type
       typedef IncrementalEstimator Self;
-      /// Solver type
-      typedef aslam::backend::SparseQrLinearSystemSolver LinearSolver;
-      /// Solver options type
-      typedef aslam::backend::SparseQRLinearSolverOptions LinearSolverOptions;
       /// Trust region type
       typedef aslam::backend::GaussNewtonTrustRegionPolicy TrustRegionPolicy;
       /// Optimizer type
@@ -85,50 +82,48 @@ namespace aslam {
       /// Options for the incremental estimator
       struct Options {
         Options() :
-            _miTol(0.5),
-            _verbose(true),
-            _normTol(1e-8),
-            _epsTolSVD(1e-4) {
+            miTol(0.5),
+            verbose(false) {
         }
         /// Mutual information threshold
-        double _miTol;
-        /// Verbosity of the optimizer
-        bool _verbose;
-        /// Tolerance for zero 2-norm column
-        double _normTol;
-        /// EPS tolerance for SVD tolerance computation
-        double _epsTolSVD;
+        double miTol;
+        /// Verbosity of the estimator
+        bool verbose;
       };
       /// Return value when adding a batch
       struct ReturnValue {
         /// True if the batch was accepted
-        bool _batchAccepted;
-        /// MI that the batch contributed
-        double _mi;
+        bool batchAccepted;
+        /// Mutual information that the batch contributed
+        double mutualInformation;
         /// Rank that this batch lead
-        size_t _rank;
-        /// Tolerance used for this batch
-        double _qrTol;
-        /// Number of iterations
-        size_t _numIterations;
-        /// Cost function at start
-        double _JStart;
-        /// Cost function at end
-        double _JFinal;
-        /// Elapsed time for processing this batch [s]
-        double _elapsedTime;
-        /// Current memory usage in bytes for the linear solver
-        size_t _cholmodMemoryUsage;
+        std::ptrdiff_t rank;
+        /// Rank deficiency that this batch lead
+        std::ptrdiff_t rankDeficiency;
+        /// Marginal rank that this batch lead
+        std::ptrdiff_t marginalRank;
+        /// Marginal rank deficiency that this batch lead
+        std::ptrdiff_t marginalRankDeficiency;
+        /// SVD tolerance used for this batch
+        double svdTolerance;
+        /// QR tolerance used for this batch
+        double qrTolerance;
         /// Null space of the marginalized system
-        Eigen::MatrixXd _NS;
+        Eigen::MatrixXd nullSpace;
         /// Column space of the marginalized system
-        Eigen::MatrixXd _CS;
+        Eigen::MatrixXd columnSpace;
         /// Covariance of the marginalized system
-        Eigen::MatrixXd _Sigma;
+        Eigen::MatrixXd covariance;
         /// Projected covariance of the marginalized system
-        Eigen::MatrixXd _SigmaP;
-        /// Marginalized Fisher information matrix
-        Eigen::MatrixXd _Omega;
+        Eigen::MatrixXd projectedCovariance;
+        /// Number of iterations
+        size_t numIterations;
+        /// Cost function at start
+        double JStart;
+        /// Cost function at end
+        double JFinal;
+        /// Elapsed time for processing this batch [s]
+        double elapsedTime;
       };
       /** @}
         */
@@ -188,25 +183,25 @@ namespace aslam {
       const OptimizerOptions& getOptimizerOptions() const;
       /// Returns the optimizer options
       OptimizerOptions& getOptimizerOptions();
-      /// Returns the last computed mutual information
-      double getMutualInformation() const;
       /// Return the marginalized group ID
       size_t getMargGroupId() const;
-      /// Returns the current Jacobian tranpose if available
+      /// Returns the last computed mutual information
+      double getMutualInformation() const;
+      /// Returns the current Jacobian transpose if available
       const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
         getJacobianTranspose() const;
-      /// Returns the current estimated numerical rank
-      size_t getRank() const;
-      /// Returns the current estimated numerical rank deficiency
-      size_t getRankDeficiency() const;
+      /// Returns the current estimated non marginal numerical rank
+      std::ptrdiff_t getRank() const;
+      /// Returns the current estimated non marginal numerical rank deficiency
+      std::ptrdiff_t getRankDeficiency() const;
       /// Returns the current estimated marginal numerical rank
-      size_t getMarginalRank() const;
+      std::ptrdiff_t getMarginalRank() const;
       /// Returns the current estimated marginal numerical rank deficiency
-      size_t getMarginalRankDeficiency() const;
+      std::ptrdiff_t getMarginalRankDeficiency() const;
+      /// Returns the current tolerance for the SVD decomposition
+      double getSVDTolerance() const;
       /// Returns the current tolerance for the QR decomposition
-      double getQRTol() const;
-      /// Returns the current memory usage for the linear solver
-      size_t getCholmodMemoryUsage() const;
+      double getQRTolerance() const;
       /// Returns the current marginalized null space
       const Eigen::MatrixXd& getMarginalizedNullSpace() const;
       /// Returns the current marginalized column space
@@ -215,8 +210,12 @@ namespace aslam {
       const Eigen::MatrixXd& getMarginalizedCovariance() const;
       /// Returns the current projected marginalized covariance
       const Eigen::MatrixXd& getProjectedMarginalizedCovariance() const;
-      /// Returns the current marginalized Fisher information matrix
-      const Eigen::MatrixXd& getMarginalizedInformationMatrix() const;
+      /// Returns the peak memory usage in bytes
+      size_t getPeakMemoryUsage() const;
+      /// Returns the current memory usage in bytes
+      size_t getMemoryUsage() const;
+      /// Returns the number of flops of the linear solver
+      double getNumFlops() const;
       /** @}
         */
 
@@ -234,32 +233,46 @@ namespace aslam {
       /** \name Protected members
         @{
         */
-      /// Underlying optimization problem
-      IncrementalOptimizationProblemSP _problem;
-      /// Group ID to marginalize
-      size_t _margGroupId;
-      /// Mutual information
-      double _mi;
-      /// Sum of the log of the singular values up to the numerical rank
-      double _svLogSum;
       /// Options
       Options _options;
+      /// Group ID to marginalize
+      size_t _margGroupId;
       /// Underlying optimizer
       OptimizerSP _optimizer;
+      /// Underlying optimization problem
+      IncrementalOptimizationProblemSP _problem;
+      /// Mutual information
+      double _mutualInformation;
+      /// Sum of the log2 of the singular values up to the numerical rank
+      double _svLog2Sum;
       /// Null space of the marginalized system
-      Eigen::MatrixXd _NS;
+      Eigen::MatrixXd _nullSpace;
       /// Column space of the marginalized system
-      Eigen::MatrixXd _CS;
+      Eigen::MatrixXd _columnSpace;
       /// Covariance of the marginalized system
-      Eigen::MatrixXd _Sigma;
+      Eigen::MatrixXd _covariance;
       /// Projected covariance of the marginalized system
-      Eigen::MatrixXd _SigmaP;
-      /// Marginalized Fisher information matrix
-      Eigen::MatrixXd _Omega;
-      /// Current estimated numerical rank
-      size_t _nRank;
-      /// Current QR tolerance
-      double _qrTol;
+      Eigen::MatrixXd _projectedCovariance;
+      /// Singular values of the marginalized system
+      Eigen::VectorXd _singularValues;
+      /// Tolerance for SVD
+      double _svdTolerance;
+      /// Tolerance for QR
+      double _qrTolerance;
+      /// Estimated numerical rank of the marginalized system
+      std::ptrdiff_t _svdRank;
+      /// Estimated numerical rank deficiency of the marginalized system
+      std::ptrdiff_t _svdRankDeficiency;
+      /// Estimated numerical rank of the non-marginalized system
+      std::ptrdiff_t _qrRank;
+      /// Estimated numerical rank deficiency of the non-marginalized system
+      std::ptrdiff_t _qrRankDeficiency;
+      /// Peak memory usage
+      size_t _peakMemoryUsage;
+      /// Memory usage
+      size_t _memoryUsage;
+      /// Number of flops
+      double _numFlops;
       /** @}
         */
 
