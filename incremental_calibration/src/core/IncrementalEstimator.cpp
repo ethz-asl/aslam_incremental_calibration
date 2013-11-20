@@ -210,6 +210,10 @@ namespace aslam {
       return _projectedCovariance;
     }
 
+    const Eigen::VectorXd& IncrementalEstimator::getSingularValues() const {
+      return _singularValues;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/

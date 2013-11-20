@@ -210,6 +210,8 @@ namespace aslam {
       const Eigen::MatrixXd& getMarginalizedCovariance() const;
       /// Returns the current projected marginalized covariance
       const Eigen::MatrixXd& getProjectedMarginalizedCovariance() const;
+      /// Returns the current singular values
+      const Eigen::VectorXd& getSingularValues() const;
       /// Returns the peak memory usage in bytes
       size_t getPeakMemoryUsage() const;
       /// Returns the current memory usage in bytes

@@ -20,6 +20,8 @@
 
 #include <cmath>
 #include <limits>
+#include <iostream>
+#include <iomanip>
 
 #include <boost/make_shared.hpp>
 
@@ -302,8 +304,9 @@ namespace aslam {
       batch->setGroupsOrdering({0, 1});
       if (_options.verbose) {
         std::cout << "calibration before batch: " << std::endl;
-        std::cout << "Odometry intrinsic: " << std::endl
-          << std::fixed << std::setprecision(18) <<
+        std::cout << "odometry intrinsics: " << std::endl
+//          << std::fixed << std::setprecision(18) <<
+        <<
           *_calibrationDesignVariables.intrinsicOdoDesignVariable << std::endl;
         Eigen::MatrixXd t_io;
         _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable
@@ -317,26 +320,14 @@ namespace aslam {
         std::cout << "IMU-odometry rotation: " << std::endl <<
           ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
       }
-      IncrementalEstimator::ReturnValue ret =
-        _estimator->addBatch(batch);
+      IncrementalEstimator::ReturnValue ret = _estimator->addBatch(batch);
       if (_options.verbose) {
-        std::cout << "rank: " << ret._rank << std::endl;
-        std::cout << "QR tol: " << ret._qrTol << std::endl;
-        std::cout << "MI: " << ret._mi << std::endl;
-        std::cout << "Time [s]: " << ret._elapsedTime << std::endl;
-        std::cout << "Cholmod memory [MB]: " <<
-          ret._cholmodMemoryUsage / 1024.0 / 1024.0 << std::endl;
-        std::cout << "rank: " << _estimator->getRank() << std::endl;
-        std::cout << "rank deficiency: " <<
-          _estimator->getRankDeficiency() << std::endl;
-        std::cout << "marginal rank: " << _estimator->getMarginalRank()
-          << std::endl;
-        std::cout << "marginal rank deficiency: "
-          << _estimator->getMarginalRankDeficiency() << std::endl;
-        ret._batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+        std::cout << "MI: " << ret.mutualInformation << std::endl;
+        ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
         std::cout << std::endl;
+
         std::cout << "calibration after batch: " << std::endl;
-        std::cout << "Odometry intrinsic: " << std::endl <<
+        std::cout << "odometry intrinsics: " << std::endl <<
           *_calibrationDesignVariables.intrinsicOdoDesignVariable << std::endl;
         Eigen::MatrixXd t_io;
         _calibrationDesignVariables.extrinsicOdoTranslationDesignVariable

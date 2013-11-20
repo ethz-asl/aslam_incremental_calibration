@@ -48,7 +48,7 @@
       <nThreads>16</nThreads>
       <verbose>true</verbose>
       <linearSolver>
-        <columnScaling>false</columnScaling>
+        <columnScaling>true</columnScaling>
 <!--        <epsNorm>1e-16</epsNorm>-->
         <epsSVD>1e-3</epsSVD>
 <!--        <epsQR>1e-16</epsQR>-->

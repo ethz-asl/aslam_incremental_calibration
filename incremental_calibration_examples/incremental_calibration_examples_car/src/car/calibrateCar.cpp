@@ -87,6 +87,23 @@ int main(int argc, char** argv) {
   const bool useSt =
     propertyTree.getBool("car/calibrator/odometry/sensors/st/active");
 
+  CarCalibrator calibrator(PropertyTree(propertyTree, "car/calibrator"));
+  std::cout << "initial calibration: " << std::endl;
+  auto dv = calibrator.getCalibrationDesignVariables();
+//  std::cout << "odometry intrinsics: " << std::endl << std::fixed
+//    << std::setprecision(18) << *dv.intrinsicOdoDesignVariable << std::endl;
+  std::cout << "odometry intrinsics: " << std::endl
+    << *dv.intrinsicOdoDesignVariable << std::endl;
+  Eigen::MatrixXd t_io;
+  dv.extrinsicOdoTranslationDesignVariable->getParameters(t_io);
+  std::cout << "IMU-odometry translation: " << std::endl <<
+    t_io.transpose() << std::endl;
+  Eigen::MatrixXd q_io;
+  dv.extrinsicOdoRotationDesignVariable->getParameters(q_io);
+  EulerAnglesYawPitchRoll ypr;
+  std::cout << "IMU-odometry rotation: " << std::endl <<
+    ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
+
   rosbag::Bag bag(argv[1]);
   std::vector<std::string> topics;
   topics.push_back(std::string("/can_prius/front_wheels_speed"));
@@ -97,7 +114,6 @@ int main(int argc, char** argv) {
   topics.push_back(std::string("/poslv/time_tagged_dmi_data"));
   rosbag::View view(bag, rosbag::TopicQuery(topics));
   std::cout << "Processing BAG file..." << std::endl;
-  CarCalibrator calibrator(PropertyTree(propertyTree, "car/calibrator"));
   poslv::VehicleNavigationPerformanceMsgConstPtr lastVnp;
   bool firstVNS = true;
   double latRef = 0;
@@ -209,22 +225,32 @@ int main(int argc, char** argv) {
     calibrator.addMeasurements();
 
   std::cout << "final calibration: " << std::endl;
-  auto dv = calibrator.getCalibrationDesignVariables();
-  std::cout << "Odometry intrinsic: " << std::endl << std::fixed
-    << std::setprecision(18) << *dv.intrinsicOdoDesignVariable << std::endl;
-  Eigen::MatrixXd t_io;
+//  std::cout << "odometry intrinsics: " << std::endl << std::fixed
+//    << std::setprecision(18) << *dv.intrinsicOdoDesignVariable << std::endl;
+  std::cout << "odometry intrinsics: " << std::endl
+    << *dv.intrinsicOdoDesignVariable << std::endl;
   dv.extrinsicOdoTranslationDesignVariable->getParameters(t_io);
   std::cout << "IMU-odometry translation: " << std::endl <<
     t_io.transpose() << std::endl;
-  Eigen::MatrixXd q_io;
   dv.extrinsicOdoRotationDesignVariable->getParameters(q_io);
-  EulerAnglesYawPitchRoll ypr;
   std::cout << "IMU-odometry rotation: " << std::endl <<
     ypr.rotationMatrixToParameters(quat2r(q_io)).transpose() << std::endl;
 
-  std::cout << "Covariance: " << std::fixed << std::setprecision(18)
-    << std::endl << calibrator.getEstimator()
-      ->getMarginalizedCovariance().diagonal().transpose() << std::endl;
+//  std::cout << "covariance: " << std::fixed << std::setprecision(18)
+//    << std::endl << calibrator.getEstimator()
+//      ->getMarginalizedCovariance().diagonal().transpose() << std::endl;
+  auto estimator = calibrator.getEstimator();
+  std::cout << "covariance: " << std::endl
+    << estimator->getMarginalizedCovariance().diagonal().transpose()
+    << std::endl;
+  std::cout << "null space: " << std::endl
+    << estimator->getMarginalizedNullSpace() << std::endl;
+  std::cout << "singular values: " << std::endl
+    << estimator->getSingularValues().transpose() << std::endl;
+  std::cout << "memory usage [MB]: " << estimator->getMemoryUsage() /
+    1024.0 / 1024.0 << std::endl;
+  std::cout << "peak memory usage [MB]: "
+    << estimator->getPeakMemoryUsage() / 1024.0 / 1024.0 << std::endl;
 
   return 0;
 }

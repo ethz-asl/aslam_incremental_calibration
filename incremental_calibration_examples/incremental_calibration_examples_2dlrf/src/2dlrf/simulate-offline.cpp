@@ -235,67 +235,61 @@ int main(int argc, char** argv) {
     "lrf/estimator/optimizer/linearSolver")),
     boost::make_shared<GaussNewtonTrustRegionPolicy>());
   optimizer.setProblem(problem);
-  optimizer.initialize();
+
+  size_t JCols = 0;
+  for (auto it = problem->getGroupsOrdering().cbegin();
+      it != problem->getGroupsOrdering().cend(); ++it)
+    JCols += problem->getGroupDim(*it);
   const size_t dim = problem->getGroupDim(2);
-  optimizer.getSolver<LinearSolver>()->setMargStartIndex(
-    optimizer.getSolver<LinearSolver>()->JCols() - dim);
+  auto linearSolver = optimizer.getSolver<LinearSolver>();
+  linearSolver->setMargStartIndex(JCols - dim);
   const double before = Timestamp::now();
   optimizer.optimize();
   const double after = Timestamp::now();
   std::cout << "Elapsed time [s]: " << after - before << std::endl;
   std::cout << "Calibration after: " << *dv_Theta << std::endl;
   std::cout << "Singular values (scaled): "
-    << optimizer.getSolver<LinearSolver>()
-    ->getSingularValues().transpose() << std::endl;
+    << linearSolver->getSingularValues().transpose() << std::endl;
   std::cout << "Null space (scaled): " << std::endl
-    << optimizer.getSolver<LinearSolver>()->getNullSpace() << std::endl;
+    << linearSolver->getNullSpace() << std::endl;
   std::cout << "Column space (scaled): " << std::endl
-    << optimizer.getSolver<LinearSolver>()->getColumnSpace() << std::endl;
-  optimizer.getSolver<LinearSolver>()->analyzeMarginal();
-  std::cout << "SVD rank: " << optimizer.getSolver<LinearSolver>()->getSVDRank()
+    << linearSolver->getColumnSpace() << std::endl;
+  linearSolver->analyzeMarginal();
+  std::cout << "SVD rank: " << linearSolver->getSVDRank() << std::endl;
+  std::cout << "SVD rank deficiency: " << linearSolver->getSVDRankDeficiency()
     << std::endl;
-  std::cout << "SVD rank deficiency: " << optimizer.getSolver<LinearSolver>()
-    ->getSVDRankDeficiency() << std::endl;
-  std::cout << "SVD tolerance: " << optimizer.getSolver<LinearSolver>()
-    ->getSVDTolerance() << std::endl;
+  std::cout << "SVD tolerance: " << linearSolver->getSVDTolerance()
+    << std::endl;
   std::cout << "Singular values: " << optimizer.getSolver<LinearSolver>()
     ->getSingularValues().transpose() << std::endl;
   std::cout << "QR rank: " << optimizer.getSolver<LinearSolver>()->getQRRank()
     << std::endl;
   std::cout << "QR rank deficiency: " << optimizer.getSolver<LinearSolver>()
     ->getQRRankDeficiency() << std::endl;
-  std::cout << "QR tolerance: " << optimizer.getSolver<LinearSolver>()
-    ->getQRTolerance() << std::endl;
-  std::cout << "Null space: " << std::endl
-    << optimizer.getSolver<LinearSolver>()->getNullSpace() << std::endl;
-  std::cout << "Column space: " << std::endl
-    << optimizer.getSolver<LinearSolver>()->getColumnSpace() << std::endl;
-  std::cout << "Covariance: " << std::endl
-    << optimizer.getSolver<LinearSolver>()->getCovariance() << std::endl;
-  std::cout << "Projected covariance: " << std::endl
-    << optimizer.getSolver<LinearSolver>()->getProjectedCovariance()
+  std::cout << "QR tolerance: " << linearSolver->getQRTolerance() << std::endl;
+  std::cout << "Null space: " << std::endl << linearSolver->getNullSpace()
     << std::endl;
-  std::cout << "Peak memory usage (MB): " << optimizer.getSolver<LinearSolver>()
-    ->getPeakMemoryUsage() / 1024.0 / 1024.0 << std::endl;
-  std::cout << "Memory usage (MB): " << optimizer.getSolver<LinearSolver>()
-    ->getMemoryUsage() / 1024.0 / 1024.0 << std::endl;
-  std::cout << "Flop count: " << optimizer.getSolver<LinearSolver>()
-    ->getNumFlops() << std::endl;
-  std::cout << "Linear solver time: "
-    << optimizer.getSolver<LinearSolver>()->getLinearSolverTime()
+  std::cout << "Column space: " << std::endl << linearSolver->getColumnSpace()
+    << std::endl;
+  std::cout << "Covariance: " << std::endl << linearSolver->getCovariance()
+    << std::endl;
+  std::cout << "Projected covariance: " << std::endl
+    << linearSolver->getProjectedCovariance() << std::endl;
+  std::cout << "Peak memory usage (MB): " << linearSolver->getPeakMemoryUsage()
+    / 1024.0 / 1024.0 << std::endl;
+  std::cout << "Memory usage (MB): " << linearSolver->getMemoryUsage() /
+    1024.0 / 1024.0 << std::endl;
+  std::cout << "Flop count: " << linearSolver->getNumFlops() << std::endl;
+  std::cout << "Linear solver time: " << linearSolver->getLinearSolverTime()
     << std::endl;
   std::cout << "Marginal analysis time: "
-    << optimizer.getSolver<LinearSolver>()->getMarginalAnalysisTime()
-    << std::endl;
+    << linearSolver->getMarginalAnalysisTime() << std::endl;
   std::cout << "Symbolic factorization time: "
-    << optimizer.getSolver<LinearSolver>()->getSymbolicFactorizationTime()
-    << std::endl;
+    << linearSolver->getSymbolicFactorizationTime() << std::endl;
   std::cout << "Numeric factorization time: "
-    << optimizer.getSolver<LinearSolver>()->getNumericFactorizationTime()
-    << std::endl;
+    << linearSolver->getNumericFactorizationTime() << std::endl;
   std::cout << "Log2sum of singular values: "
-    << optimizer.getSolver<LinearSolver>()->getSingularValuesLog2Sum()
-    << std::endl;
+    << linearSolver->getSingularValuesLog2Sum() << std::endl;
 
   // output results to file
   std::ofstream x_true_log("x_true.txt");
