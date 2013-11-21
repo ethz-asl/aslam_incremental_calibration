@@ -21,78 +21,92 @@
            class.
   */
 
-#include <numpy_eigen/boost_python_headers.hpp>
+#include <boost/shared_ptr.hpp>
 
-#include <aslam/calibration/core/IncrementalEstimator.h>
+#include <numpy_eigen/boost_python_headers.hpp>
 
 #include <aslam/backend/CompressedColumnMatrix.hpp>
 #include <aslam/backend/Optimizer2Options.hpp>
-#include <aslam/backend/SparseQRLinearSolverOptions.h>
+
+#include <aslam/calibration/core/LinearSolverOptions.h>
+#include <aslam/calibration/core/IncrementalEstimator.h>
+
+using namespace boost::python;
+using namespace aslam::backend;
+using namespace aslam::calibration;
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getMarginalizedCovariance(const
-    aslam::calibration::IncrementalEstimator* ie) {
-  return ie->getMarginalizedCovariance();
-}
-
-/// This functions gets rid of the reference
-Eigen::MatrixXd getProjectedMarginalizedCovariance(const
-    aslam::calibration::IncrementalEstimator* ie) {
-  return ie->getProjectedMarginalizedCovariance();
-}
-
-/// This functions gets rid of the reference
-Eigen::MatrixXd getMarginalizedNullSpace(const
-    aslam::calibration::IncrementalEstimator* ie) {
+Eigen::MatrixXd getMarginalizedNullSpace(const IncrementalEstimator* ie) {
   return ie->getMarginalizedNullSpace();
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getMarginalizedColumnSpace(const
-    aslam::calibration::IncrementalEstimator* ie) {
+Eigen::MatrixXd getMarginalizedColumnSpace(const IncrementalEstimator* ie) {
   return ie->getMarginalizedColumnSpace();
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getMarginalizedInformationMatrix(const
-    aslam::calibration::IncrementalEstimator* ie) {
-  return ie->getMarginalizedInformationMatrix();
+Eigen::MatrixXd getMarginalizedCovariance(const IncrementalEstimator* ie) {
+  return ie->getMarginalizedCovariance();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getProjectedMarginalizedCovariance(const IncrementalEstimator*
+    ie) {
+  return ie->getProjectedMarginalizedCovariance();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getSingularValues(const IncrementalEstimator* ie) {
+  return ie->getSingularValues();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getScaledSingularValues(const IncrementalEstimator* ie) {
+  return ie->getScaledSingularValues();
 }
 
 void exportIncrementalEstimator() {
-  using namespace boost::python;
-  using namespace aslam::backend;
-  using aslam::calibration::IncrementalEstimator;
-
   /// Export options for the IncrementalEstimator class
   class_<IncrementalEstimator::Options>("IncrementalEstimatorOptions", init<>())
-    .def_readwrite("miTol", &IncrementalEstimator::Options::_miTol)
-    .def_readwrite("verbose", &IncrementalEstimator::Options::_verbose)
-    .def_readwrite("normTol", &IncrementalEstimator::Options::_normTol)
-    .def_readwrite("epsTolSVD", &IncrementalEstimator::Options::_epsTolSVD)
+    .def_readwrite("miTol", &IncrementalEstimator::Options::miTol)
+    .def_readwrite("verbose", &IncrementalEstimator::Options::verbose)
     ;
 
   /// Export return value for the IncrementalEstimator class
   class_<IncrementalEstimator::ReturnValue>("IncrementalEstimatorReturnValue",
     init<>())
     .def_readwrite("batchAccepted",
-      &IncrementalEstimator::ReturnValue::_batchAccepted)
-    .def_readwrite("mi", &IncrementalEstimator::ReturnValue::_mi)
-    .def_readwrite("rank", &IncrementalEstimator::ReturnValue::_rank)
-    .def_readwrite("qrTol", &IncrementalEstimator::ReturnValue::_qrTol)
+      &IncrementalEstimator::ReturnValue::batchAccepted)
+    .def_readwrite("mutualInformation",
+      &IncrementalEstimator::ReturnValue::mutualInformation)
+    .def_readwrite("rank", &IncrementalEstimator::ReturnValue::rank)
+    .def_readwrite("rankDeficiency",
+      &IncrementalEstimator::ReturnValue::rankDeficiency)
+    .def_readwrite("marginalRank",
+      &IncrementalEstimator::ReturnValue::marginalRank)
+    .def_readwrite("marginalRankDeficiency",
+      &IncrementalEstimator::ReturnValue::marginalRankDeficiency)
+    .def_readwrite("svdTolerance",
+      &IncrementalEstimator::ReturnValue::svdTolerance)
+    .def_readwrite("qrTolerance",
+      &IncrementalEstimator::ReturnValue::qrTolerance)
+    .def_readwrite("nullSpace", &IncrementalEstimator::ReturnValue::nullSpace)
+    .def_readwrite("columnSpace",
+      &IncrementalEstimator::ReturnValue::columnSpace)
+    .def_readwrite("covariance", &IncrementalEstimator::ReturnValue::covariance)
+    .def_readwrite("projectedCovariance",
+      &IncrementalEstimator::ReturnValue::projectedCovariance)
+    .def_readwrite("singularValues",
+      &IncrementalEstimator::ReturnValue::singularValues)
+    .def_readwrite("scaledSingularValues",
+      &IncrementalEstimator::ReturnValue::scaledSingularValues)
     .def_readwrite("numIterations",
-      &IncrementalEstimator::ReturnValue::_numIterations)
-    .def_readwrite("JStart", &IncrementalEstimator::ReturnValue::_JStart)
-    .def_readwrite("JFinal", &IncrementalEstimator::ReturnValue::_JFinal)
+      &IncrementalEstimator::ReturnValue::numIterations)
+    .def_readwrite("JStart", &IncrementalEstimator::ReturnValue::JStart)
+    .def_readwrite("JFinal", &IncrementalEstimator::ReturnValue::JFinal)
     .def_readwrite("elapsedTime",
-      &IncrementalEstimator::ReturnValue::_elapsedTime)
-    .def_readwrite("cholmodMemoryUsage",
-      &IncrementalEstimator::ReturnValue::_cholmodMemoryUsage)
-    .def_readwrite("NS", &IncrementalEstimator::ReturnValue::_NS)
-    .def_readwrite("CS", &IncrementalEstimator::ReturnValue::_CS)
-    .def_readwrite("Sigma", &IncrementalEstimator::ReturnValue::_Sigma)
-    .def_readwrite("SigmaP", &IncrementalEstimator::ReturnValue::_SigmaP)
-    .def_readwrite("Omega", &IncrementalEstimator::ReturnValue::_Omega)
+      &IncrementalEstimator::ReturnValue::elapsedTime)
     ;
 
   /// Functions for querying the options
@@ -100,7 +114,7 @@ void exportIncrementalEstimator() {
     &IncrementalEstimator::getOptions;
   Optimizer2Options& (IncrementalEstimator::*getOptimizerOptions)() =
     &IncrementalEstimator::getOptimizerOptions;
-  SparseQRLinearSolverOptions& (IncrementalEstimator::*getLinearSolverOptions)()
+  LinearSolverOptions& (IncrementalEstimator::*getLinearSolverOptions)()
     = &IncrementalEstimator::getLinearSolverOptions;
 
   /// Removes a measurement batch from the estimator
@@ -109,13 +123,13 @@ void exportIncrementalEstimator() {
   void (IncrementalEstimator::*removeBatch2)(
     const IncrementalEstimator::BatchSP&) = &IncrementalEstimator::removeBatch;
 
-  /// IncrementalEstimator class python exports
+  /// Export IncrementalEstimator class
   class_<IncrementalEstimator, boost::shared_ptr<IncrementalEstimator>,
     boost::noncopyable>("IncrementalEstimator", init<size_t,
-    const IncrementalEstimator::Options&, const SparseQRLinearSolverOptions&,
+    const IncrementalEstimator::Options&, const LinearSolverOptions&,
     const Optimizer2Options&>("IncrementalEstimator(groupId, Options, "
-      "LinearSolverOptions, OptimizerOptions) -- The group id should identify "
-      "the calibration parameters"))
+    "LinearSolverOptions, OptimizerOptions) -- The group id should identify "
+    "the calibration parameters"))
     .def(init<size_t>("IncrementalEstimator(groupId) -- The group id should "
       "identify the calibration parameters"))
     .def("getOptions", getOptions, return_internal_reference<>())
@@ -128,8 +142,8 @@ void exportIncrementalEstimator() {
     .def("getNumBatches", &IncrementalEstimator::getNumBatches)
     .def("removeBatch", removeBatch1)
     .def("removeBatch", removeBatch2)
-    .def("getMutualInformation", &IncrementalEstimator::getMutualInformation)
     .def("getMargGroupId", &IncrementalEstimator::getMargGroupId)
+    .def("getMutualInformation", &IncrementalEstimator::getMutualInformation)
     .def("getJacobianTranspose", &IncrementalEstimator::getJacobianTranspose,
       return_internal_reference<>())
     .def("getRank", &IncrementalEstimator::getRank)
@@ -137,13 +151,17 @@ void exportIncrementalEstimator() {
     .def("getMarginalRank", &IncrementalEstimator::getMarginalRank)
     .def("getMarginalRankDeficiency",
       &IncrementalEstimator::getMarginalRankDeficiency)
-    .def("getQRTol", &IncrementalEstimator::getQRTol)
-    .def("getCholmodMemoryUsage", &IncrementalEstimator::getCholmodMemoryUsage)
+    .def("getSVDTolerance", &IncrementalEstimator::getSVDTolerance)
+    .def("getQRTolerance", &IncrementalEstimator::getQRTolerance)
+    .def("getPeakMemoryUsage", &IncrementalEstimator::getPeakMemoryUsage)
+    .def("getMemoryUsage", &IncrementalEstimator::getMemoryUsage)
+    .def("getNumFlops", &IncrementalEstimator::getNumFlops)
+    .def("getMarginalizedNullSpace", &getMarginalizedNullSpace)
+    .def("getMarginalizedColumnSpace", &getMarginalizedColumnSpace)
     .def("getMarginalizedCovariance", &getMarginalizedCovariance)
     .def("getProjectedMarginalizedCovariance",
       &getProjectedMarginalizedCovariance)
-    .def("getMarginalizedNullSpace", &getMarginalizedNullSpace)
-    .def("getMarginalizedColumnSpace", &getMarginalizedColumnSpace)
-    .def("getMarginalizedInformationMatrix", &getMarginalizedInformationMatrix)
+    .def("getSingularValues", &getSingularValues)
+    .def("getScaledSingularValues", &getScaledSingularValues)
     ;
 }

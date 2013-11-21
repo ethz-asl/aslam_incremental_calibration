@@ -214,6 +214,11 @@ namespace aslam {
       return _singularValues;
     }
 
+    const Eigen::VectorXd& IncrementalEstimator::getScaledSingularValues()
+        const {
+      return _scaledSingularValues;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -236,6 +241,12 @@ namespace aslam {
 
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
+
+      // grep the scaled singular values if scaling enabled
+      if (linearSolver->getOptions().columnScaling)
+        _scaledSingularValues = linearSolver->getSingularValues();
+      else
+        _scaledSingularValues.resize(0);
 
       // analyze marginal system
       linearSolver->analyzeMarginal();
@@ -272,6 +283,8 @@ namespace aslam {
       ret.columnSpace = _columnSpace;
       ret.covariance = _covariance;
       ret.projectedCovariance = _projectedCovariance;
+      ret.singularValues = _singularValues;
+      ret.scaledSingularValues = _scaledSingularValues;
       ret.numIterations = srv.iterations;
       ret.JStart = srv.JStart;
       ret.JFinal = srv.JFinal;
@@ -314,6 +327,12 @@ namespace aslam {
       ret.JStart = srv.JStart;
       ret.JFinal = srv.JFinal;
 
+      // grep the scaled singular values if scaling enabled
+      if (linearSolver->getOptions().columnScaling)
+        ret.scaledSingularValues = linearSolver->getSingularValues();
+      else
+        ret.scaledSingularValues.resize(0);
+
       // analyze marginal system
       linearSolver->analyzeMarginal();
 
@@ -328,6 +347,7 @@ namespace aslam {
       ret.columnSpace = linearSolver->getColumnSpace();
       ret.covariance = linearSolver->getCovariance();
       ret.projectedCovariance = linearSolver->getProjectedCovariance();
+      ret.singularValues = linearSolver->getSingularValues();
 
       // check if the solution is valid
       bool solutionValid = true;
@@ -357,7 +377,8 @@ namespace aslam {
         _columnSpace = ret.columnSpace;
         _covariance = ret.covariance;
         _projectedCovariance = ret.projectedCovariance;
-        _singularValues = linearSolver->getSingularValues();
+        _singularValues = ret.singularValues;
+        _scaledSingularValues = ret.scaledSingularValues;
         _svdTolerance = ret.svdTolerance;
         _qrTolerance = ret.qrTolerance;
         _svdRank = ret.marginalRank;
