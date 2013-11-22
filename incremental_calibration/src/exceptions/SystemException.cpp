@@ -20,8 +20,6 @@
 
 #include <cstring>
 
-#include <sstream>
-
 namespace aslam {
   namespace calibration {
 
@@ -30,44 +28,25 @@ namespace aslam {
 /******************************************************************************/
 
     SystemException::SystemException(int errNo, const
-        std::string& msg, const std::string& filename, size_t line) :
-        mMsg(msg),
-        mErrno(errNo),
-        mFilename(filename),
-        mLine(line) {
+        std::string& msg, const std::string& filename, size_t line, const
+        std::string& function) :
+        Exception(msg + std::string(strerror(errNo)), filename, line,
+        function) {
     }
 
     SystemException::SystemException(const SystemException& other) throw() :
-        mMsg(other.mMsg),
-        mErrno(other.mErrno),
-        mFilename(other.mFilename),
-        mLine(other.mLine) {
+        Exception(other) {
     }
 
     SystemException& SystemException::operator =
         (const SystemException& other) throw() {
       if (this != &other) {
-        mMsg = other.mMsg;
-        mErrno = other.mErrno;
-        mFilename = other.mFilename;
-        mLine = other.mLine;
+        Exception::operator=(other);
       }
       return *this;
     }
 
     SystemException::~SystemException() throw() {
-    }
-
-/******************************************************************************/
-/* Accessors                                                                  */
-/******************************************************************************/
-
-    const char* SystemException::what() const throw() {
-      std::stringstream stream;
-      stream << mMsg << ": " << strerror(mErrno);
-      if (mFilename != " ")
-        stream << " [file = " << mFilename << "]" << "[line = " << mLine << "]";
-      return stream.str().c_str();
     }
 
   }

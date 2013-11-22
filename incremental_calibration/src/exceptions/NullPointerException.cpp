@@ -16,50 +16,36 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file SystemException.h
-    \brief This file defines the SystemException class, which represents
-           low-level system exceptions.
-  */
-
-#ifndef ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
-#define ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
-
-#include <cstddef>
-
-#include <string>
-
-#include "aslam/calibration/exceptions/Exception.h"
+#include "aslam/calibration/exceptions/NullPointerException.h"
 
 namespace aslam {
   namespace calibration {
 
-    /** The class SystemException represents system exceptions.
-        \brief System exceptions
-      */
-    class SystemException :
-      public Exception {
-    public:
-      /** \name Constructors/Destructor
-        @{
-        */
-      /// Constructs exception
-      SystemException(int errNo, const std::string& msg = "", const
-        std::string& filename = " ", size_t line = 0, const std::string&
-        function = " ");
-      /// Copy constructor
-      SystemException(const SystemException& other) throw ();
-      /// Assignment operator
-      SystemException& operator = (const SystemException& other) throw();
-      /// Destructor
-      virtual ~SystemException() throw ();
-      /** @}
-        */
+/******************************************************************************/
+/* Constructors and Destructor                                                */
+/******************************************************************************/
 
-    protected:
+    NullPointerException::NullPointerException(const std::string&
+        name, const std::string& filename, size_t line, const std::string&
+        function) : Exception(name + std::string(" is a null pointer"),
+        filename, line, function) {
+    }
 
-    };
+    NullPointerException::NullPointerException(const NullPointerException&
+        other) throw() :
+        Exception(other) {
+    }
+
+    NullPointerException& NullPointerException::operator = (const
+        NullPointerException& other) throw() {
+      if (this != &other) {
+        Exception::operator=(other);
+      }
+      return *this;
+    }
+
+    NullPointerException::~NullPointerException() throw () {
+    }
 
   }
 }
-
-#endif // ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H

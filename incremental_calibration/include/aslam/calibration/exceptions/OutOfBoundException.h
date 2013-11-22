@@ -24,8 +24,11 @@
 #ifndef ASLAM_CALIBRATION_EXCEPTIONS_OUTOFBOUNDEXCEPTION_H
 #define ASLAM_CALIBRATION_EXCEPTIONS_OUTOFBOUNDEXCEPTION_H
 
-#include <stdexcept>
+#include <cstddef>
+
 #include <string>
+
+#include "aslam/calibration/exceptions/Exception.h"
 
 namespace aslam {
   namespace calibration {
@@ -35,14 +38,19 @@ namespace aslam {
         \brief Out of bounds exception
       */
     template <typename X> class OutOfBoundException :
-      public std::exception {
+      public Exception {
     public:
       /** \name Constructors/destructor
         @{
         */
       /// Constructs exception from argument and string
       OutOfBoundException(const X& argument, const std::string& msg, const
-        std::string& filename = " ", size_t line = 0);
+        std::string& filename = " ", size_t line = 0, const std::string&
+        function = " ");
+      /// Constructs exception from argument and string
+      OutOfBoundException(const X& argument, const X& bound, const std::string&
+        msg, const std::string& filename = " ", size_t line = 0, const
+        std::string& function = " ");
       /// Copy constructor
       OutOfBoundException(const OutOfBoundException& other) throw();
       /// Assignment operator
@@ -53,28 +61,7 @@ namespace aslam {
       /** @}
         */
 
-      /** \name Accessors
-        @{
-        */
-      /// Access the exception string
-      virtual const char* what() const throw();
-      /** @}
-        */
-
     protected:
-      /** \name Protected members
-        @{
-        */
-      /// Message in the exception
-      std::string mMsg;
-      /// Argument that causes the exception
-      X mArg;
-      /// Filename where the exception occurs
-      std::string mFilename;
-      /// Line number where the exception occurs
-      size_t mLine;
-      /** @}
-        */
 
     };
 

@@ -81,7 +81,7 @@ namespace aslam {
       clear();
       cholmod_l_finish(&_cholmod);
       if (_options.verbose && getMemoryUsage())
-        std::cerr << "LinearSolver::~LinearSolver(): cholmod memory leak"
+        std::cerr << __PRETTY_FUNCTION__ << ": cholmod memory leak"
           << std::endl;
     }
 
@@ -272,7 +272,7 @@ namespace aslam {
       }
       catch (...) {
         if (_options.verbose)
-          std::cerr << "LinearSolver::solveSystem(): unknown exception"
+          std::cerr << __PRETTY_FUNCTION__ << ": unknown exception"
             << std::endl;
         status = false;
       }
@@ -296,8 +296,8 @@ namespace aslam {
         std::ptrdiff_t j, Eigen::VectorXd& x) {
       const double t0 = Timestamp::now();
       if (A->nrow != b->nrow)
-        throw InvalidOperationException("LinearSolver::solve(): "
-          "inconsistent A and b");
+        throw InvalidOperationException("inconsistent A and b", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       cholmod_sparse* A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
       cholmod_dense* G_l = NULL;
       if (_options.columnScaling) {
@@ -311,8 +311,8 @@ namespace aslam {
         if (!cholmod_l_scale(G_l, CHOLMOD_COL, A_l, &_cholmod)) {
           cholmod_l_free_dense(&G_l, &_cholmod);
           cholmod_l_free_sparse(&A_l, &_cholmod);
-          throw InvalidOperationException("LinearSolver::solve(): "
-            "cholmod_l_scale failed");
+          throw InvalidOperationException("cholmod_l_scale failed", __FILE__,
+            __LINE__, __PRETTY_FUNCTION__);
         }
       }
       if (_factor && _factor->QRsym &&
@@ -330,8 +330,8 @@ namespace aslam {
           cholmod_l_free_sparse(&A_l, &_cholmod);
           if (G_l)
             cholmod_l_free_dense(&G_l, &_cholmod);
-          throw InvalidOperationException("LinearSolver::solve(): "
-            "SuiteSparseQR_symbolic failed");
+          throw InvalidOperationException("SuiteSparseQR_symbolic failed",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
         }
       }
       const double qrTolerance = (_options.qrTol != -1) ? _options.qrTol :
@@ -345,8 +345,8 @@ namespace aslam {
       if (!status) {
         if (G_l)
           cholmod_l_free_dense(&G_l, &_cholmod);
-        throw InvalidOperationException("LinearSolver::solve(): "
-          "SuiteSparseQR_numeric failed");
+        throw InvalidOperationException("SuiteSparseQR_numeric failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       }
       cholmod_sparse* A_r;
       try {
@@ -371,8 +371,8 @@ namespace aslam {
           cholmod_l_free_sparse(&A_r, &_cholmod);
           cholmod_l_free_dense(&G_r, &_cholmod);
           cholmod_l_free_dense(&G_l, &_cholmod);
-          throw InvalidOperationException("LinearSolver::solve(): "
-            "cholmod_l_scale failed");
+          throw InvalidOperationException("cholmod_l_scale failed", __FILE__,
+            __LINE__, __PRETTY_FUNCTION__);
         }
       }
       cholmod_sparse* A_rt = cholmod_l_transpose(A_r, 1, &_cholmod);
@@ -382,8 +382,8 @@ namespace aslam {
           cholmod_l_free_dense(&G_l, &_cholmod);
         if (G_r)
           cholmod_l_free_dense(&G_r, &_cholmod);
-        throw InvalidOperationException("LinearSolver::solve(): "
-          "cholmod_l_transpose failed");
+        throw InvalidOperationException("cholmod_l_transpose failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       }
       cholmod_sparse* Omega = NULL;
       cholmod_sparse* A_rtQ = NULL;
@@ -475,8 +475,8 @@ namespace aslam {
         _cholmod.other1[1] = t3 - t2;
         if (_factor == NULL) {
           cholmod_l_free_sparse(&A_l, &_cholmod);
-          throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
-            "SuiteSparseQR_symbolic failed");
+          throw InvalidOperationException("SuiteSparseQR_symbolic failed",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
         }
       }
       const double qrTolerance = (_options.qrTol != -1) ? _options.qrTol :
@@ -488,14 +488,14 @@ namespace aslam {
       _cholmod.other1[2] = t3 - t2;
       cholmod_l_free_sparse(&A_l, &_cholmod);
       if (!status)
-        throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
-          "SuiteSparseQR_numeric failed");
+        throw InvalidOperationException("SuiteSparseQR_numeric failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       cholmod_sparse* A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
       cholmod_sparse* A_rt = cholmod_l_transpose(A_r, 1, &_cholmod);
       if (A_rt == NULL) {
         cholmod_l_free_sparse(&A_r, &_cholmod);
-        throw InvalidOperationException("LinearSolver::analyzeMarginal(): "
-          "cholmod_l_transpose failed");
+        throw InvalidOperationException("cholmod_l_transpose failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       }
       cholmod_sparse* Omega = NULL;
       cholmod_sparse* A_rtQ = NULL;
@@ -547,7 +547,7 @@ namespace aslam {
       }
       catch (...) {
         if (_options.verbose)
-          std::cerr << "LinearSolver::analyzeMarginal(): unknown exception"
+          std::cerr << __PRETTY_FUNCTION__ << ": unknown exception"
             << std::endl;
         status = false;
       }

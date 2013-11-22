@@ -27,6 +27,7 @@
 #include "aslam/calibration/core/OptimizationProblem.h"
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
+#include "aslam/calibration/exceptions/NullPointerException.h"
 #include "aslam/calibration/algorithms/permute.h"
 
 namespace aslam {
@@ -56,9 +57,8 @@ namespace aslam {
       const size_t idx =
         std::distance(_optimizationProblems.cbegin(), problemIt);
       if (idx >= _optimizationProblems.size())
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::getOptimizationProblem: "
-          "index out of bound", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _optimizationProblems.size(),
+          "index out of bounds", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       return _optimizationProblems.at(idx).get();
     }
 
@@ -67,9 +67,8 @@ namespace aslam {
       const size_t idx =
         std::distance(_optimizationProblems.begin(), problemIt);
       if (idx >= _optimizationProblems.size())
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::getOptimizationProblem: "
-          "index out of bound", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _optimizationProblems.size(),
+          "index out of bounds", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       return _optimizationProblems.at(idx).get();
     }
 
@@ -113,17 +112,15 @@ namespace aslam {
       if (isGroupInProblem(groupId))
         return _designVariables.at(groupId);
       else
-        throw OutOfBoundException<size_t>(groupId,
-          "IncrementalOptimizationProblem::getDesignVariablesGroup(): "
-          "unknown group", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(groupId, "unknown group",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
 
     const IncrementalOptimizationProblem::ErrorTermsSP&
         IncrementalOptimizationProblem::getErrorTerms(size_t idx) const {
       if (idx >= _optimizationProblems.size())
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::getErrorTerms(): "
-          "index out of bounds", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _optimizationProblems.size(),
+          "index out of bounds", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       return _optimizationProblems.at(idx)->getErrorTerms();
     }
 
@@ -135,21 +132,17 @@ namespace aslam {
         setGroupsOrdering(const std::vector<size_t>& groupsOrdering) {
       if (groupsOrdering.size() != _groupsOrdering.size())
         throw OutOfBoundException<size_t>(groupsOrdering.size(),
-          "IncrementalOptimizationProblem::setGroupsOrdering(): "
-          "wrong groups ordering size", __FILE__, __LINE__);
+          _groupsOrdering.size(), "wrong groups ordering size", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       std::unordered_set<size_t> groupsLookup;
       for (auto it = groupsOrdering.cbegin(); it != groupsOrdering.cend();
           ++it) {
         if (!isGroupInProblem(*it))
-          throw OutOfBoundException<size_t>(*it,
-            "IncrementalOptimizationProblem::setGroupsOrdering(): "
-            "unknown group",
-            __FILE__, __LINE__);
+          throw OutOfBoundException<size_t>(*it, "unknown group",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
         if (groupsLookup.count(*it))
-          throw OutOfBoundException<size_t>(*it,
-            "IncrementalOptimizationProblem::setGroupsOrdering(): "
-            "duplicate group",
-            __FILE__, __LINE__);
+          throw OutOfBoundException<size_t>(*it, "duplicate group",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
         groupsLookup.insert(*it);
       }
       _groupsOrdering = groupsOrdering;
@@ -165,9 +158,8 @@ namespace aslam {
       if (isDesignVariableInProblem(designVariable))
         return _designVariablesCounts.at(designVariable).second;
       else
-        throw InvalidOperationException(
-          "IncrementalOptimizationProblem::getGroupId(): "
-          "design variable is not in the problem");
+        throw InvalidOperationException("design variable is not in the problem",
+           __FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
 
     size_t IncrementalOptimizationProblem::getGroupDim(size_t groupId) const {
@@ -193,8 +185,8 @@ namespace aslam {
     void IncrementalOptimizationProblem::add(
         const OptimizationProblemSP& problem) {
       if (!problem)
-        throw InvalidOperationException(
-          "IncrementalOptimizationProblem::add(): problem is a null pointer");
+        throw NullPointerException("problem", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       // update design variable counts, grouping, and storing
       const size_t numDV = problem->numDesignVariables();
       _designVariablesCounts.reserve(_designVariablesCounts.size() + numDV);
@@ -210,8 +202,8 @@ namespace aslam {
         }
         else {
           if (getGroupId(dv) != groupId)
-            throw InvalidOperationException(
-              "IncrementalOptimizationProblem::add(): group mismatch");
+            throw InvalidOperationException("group mismatch", __FILE__,
+              __LINE__, __PRETTY_FUNCTION__);
           _designVariablesCounts[dv].first++;
         }
       }
@@ -221,9 +213,8 @@ namespace aslam {
       for (size_t i = 0; i < numET; ++i) {
         const ErrorTerm* et = problem->errorTerm(i);
         if (isErrorTermInProblem(et))
-          throw InvalidOperationException(
-            "IncrementalOptimizationProblem::add(): "
-            "error term already in the problem");
+          throw InvalidOperationException("error term already in the problem",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
       }
 
       // insert the problem
@@ -237,9 +228,8 @@ namespace aslam {
       const size_t idx =
         std::distance(_optimizationProblems.begin(), problemIt);
       if (idx >= _optimizationProblems.size())
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::remove: "
-          "index out of bound", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _optimizationProblems.size(),
+          "index out of bound", __FILE__, __LINE__, __PRETTY_FUNCTION__);
 
       // get the optimization problem to remove
       const OptimizationProblemSP& problem = _optimizationProblems.at(idx);
@@ -331,9 +321,8 @@ namespace aslam {
     void IncrementalOptimizationProblem::
         getErrorsImplementation(const DesignVariable* dv,
         std::set<ErrorTerm*>& outErrorSet) {
-      throw InvalidOperationException(
-        "IncrementalOptimizationProblem::getErrorsImplementation(): "
-        "not implemented (deprecated)");
+      throw InvalidOperationException("not implemented (deprecated)", __FILE__,
+        __LINE__, __PRETTY_FUNCTION__);
     }
 
     void IncrementalOptimizationProblem::
@@ -346,17 +335,15 @@ namespace aslam {
       if (isGroupInProblem(groupId))
         permute(_designVariables.at(groupId), permutation);
       else
-        throw OutOfBoundException<size_t>(groupId,
-          "IncrementalOptimizationProblem::permuteDesignVariables(): "
-          "unknown group", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(groupId, "unknown group", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
     }
 
     void IncrementalOptimizationProblem::getGroupId(size_t idx, size_t& groupId,
         size_t& idxGroup) const {
       if (idx >= _designVariablesCounts.size())
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::getGroupId(): "
-          "index out of bounds", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _designVariablesCounts.size(),
+          "index out of bounds", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       size_t idxRunning = 0;
       size_t groupIdRunning = 0;
       for (auto it = _groupsOrdering.cbegin(); it != _groupsOrdering.cend();
@@ -391,9 +378,8 @@ namespace aslam {
           idxRunning += batchSize;
       }
       if (!found)
-        throw OutOfBoundException<size_t>(idx,
-          "IncrementalOptimizationProblem::getErrorIdx(): "
-          "index out of bounds", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, "index out of bounds", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       batchIdx = batchIdxRunning;
       idxBatch = idx - idxRunning;
     }
@@ -404,9 +390,8 @@ namespace aslam {
       if (it != _optimizationProblems.end())
         remove(it);
       else
-        throw InvalidOperationException(
-          "IncrementalOptimizationProblem::remove(): "
-          "problem not found");
+        throw InvalidOperationException("problem not found", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
     }
 
     IncrementalOptimizationProblem::OptimizationProblemsSPIt

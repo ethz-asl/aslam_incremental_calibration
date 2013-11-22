@@ -16,13 +16,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file SystemException.h
-    \brief This file defines the SystemException class, which represents
-           low-level system exceptions.
+/** \file NullPointerException.h
+    \brief This file defines the NullPointerException class, which
+           represents null pointer exceptions.
   */
 
-#ifndef ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
-#define ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
+#ifndef ASLAM_CALIBRATION_EXCEPTIONS_NULLPOINTEREXCEPTION_H
+#define ASLAM_CALIBRATION_EXCEPTIONS_NULLPOINTEREXCEPTION_H
 
 #include <cstddef>
 
@@ -33,25 +33,26 @@
 namespace aslam {
   namespace calibration {
 
-    /** The class SystemException represents system exceptions.
-        \brief System exceptions
+    /** The class NullPointerException represents null pointer exceptions.
+        \brief Null pointer exception
       */
-    class SystemException :
+    class NullPointerException :
       public Exception {
     public:
       /** \name Constructors/Destructor
         @{
         */
-      /// Constructs exception
-      SystemException(int errNo, const std::string& msg = "", const
-        std::string& filename = " ", size_t line = 0, const std::string&
-        function = " ");
+      /// Constructs exception from message
+      NullPointerException(const std::string& name = "", const std::string&
+        filename = " ", size_t line = 0, const std::string& function = " ");
       /// Copy constructor
-      SystemException(const SystemException& other) throw ();
+      NullPointerException(const NullPointerException& other)
+        throw ();
       /// Assignment operator
-      SystemException& operator = (const SystemException& other) throw();
+      NullPointerException& operator = (const NullPointerException&
+        other) throw();
       /// Destructor
-      virtual ~SystemException() throw ();
+      virtual ~NullPointerException() throw ();
       /** @}
         */
 
@@ -62,4 +63,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
+#endif // ASLAM_CALIBRATION_EXCEPTIONS_NULLPOINTEREXCEPTION_H

@@ -30,6 +30,7 @@
 
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
+#include "aslam/calibration/exceptions/NullPointerException.h"
 
 namespace aslam {
   namespace calibration {
@@ -41,21 +42,23 @@ namespace aslam {
     cholmod_sparse* columnSubmatrix(cholmod_sparse* A, std::ptrdiff_t
         colStartIdx, std::ptrdiff_t colEndIdx, cholmod_common* cholmod) {
       if (A == NULL)
-        throw InvalidOperationException("columnSubmatrix(): "
-          "input matrix is null");
+        throw NullPointerException("A", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (colEndIdx < colStartIdx)
-        throw OutOfBoundException<std::ptrdiff_t>(colEndIdx,
-          "columnSubmatrix(): colStartIdx must be lower than colEndIdx",
-          __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(colEndIdx, colStartIdx,
+          "colStartIdx must be lower than colEndIdx", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (colEndIdx >= static_cast<std::ptrdiff_t>(A->ncol))
-        throw OutOfBoundException<std::ptrdiff_t>(colEndIdx,
-          "columnSubmatrix(): index must be lower than the number of columns",
-          __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(colEndIdx, A->ncol,
+          "index must be lower than the number of columns",  __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (colStartIdx < 0)
-        throw OutOfBoundException<std::ptrdiff_t>(colStartIdx,
-          "columnSubmatrix(): index must be positive", __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(colStartIdx, 0,
+          "columnSubmatrix(): index must be positive", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
-        throw InvalidOperationException("columnSubmatrix(): cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       const std::ptrdiff_t numIndices = colEndIdx - colStartIdx + 1;
       std::ptrdiff_t* colIndices = new std::ptrdiff_t[numIndices];
       for (std::ptrdiff_t j = colStartIdx; j <= colEndIdx; ++j)
@@ -64,29 +67,30 @@ namespace aslam {
         numIndices, 1, 1, cholmod);
       delete [] colIndices;
       if (A_sub == NULL)
-        throw InvalidOperationException("columnSubmatrix(): "
-          "cholmod_l_submatrix failed");
+        throw InvalidOperationException("cholmod_l_submatrix failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       return A_sub;
     }
 
     cholmod_sparse* rowSubmatrix(cholmod_sparse* A, std::ptrdiff_t rowStartIdx,
         std::ptrdiff_t rowEndIdx, cholmod_common* cholmod) {
       if (A == NULL)
-        throw InvalidOperationException("rowSubmatrix(): "
-          "input matrix is null");
+        throw NullPointerException("A", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (rowEndIdx < rowStartIdx)
-        throw OutOfBoundException<std::ptrdiff_t>(rowEndIdx,
-          "rowSubmatrix(): rowStartIdx must be lower than rowEndIdx",
-          __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(rowEndIdx, rowStartIdx,
+          "rowStartIdx must be lower than rowEndIdx", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (rowEndIdx >= static_cast<std::ptrdiff_t>(A->nrow))
-        throw OutOfBoundException<std::ptrdiff_t>(rowEndIdx,
-          "rowSubmatrix(): index must be lower than the number of rows",
-          __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(rowEndIdx, A->nrow,
+          "index must be lower than the number of rows", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (rowStartIdx < 0)
-        throw OutOfBoundException<std::ptrdiff_t>(rowStartIdx,
-          "rowSubmatrix(): index must be positive", __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(rowStartIdx, 0,
+          "index must be positive", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       if (cholmod == NULL)
-        throw InvalidOperationException("rowSubmatrix(): cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       const std::ptrdiff_t numIndices = rowEndIdx - rowStartIdx + 1;
       std::ptrdiff_t* rowIndices = new std::ptrdiff_t[numIndices];
       for (std::ptrdiff_t i = rowStartIdx; i <= rowEndIdx; ++i)
@@ -95,22 +99,22 @@ namespace aslam {
         NULL, -1, 1, 1, cholmod);
       delete [] rowIndices;
       if (A_sub == NULL)
-        throw InvalidOperationException("rowSubmatrix(): "
-          "cholmod_l_submatrix failed");
+        throw InvalidOperationException("cholmod_l_submatrix failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       return A_sub;
     }
 
     double colNorm(const cholmod_sparse* A, std::ptrdiff_t j) {
       if (A == NULL)
-        throw InvalidOperationException("colNorm(): input matrix is null");
+        throw NullPointerException("A", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (j >= static_cast<std::ptrdiff_t>(A->ncol))
-        throw OutOfBoundException<std::ptrdiff_t>(j,
-          "colNorm(): index must be lower than the number of columns",
-          __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(j, A->ncol,
+          "index must be lower than the number of columns", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (j < 0)
-        throw OutOfBoundException<std::ptrdiff_t>(j,
-          "colNorm(): index must be positive",
-          __FILE__, __LINE__);
+        throw OutOfBoundException<std::ptrdiff_t>(j, 0,
+          "index must be positive", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       const std::ptrdiff_t* col_ptr =
         reinterpret_cast<const std::ptrdiff_t*>(A->p);
       const double* values = reinterpret_cast<const double*>(A->x);
@@ -125,16 +129,16 @@ namespace aslam {
     cholmod_dense* columnScalingMatrix(cholmod_sparse* A, cholmod_common*
         cholmod, double eps) {
       if (A == NULL)
-        throw InvalidOperationException("columnScalingMatrix(): "
-          "input matrix is null");
+        throw NullPointerException("A", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
-        throw InvalidOperationException("columnScalingMatrix(): "
-          "cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       cholmod_dense* G = cholmod_l_allocate_dense(A->ncol, 1, A->ncol,
         CHOLMOD_REAL, cholmod);
       if (G == NULL)
-        throw InvalidOperationException("columnScalingMatrix(): "
-          "cholmod_l_allocate_dense failed");
+        throw InvalidOperationException("cholmod_l_allocate_dense failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       const double normTol = std::sqrt(A->nrow * eps);
       double* values = reinterpret_cast<double*>(G->x);
       for (std::ptrdiff_t j = 0; j < static_cast<std::ptrdiff_t>(A->ncol);
@@ -151,8 +155,8 @@ namespace aslam {
     void cholmodSparseToEigenDenseCopy(const cholmod_sparse* in,
         Eigen::MatrixXd& out) {
       if (in == NULL)
-        throw InvalidOperationException("cholmodSparseToEigenDenseCopy(): "
-          "input matrix is null");
+        throw NullPointerException("in", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       out.setZero(in->nrow, in->ncol);
       const std::ptrdiff_t* row_ind =
         reinterpret_cast<const std::ptrdiff_t*>(in->i);
@@ -170,8 +174,8 @@ namespace aslam {
     void eigenDenseToCholmodDenseView(const Eigen::VectorXd& in, cholmod_dense*
         out) {
       if (out == NULL)
-        throw InvalidOperationException("eigenDenseToCholmodDenseView(): "
-          "output matrix is null");
+        throw InvalidOperationException("out", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       out->nrow = in.size();
       out->ncol = 1;
       out->nzmax = in.size();
@@ -187,8 +191,8 @@ namespace aslam {
       cholmod_dense* out = cholmod_l_allocate_dense(in.size(), 1, in.size(),
         CHOLMOD_REAL, cholmod);
       if (out == NULL)
-        throw InvalidOperationException("eigenDenseToCholmodDenseCopy(): "
-          "cholmod_l_allocate_dense failed");
+        throw InvalidOperationException("cholmod_l_allocate_dense failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       double* out_val = reinterpret_cast<double*>(out->x);
       const double* in_val = in.data();
       std::copy(in_val, in_val + in.size(), out_val);
@@ -198,8 +202,8 @@ namespace aslam {
     void cholmodDenseToEigenDenseCopy(const cholmod_dense* in, Eigen::VectorXd&
         out) {
       if (in == NULL)
-        throw InvalidOperationException("cholmodDenseToEigenDenseCopy(): "
-          "input matrix is null");
+        throw NullPointerException("in", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       out.resize(in->nrow);
       const double* in_val = reinterpret_cast<const double*>(in->x);
       std::copy(in_val, in_val + in->nrow, out.data());
@@ -208,8 +212,8 @@ namespace aslam {
     cholmod_sparse* eigenDenseToCholmodSparseCopy(const Eigen::MatrixXd& in,
         cholmod_common* cholmod, double eps) {
       if (cholmod == NULL)
-        throw InvalidOperationException("eigenDenseToCholmodSparseCopy(): "
-          "cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       size_t nzmax = 0;
       for (std::ptrdiff_t i = 0; i < in.rows(); ++i)
         for (std::ptrdiff_t j = 0; j < in.cols(); ++j)
@@ -218,8 +222,8 @@ namespace aslam {
       cholmod_sparse* out = cholmod_l_allocate_sparse(in.rows(), in.cols(),
         nzmax, 1, 1, 0, CHOLMOD_REAL, cholmod);
       if (out == NULL)
-        throw InvalidOperationException("eigenDenseToCholmodSparseCopy(): "
-          "cholmod_l_allocate_sparse failed");
+        throw InvalidOperationException("cholmod_l_allocate_sparse failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       std::ptrdiff_t* row_ind = reinterpret_cast<std::ptrdiff_t*>(out->i);
       std::ptrdiff_t* col_ptr = reinterpret_cast<std::ptrdiff_t*>(out->p);
       double* values = reinterpret_cast<double*>(out->x);
@@ -252,22 +256,26 @@ namespace aslam {
 
     double rankTol(const Eigen::VectorXd& sv, double eps) {
       if (!sv.size())
-        throw InvalidOperationException("rankTol(): empty sv");
+        throw InvalidOperationException("empty sv", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       return sv(0) * eps * sv.size();
     }
 
     double qrTol(cholmod_sparse* A, cholmod_common* cholmod, double eps) {
       if (A == NULL)
-        throw InvalidOperationException("qrTol(): input matrix is null");
+        throw NullPointerException("A", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
-        throw InvalidOperationException("qrTol(): cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       return 20 * (A->nrow + A->ncol) * eps *
         spqr_maxcolnorm<double>(A, cholmod);
     }
 
     double svGap(const Eigen::VectorXd& sv, std::ptrdiff_t rank) {
       if (rank > sv.size() || rank <= 0)
-        throw InvalidOperationException("svGap(): inconsistent rank");
+        throw InvalidOperationException("inconsistent rank", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (rank < sv.size())
         return sv(rank - 1) / sv(rank);
       else
@@ -278,23 +286,25 @@ namespace aslam {
         cholmod_sparse* A_rt, cholmod_sparse** Omega, cholmod_sparse** A_rtQ,
         cholmod_common* cholmod) {
       if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): "
-          "QR factorization is null");
+        throw NullPointerException("factor", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (A_rt == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): "
-          "right side of original matrix is null");
+        throw NullPointerException("A_rt", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): "
-          "cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (Omega == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): Omega is null");
+        throw NullPointerException("Omega", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (A_rtQ == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): A_rtQ is null");
+        throw NullPointerException("A_rtQ", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       cholmod_sparse* A_rtQFull = SuiteSparseQR_qmult<double>(SPQR_XQ, factor,
         A_rt, cholmod);
       if (A_rtQFull == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): "
-          "SuiteSparseQR_qmult failed");
+        throw InvalidOperationException("SuiteSparseQR_qmult failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       try {
         *A_rtQ = columnSubmatrix(A_rtQFull, 0, factor->QRsym->n, cholmod);
       }
@@ -305,14 +315,14 @@ namespace aslam {
       cholmod_l_free_sparse(&A_rtQFull, cholmod);
       cholmod_sparse* A_rtQ2 = cholmod_l_aat(*A_rtQ, NULL, 0, 1, cholmod);
       if (A_rtQ2 == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): "
-          "cholmod_l_aat failed");
+        throw InvalidOperationException("cholmod_l_aat failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       A_rtQ2->stype = 1;
       cholmod_sparse* A_rt2 = cholmod_l_aat(A_rt, NULL, 0, 1, cholmod);
       if (A_rt2 == NULL) {
         cholmod_l_free_sparse(&A_rtQ2, cholmod);
-        throw InvalidOperationException("reduceLeftHandSide(): "
-          "cholmod_l_aat failed");
+        throw InvalidOperationException("cholmod_l_aat failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       }
       A_rt2->stype = 1;
       double alpha[2];
@@ -323,45 +333,45 @@ namespace aslam {
       cholmod_l_free_sparse(&A_rt2, cholmod);
       cholmod_l_free_sparse(&A_rtQ2, cholmod);
       if (*Omega == NULL)
-        throw InvalidOperationException("reduceLeftHandSide(): "
-          "cholmod_l_add failed");
+        throw InvalidOperationException("cholmod_l_add failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
     }
 
     cholmod_dense* reduceRightHandSide(SuiteSparseQR_factorization<double>*
         factor, cholmod_sparse* A_rt, cholmod_sparse* A_rtQ, cholmod_dense* b,
         cholmod_common* cholmod) {
       if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "QR factorization is null");
+        throw NullPointerException("factor", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (A_rt == NULL)
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "right side of original matrix is null");
+        throw NullPointerException("A_rt", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (b == NULL)
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "right-hand side is null");
+        throw NullPointerException("b", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (A_rtQ == NULL)
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "A_r' * Q is null");
+        throw NullPointerException("A_rtQ", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       cholmod_sparse* bSparse = cholmod_l_dense_to_sparse(b, 1, cholmod);
       if (bSparse == NULL)
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "cholmod_l_dense_to_sparse failed");
+        throw InvalidOperationException("cholmod_l_dense_to_sparse failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       cholmod_sparse* A_rtb = cholmod_l_ssmult(A_rt, bSparse, 0, 1, 1, cholmod);
       if (A_rtb == NULL) {
         cholmod_l_free_sparse(&bSparse, cholmod);
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "cholmod_l_ssmult failed");
+        throw InvalidOperationException("cholmod_l_ssmult failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       }
       cholmod_sparse* QtbFull = SuiteSparseQR_qmult<double>(SPQR_QTX, factor,
         bSparse, cholmod);
       cholmod_l_free_sparse(&bSparse, cholmod);
       if (QtbFull == NULL) {
         cholmod_l_free_sparse(&A_rtb, cholmod);
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "SuiteSparseQR_qmult failed");
+        throw InvalidOperationException("SuiteSparseQR_qmult failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       }
       cholmod_sparse* Qtb;
       try {
@@ -377,8 +387,8 @@ namespace aslam {
       cholmod_l_free_sparse(&Qtb, cholmod);
       if (A_rtQQtb == NULL) {
         cholmod_l_free_sparse(&A_rtb, cholmod);
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "cholmod_l_ssmult failed");
+        throw InvalidOperationException("cholmod_l_ssmult failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       }
       double alpha[2];
       alpha[0] = 1;
@@ -390,20 +400,21 @@ namespace aslam {
       cholmod_l_free_sparse(&A_rtQQtb, cholmod);
       if (bReducedSparse == NULL)
         throw InvalidOperationException("reduceRightHandSide(): "
-          "cholmod_l_add failed");
+          "cholmod_l_add failed", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       cholmod_dense* bReduced = cholmod_l_sparse_to_dense(bReducedSparse,
         cholmod);
       cholmod_l_free_sparse(&bReducedSparse, cholmod);
       if (bReduced == NULL)
-        throw InvalidOperationException("reduceRightHandSide(): "
-          "cholmod_l_sparse_to_dense failed");
+        throw InvalidOperationException("cholmod_l_sparse_to_dense failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       return bReduced;
     }
 
     void analyzeSVD(const cholmod_sparse* Omega, Eigen::VectorXd& sv,
         Eigen::MatrixXd& U) {
       if (Omega == NULL)
-        throw InvalidOperationException("analyzeSVD(): Omega is null");
+        throw NullPointerException("Omega", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       Eigen::MatrixXd OmegaDense;
       cholmodSparseToEigenDenseCopy(Omega, OmegaDense);
       const Eigen::JacobiSVD<Eigen::MatrixXd> svd(OmegaDense,
@@ -415,12 +426,15 @@ namespace aslam {
     void solveSVD(const cholmod_dense* b, const Eigen::VectorXd& sv, const
         Eigen::MatrixXd& U, std::ptrdiff_t rank, Eigen::VectorXd& x) {
       if (b == NULL)
-        throw InvalidOperationException("solveSVD(): b is null");
+        throw NullPointerException("b", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (rank > U.cols())
-        throw InvalidOperationException("solveSVD(): inconsistent rank");
+        throw OutOfBoundException<std::ptrdiff_t>(rank, U.cols(),
+          "inconsistent rank", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       if (U.cols() != sv.rows() ||
           U.rows() != static_cast<std::ptrdiff_t>(b->nrow))
-        throw InvalidOperationException("solveSVD(): inconsistent matrices");
+        throw OutOfBoundException<std::ptrdiff_t>(U.cols(), sv.rows(),
+          "inconsistent matrices", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       Eigen::Map<const Eigen::VectorXd> bEigen(
         reinterpret_cast<const double*>(b->x), b->nrow);
       x = U.leftCols(rank) * sv.head(rank).asDiagonal().inverse() *
@@ -431,23 +445,28 @@ namespace aslam {
         cholmod_dense* b, cholmod_sparse* A_r, const Eigen::VectorXd& x_r,
         cholmod_common* cholmod) {
       if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
-        throw InvalidOperationException("solveQR(): QR factorization is null");
+        throw NullPointerException("factor", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (b == NULL)
-        throw InvalidOperationException("solveQR(): right-hand side is null");
+        throw NullPointerException("b", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (A_r == NULL)
-        throw InvalidOperationException("solveQR(): A_r is null");
+        throw NullPointerException("A_r", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (x_r.size() != static_cast<int>(A_r->ncol))
-        throw InvalidOperationException("solveQR(): "
-          "mismatch between x_r and A_r");
+        throw OutOfBoundException<int>(x_r.size(), A_r->ncol,
+          "mismatch between x_r and A_r", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
-        throw InvalidOperationException("solveQR(): cholmod is null");
+        throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       cholmod_dense x_rCholmod;
       eigenDenseToCholmodDenseView(x_r, &x_rCholmod);
       cholmod_dense* A_rx_r = cholmod_l_allocate_dense(A_r->nrow, 1, A_r->nrow,
         CHOLMOD_REAL, cholmod);
       if (A_rx_r == NULL)
-        throw InvalidOperationException("solveQR(): "
-          "cholmod_l_allocate_dense failed");
+        throw InvalidOperationException("cholmod_l_allocate_dense failed",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       double alpha[2];
       alpha[0] = 1;
       double beta[2];
@@ -455,7 +474,8 @@ namespace aslam {
       if (!cholmod_l_sdmult(A_r, 0, alpha, beta, &x_rCholmod, A_rx_r,
           cholmod)) {
         cholmod_l_free_dense(&A_rx_r, cholmod);
-        throw InvalidOperationException("solveQR(): cholmod_l_sdmult failed");
+        throw InvalidOperationException("cholmod_l_sdmult failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       }
       Eigen::Map<const Eigen::VectorXd> bEigen(
         reinterpret_cast<const double*>(b->x), b->nrow);
@@ -468,14 +488,14 @@ namespace aslam {
       cholmod_dense* QtbmA_rx_r = SuiteSparseQR_qmult<double>(SPQR_QTX, factor,
         &bmA_rx_r, cholmod);
       if (QtbmA_rx_r == NULL)
-        throw InvalidOperationException("solveQR(): "
-          "SuiteSparseQR_qmult failed");
+        throw InvalidOperationException("SuiteSparseQR_qmult failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       cholmod_dense* x_l = SuiteSparseQR_solve<double>(SPQR_RETX_EQUALS_B,
         factor, QtbmA_rx_r, cholmod);
       cholmod_l_free_dense(&QtbmA_rx_r, cholmod);
       if (x_l == NULL)
-        throw InvalidOperationException("solveQR(): "
-          "SuiteSparseQR_solve failed");
+        throw InvalidOperationException("SuiteSparseQR_solve failed", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       return x_l;
     }
 

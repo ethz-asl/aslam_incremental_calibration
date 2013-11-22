@@ -30,7 +30,9 @@ rosbuild_add_library(${PROJECT_NAME}
   src/base/Thread.cpp
   src/base/Threads.cpp
   src/base/Timer.cpp
+  src/exceptions/Exception.cpp
   src/exceptions/InvalidOperationException.cpp
+  src/exceptions/NullPointerException.cpp
   src/exceptions/SystemException.cpp
   src/statistics/NormalDistribution1v.cpp
   src/statistics/ChiSquareDistribution.cpp

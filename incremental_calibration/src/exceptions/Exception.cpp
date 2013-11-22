@@ -16,7 +16,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/exceptions/InvalidOperationException.h"
+#include "aslam/calibration/exceptions/Exception.h"
+
+#include <sstream>
 
 namespace aslam {
   namespace calibration {
@@ -25,25 +27,51 @@ namespace aslam {
 /* Constructors and Destructor                                                */
 /******************************************************************************/
 
-    InvalidOperationException::InvalidOperationException(const std::string& msg,
-        const std::string& filename, size_t line, const std::string& function) :
-        Exception(msg, filename, line, function) {
+    Exception::Exception(const std::string& msg, const std::string& filename,
+        size_t line, const std::string& function) :
+        mMsg(msg),
+        mFilename(filename),
+        mFunction(function),
+        mLine(line) {
+      std::stringstream stream;
+      if (mFunction != " ")
+        stream << mFunction << ": ";
+      stream << mMsg;
+      if (mFilename != " ")
+        stream << " [file = " << mFilename << "]";
+      if (mLine)
+        stream << "[line = " << mLine << "]";
+      mOutputMessage = stream.str();
     }
 
-    InvalidOperationException::InvalidOperationException(const
-        InvalidOperationException& other) throw() :
-        Exception(other) {
+    Exception::Exception(const Exception& other) throw() :
+        mMsg(other.mMsg),
+        mFilename(other.mFilename),
+        mFunction(other.mFunction),
+        mLine(other.mLine),
+        mOutputMessage(other.mOutputMessage) {
     }
 
-    InvalidOperationException& InvalidOperationException::operator =
-        (const InvalidOperationException& other) throw() {
+    Exception& Exception::operator = (const Exception& other) throw() {
       if (this != &other) {
-        Exception::operator=(other);
+        mMsg = other.mMsg;
+        mFilename = other.mFilename;
+        mFunction = other.mFunction;
+        mLine = other.mLine;
+        mOutputMessage = other.mOutputMessage;
       }
       return *this;
     }
 
-    InvalidOperationException::~InvalidOperationException() throw () {
+    Exception::~Exception() throw () {
+    }
+
+/******************************************************************************/
+/* Accessors                                                                  */
+/******************************************************************************/
+
+    const char* Exception::what() const throw() {
+      return mOutputMessage.c_str();
     }
 
   }

@@ -436,7 +436,8 @@ namespace aslam {
       if (margGroupIt == groupsOrdering.end())
         throw InvalidOperationException(
           "IncrementalEstimator::orderMarginalizedDesignVariables(): "
-          "marginalized group ID should appear in the problem");
+          "marginalized group ID should appear in the problem", __FILE__,
+          __LINE__);
       else {
         if (*margGroupIt != groupsOrdering.back()) {
           std::swap(*margGroupIt, groupsOrdering.back());

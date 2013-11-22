@@ -27,49 +27,30 @@ namespace aslam {
 
     template <typename X>
     ThreadsManagerException<X>::ThreadsManagerException(const X& argument,
-        const std::string& msg, const std::string& filename, size_t line) :
-        mMsg(msg),
-        mArg(argument),
-        mFilename(filename),
-        mLine(line) {
+        const std::string& msg, const std::string& filename, size_t line, const
+        std::string& function) : Exception(msg, filename, line, function) {
+      std::stringstream stream;
+      stream << "[argument = " << argument << "]";
+      mOutputMessage.append(stream.str());
     }
 
     template <typename X>
     ThreadsManagerException<X>::ThreadsManagerException(const
         ThreadsManagerException& other) throw () :
-        mMsg(other.mMsg),
-        mArg(other.mArg),
-        mFilename(other.mFilename),
-        mLine(other.mLine) {
+        Exception(other) {
     }
 
     template <typename X>
     ThreadsManagerException<X>& ThreadsManagerException<X>::operator =
         (const ThreadsManagerException& other) throw () {
       if (this != &other) {
-        mMsg = other.mMsg;
-        mArg = other.mArg;
-        mFilename = other.mFilename;
-        mLine = other.mLine;
+        Exception::operator=(other);
       }
       return *this;
     }
 
     template <typename X>
     ThreadsManagerException<X>::~ThreadsManagerException() throw () {
-    }
-
-/******************************************************************************/
-/* Accessors                                                                  */
-/******************************************************************************/
-
-    template <typename X>
-    const char* ThreadsManagerException<X>::what() const throw () {
-      std::stringstream stream;
-      stream << mMsg << " [argument = " << mArg << "]";
-      if (mFilename != " ")
-        stream << " [file = " << mFilename << "]" << "[line = " << mLine << "]";
-      return stream.str().c_str();
     }
 
   }

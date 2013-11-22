@@ -25,6 +25,7 @@
 
 #include "aslam/calibration/exceptions/OutOfBoundException.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
+#include "aslam/calibration/exceptions/NullPointerException.h"
 #include "aslam/calibration/algorithms/permute.h"
 
 namespace aslam {
@@ -54,9 +55,8 @@ namespace aslam {
       if (isGroupInProblem(groupId))
         return _designVariables.at(groupId);
       else
-        throw OutOfBoundException<size_t>(groupId,
-          "OptimizationProblem::getDesignVariablesGroup(): "
-          "unknown group", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(groupId, "unknown group", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
     }
 
     const OptimizationProblem::ErrorTermsSP&
@@ -72,19 +72,17 @@ namespace aslam {
         setGroupsOrdering(const std::vector<size_t>& groupsOrdering) {
       if (groupsOrdering.size() != _groupsOrdering.size())
         throw OutOfBoundException<size_t>(groupsOrdering.size(),
-          "OptimizationProblem::setGroupsOrdering(): "
-          "wrong groups ordering size", __FILE__, __LINE__);
+          _groupsOrdering.size(), "wrong groups ordering size", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
       std::unordered_set<size_t> groupsLookup;
       for (auto it = groupsOrdering.cbegin(); it != groupsOrdering.cend();
           ++it) {
         if (!isGroupInProblem(*it))
-          throw OutOfBoundException<size_t>(*it,
-            "OptimizationProblem::setGroupsOrdering(): unknown group",
-            __FILE__, __LINE__);
+          throw OutOfBoundException<size_t>(*it, "unknown group",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
         if (groupsLookup.count(*it))
-          throw OutOfBoundException<size_t>(*it,
-            "OptimizationProblem::setGroupsOrdering(): duplicate group",
-            __FILE__, __LINE__);
+          throw OutOfBoundException<size_t>(*it, "duplicate group",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
         groupsLookup.insert(*it);
       }
       _groupsOrdering = groupsOrdering;
@@ -99,9 +97,8 @@ namespace aslam {
       if (isDesignVariableInProblem(designVariable))
         return _designVariablesLookup.at(designVariable);
       else
-        throw InvalidOperationException(
-          "OptimizationProblem::getGroupId(): "
-          "design variable is not in the problem");
+        throw InvalidOperationException("design variable is not in the problem",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
 
     size_t OptimizationProblem::getGroupDim(size_t groupId) const {
@@ -127,13 +124,11 @@ namespace aslam {
         addDesignVariable(const DesignVariableSP& designVariable,
         size_t groupId) {
       if (!designVariable)
-        throw InvalidOperationException(
-          "OptimizationProblem::addDesignVariable(): "
-          "design variable is a null pointer");
+        throw NullPointerException("designVariable", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (isDesignVariableInProblem(designVariable.get()))
-        throw InvalidOperationException(
-          "OptimizationProblem::addDesignVariable(): "
-          "design variable already included");
+        throw InvalidOperationException("design variable already included",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       _designVariablesLookup.insert(std::make_pair(designVariable.get(),
         groupId));
       if (!isGroupInProblem(groupId))
@@ -148,18 +143,18 @@ namespace aslam {
 
     void OptimizationProblem::addErrorTerm(const ErrorTermSP& errorTerm) {
       if (!errorTerm)
-        throw InvalidOperationException(
-          "OptimizationProblem::addErrorTerm(): error term is a null pointer");
+        throw NullPointerException("errorTerm", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
       if (isErrorTermInProblem(errorTerm.get()))
-        throw InvalidOperationException(
-          "OptimizationProblem::addErrorTerm(): error term already included");
+        throw InvalidOperationException("error term already included",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       const size_t numDV = errorTerm->numDesignVariables();
       for (size_t i = 0; i < numDV; ++i) {
         const DesignVariable* dv = errorTerm->designVariable(i);
         if (!isDesignVariableInProblem(dv))
           throw InvalidOperationException(
-            "OptimizationProblem::addErrorTerm(): "
-            "error term contains a design variable not in the problem");
+            "error term contains a design variable not in the problem",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
       }
       _errorTermsLookup.insert(errorTerm.get());
       _errorTerms.push_back(errorTerm);
@@ -205,9 +200,8 @@ namespace aslam {
     OptimizationProblem::ErrorTerm* OptimizationProblem::
         errorTermImplementation(size_t idx) {
       if (idx >= _errorTerms.size())
-        throw OutOfBoundException<size_t>(idx,
-          "OptimizationProblem::errorTermImplementation(): "
-          "index out of bounds", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _errorTerms.size(),
+          "index out of bounds", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       else
         return _errorTerms[idx].get();
     }
@@ -215,18 +209,16 @@ namespace aslam {
     const OptimizationProblem::ErrorTerm* OptimizationProblem::
         errorTermImplementation(size_t idx) const {
       if (idx >= _errorTerms.size())
-        throw OutOfBoundException<size_t>(idx,
-          "OptimizationProblem::errorTermImplementation(): "
-          "index out of bounds", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _errorTerms.size(),
+          "index out of bounds", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       else
         return _errorTerms[idx].get();
     }
 
     void OptimizationProblem::getErrorsImplementation(const DesignVariable* dv,
         std::set<ErrorTerm*>& outErrorSet) {
-      throw InvalidOperationException(
-        "OptimizationProblem::getErrorsImplementation(): "
-        "not implemented (deprecated)");
+      throw InvalidOperationException("not implemented (deprecated)", __FILE__,
+        __LINE__, __PRETTY_FUNCTION__);
     }
 
     void OptimizationProblem::permuteErrorTerms(const std::vector<size_t>&
@@ -239,17 +231,15 @@ namespace aslam {
       if (isGroupInProblem(groupId))
         permute(_designVariables.at(groupId), permutation);
       else
-        throw OutOfBoundException<size_t>(groupId,
-          "OptimizationProblem::permuteDesignVariables(): "
-          "unknown group", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(groupId, "unknown group", __FILE__,
+          __LINE__, __PRETTY_FUNCTION__);
     }
 
     void OptimizationProblem::getGroupId(size_t idx, size_t& groupId,
         size_t& idxGroup) const {
       if (idx >= _designVariablesLookup.size())
-        throw OutOfBoundException<size_t>(idx,
-          "OptimizationProblem::getGroupId(): "
-          "index out of bounds", __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(idx, _designVariablesLookup.size(),
+          "index out of bounds", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       size_t idxRunning = 0;
       size_t groupIdRunning = 0;
       for (auto it = _groupsOrdering.cbegin(); it != _groupsOrdering.cend();

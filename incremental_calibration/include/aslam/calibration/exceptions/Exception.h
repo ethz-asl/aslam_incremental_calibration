@@ -16,50 +16,71 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file SystemException.h
-    \brief This file defines the SystemException class, which represents
-           low-level system exceptions.
+/** \file Exception.h
+    \brief This file defines the Exception class, which is the base class for
+           all exceptions.
   */
 
-#ifndef ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
-#define ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
+#ifndef ASLAM_CALIBRATION_EXCEPTIONS_EXCEPTION_H
+#define ASLAM_CALIBRATION_EXCEPTIONS_EXCEPTION_H
 
 #include <cstddef>
 
+#include <stdexcept>
 #include <string>
-
-#include "aslam/calibration/exceptions/Exception.h"
 
 namespace aslam {
   namespace calibration {
 
-    /** The class SystemException represents system exceptions.
-        \brief System exceptions
+    /** The class Exception represents the base class for all exceptions.
+        \brief Exception base class
       */
-    class SystemException :
-      public Exception {
+    class Exception :
+      public std::exception {
     public:
       /** \name Constructors/Destructor
         @{
         */
-      /// Constructs exception
-      SystemException(int errNo, const std::string& msg = "", const
-        std::string& filename = " ", size_t line = 0, const std::string&
-        function = " ");
+      /// Constructs exception from message
+      Exception(const std::string& msg = "", const std::string&
+        filename = " ", size_t line = 0, const std::string& function = " ");
       /// Copy constructor
-      SystemException(const SystemException& other) throw ();
+      Exception(const Exception& other) throw ();
       /// Assignment operator
-      SystemException& operator = (const SystemException& other) throw();
+      Exception& operator = (const Exception& other) throw();
       /// Destructor
-      virtual ~SystemException() throw ();
+      virtual ~Exception() throw ();
+      /** @}
+        */
+
+      /** \name Accessors
+        @{
+        */
+      /// Access the exception string
+      virtual const char* what() const throw();
       /** @}
         */
 
     protected:
+      /** \name Protected members
+        @{
+        */
+      /// Message in the exception
+      std::string mMsg;
+      /// Filename where the exception occurs
+      std::string mFilename;
+      /// Function where the exception occurs
+      std::string mFunction;
+      /// Line number where the exception occurs
+      size_t mLine;
+      /// Output message
+      std::string mOutputMessage;
+      /** @}
+        */
 
     };
 
   }
 }
 
-#endif // ASLAM_CALIBRATION_EXCEPTIONS_SYSTEMEXCEPTION_H
+#endif // ASLAM_CALIBRATION_EXCEPTIONS_EXCEPTION_H
