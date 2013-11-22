@@ -1,0 +1,25 @@
+<package>
+  <description brief="incremental_calibration_examples_camera">
+
+     incremental_calibration_examples_camera
+
+  </description>
+  <author>Jerome Maye</author>
+  <license>LGPL</license>
+  <review status="unreviewed" notes=""/>
+  <url>https://github.com/ethz-asl/aslam_incremental_calibration</url>
+
+  <depend package="incremental_calibration"/>
+  <depend package="sm_property_tree"/>
+  <depend package="sm_timing"/>
+  <depend package="sm_kinematics"/>
+  <depend package="aslam_cameras"/>
+  <depend package="aslam_backend_expressions"/>
+
+  <export>
+    <cpp cflags="-I${prefix}/include"
+         lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib
+          -lincremental_calibration_examples_camera.so" />
+  </export>
+
+</package>
