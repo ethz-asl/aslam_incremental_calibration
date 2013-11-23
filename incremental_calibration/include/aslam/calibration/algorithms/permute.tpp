@@ -31,14 +31,14 @@ namespace aslam {
     void permute(std::vector<T>& container, const std::vector<size_t>&
         permutation) {
       if (container.size() != permutation.size())
-        throw OutOfBoundException<size_t>(permutation.size(),
-          "permute(): permutation vector must match container size",
-          __FILE__, __LINE__);
+        throw OutOfBoundException<size_t>(permutation.size(), container.size(),
+          "permutation vector must match container size",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
       for (size_t i = 0; i < container.size(); ++i) {
         if (permutation[i] >= container.size())
-          throw OutOfBoundException<size_t>(permutation[i],
-            "permute(): permutation vector index out of bound",
-            __FILE__, __LINE__);
+          throw OutOfBoundException<size_t>(permutation[i], container.size(),
+            "permutation vector index out of bound",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
         size_t k = permutation[i];
         while (k < i)
           k = permutation[k];

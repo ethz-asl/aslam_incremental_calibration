@@ -24,6 +24,8 @@
 #ifndef ASLAM_CALIBRATION_CAMERA_CALIBRATOR_H
 #define ASLAM_CALIBRATION_CAMERA_CALIBRATOR_H
 
+#include <cstddef>
+
 #include <string>
 #include <vector>
 
@@ -46,6 +48,7 @@ namespace aslam {
 
     class GridDetector;
     class GridCalibrationTarget;
+    class GridCalibrationTargetObservation;
     class CameraGeometryBase;
     template<typename PROJECTION_T, typename SHUTTER_T, typename MASK_T>
       class CameraGeometry;
@@ -64,6 +67,7 @@ namespace aslam {
   namespace calibration {
 
     class IncrementalEstimator;
+    class OptimizationProblem;
 
     /** The class CameraCalibrator implements the camera calibration algorithm.
         \brief Camera calibration algorithm.
@@ -102,10 +106,32 @@ namespace aslam {
       /// Landmark design variable shared pointer type
       typedef boost::shared_ptr<LandmarkDesignVariable>
         LandmarkDesignVariablePtr;
+      /// Batch for the estimator
+      typedef boost::shared_ptr<OptimizationProblem> BatchPtr;
+      /// Grid observation
+      typedef aslam::cameras::GridCalibrationTargetObservation Observation;
       /// Self type
       typedef CameraCalibrator Self;
       /// Options for the camera calibrator
       struct Options {
+        /// Default constructor
+        Options() :
+            rows(6),
+            cols(7),
+            rowSpacingMeters(0.03),
+            colSpacingMeters(0.03),
+            detectorType("checkerboard"),
+            useAdaptiveThreshold(true),
+            normalizeImage(false),
+            filterQuads(false),
+            doSubpixelRefinement(true),
+            cameraProjectionType("pinhole"),
+            estimateLandmarks(false),
+            landmarksGroupId(2),
+            calibrationGroupId(0),
+            transformationsGroupId(1),
+            batchNumImages(1),
+            verbose(false) {}
         /// Number of rows in the checkerboard
         size_t rows;
         /// Number of columns in the checkerboard
@@ -128,6 +154,14 @@ namespace aslam {
         std::string cameraProjectionType;
         /// Estimate the landmarks
         bool estimateLandmarks;
+        /// Landmark design variables group ID
+        size_t landmarksGroupId;
+        /// Calibration design variables group ID
+        size_t calibrationGroupId;
+        /// Transformation design variables group ID
+        size_t transformationsGroupId;
+        /// Number of images in a batch
+        size_t batchNumImages;
         /// Verbose mode
         bool verbose;
       };
@@ -138,7 +172,8 @@ namespace aslam {
         @{
         */
       /// Constructor
-      CameraCalibrator();
+      CameraCalibrator(const IncrementalEstimatorPtr& estimator, const Options&
+        options = Options());
       /// Constructs calibrator with configuration in property tree
       CameraCalibrator(const sm::PropertyTree& config);
       /// Copy constructor
@@ -161,6 +196,12 @@ namespace aslam {
       const Options& getOptions() const;
       /// Returns the current options
       Options& getOptions();
+      /// Returns the incremental estimator
+      const IncrementalEstimatorPtr getEstimator() const;
+      /// Returns the incremental estimator
+      IncrementalEstimatorPtr getEstimator();
+      /// Returns the number of images in the current batch
+      size_t getBatchNumImages() const;
       /** @}
         */
 
@@ -170,7 +211,7 @@ namespace aslam {
       /// Init geometry from an image
       bool initGeometry(const cv::Mat& image);
       /// Add an image to the calibrator
-      void addImage(const cv::Mat& image, sm::timing::NsecTime timestamp);
+      bool addImage(const cv::Mat& image, sm::timing::NsecTime timestamp);
       /** @}
         */
 
@@ -178,6 +219,12 @@ namespace aslam {
       /** \name Protected methods
         @{
         */
+      /// Init the vision framework
+      void initVisionFramework();
+      /// Init batch
+      void initBatch();
+      /// Add an observation into the batch
+      void addObservation(const Observation& observation);
       /** @}
         */
 
@@ -188,6 +235,8 @@ namespace aslam {
       Options _options;
       /// Incremental estimator
       IncrementalEstimatorPtr _estimator;
+      /// Estimtator batch
+      BatchPtr _batch;
       /// Calibration target
       CalibrationTargetPtr _calibrationTarget;
       /// Detector
@@ -198,6 +247,8 @@ namespace aslam {
       std::vector<LandmarkDesignVariablePtr> _landmarkDesignVariables;
       /// Geometry initialized properly
       bool _geometryInitialized;
+      /// Number of images in the batch
+      size_t _batchNumImages;
       /** @}
         */
 

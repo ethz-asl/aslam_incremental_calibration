@@ -124,9 +124,8 @@ namespace aslam {
     void VectorDesignVariable<M>::setParametersImplementation(
         const Eigen::MatrixXd& value) {
       if (value.cols() != _value.cols() || value.rows() != _value.rows())
-        throw OutOfBoundException<Eigen::MatrixXd>(value,
-          "VectorDesignVariable::setParametersImplementation(): dimensions "
-          "must match", __FILE__, __LINE__);
+        throw OutOfBoundException<int>(value.cols(), _value.cols(),
+          "dimensions must match", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       _oldValue = _value;
       _value = value;
     }
