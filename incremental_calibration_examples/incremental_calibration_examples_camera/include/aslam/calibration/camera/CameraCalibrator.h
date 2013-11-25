@@ -29,9 +29,14 @@
 #include <string>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include <boost/shared_ptr.hpp>
 
 #include <sm/timing/NsecTimeUtilities.hpp>
+
+#include <aslam/calibration/statistics/EstimatorML.h>
+#include <aslam/calibration/statistics/NormalDistribution.h>
 
 namespace cv {
 
@@ -44,6 +49,9 @@ namespace sm {
 
 }
 namespace aslam {
+
+  class CameraGeometryDesignVariableContainer;
+
   namespace cameras {
 
     class GridDetector;
@@ -110,6 +118,14 @@ namespace aslam {
       typedef boost::shared_ptr<OptimizationProblem> BatchPtr;
       /// Grid observation
       typedef aslam::cameras::GridCalibrationTargetObservation Observation;
+      /// Grid observation shared pointer
+      typedef boost::shared_ptr<Observation> ObservationPtr;
+      /// Camera intrinsics design variable container
+      typedef aslam::CameraGeometryDesignVariableContainer
+        CameraDesignVariableContainer;
+      /// Camera intrinsics design variable containter shared pointer
+      typedef boost::shared_ptr<CameraDesignVariableContainer>
+        CameraDesignVariableContainerPtr;
       /// Self type
       typedef CameraCalibrator Self;
       /// Options for the camera calibrator
@@ -202,6 +218,36 @@ namespace aslam {
       IncrementalEstimatorPtr getEstimator();
       /// Returns the number of images in the current batch
       size_t getBatchNumImages() const;
+      /// Returns the current projection parameters
+      Eigen::VectorXd getProjection() const;
+      /// Returns the current projection variance
+      Eigen::VectorXd getProjectionVariance() const;
+      /// Returns the current projection standard deviation
+      Eigen::VectorXd getProjectionStandardDeviation() const;
+      /// Returns the current distortion parameters
+      Eigen::VectorXd getDistortion() const;
+      /// Returns the current distortion variance
+      Eigen::VectorXd getDistortionVariance() const;
+      /// Returns the current distortion standard deviation
+      Eigen::VectorXd getDistortionStandardDeviation() const;
+      /// Returns the current batch observations
+      const std::vector<ObservationPtr>& getBatchObservations() const;
+      /// Returns the current estimator observations
+      const std::vector<ObservationPtr>& getEstimatorObservations() const;
+      /// Returns the transformation matrix for an observation
+      Eigen::Matrix4d getTransformation(size_t idx) const;
+      /// Returns the current initial cost for the estimator
+      double getInitialCost() const;
+      /// Returns the current final cost for the estimator
+      double getFinalCost() const;
+      /// Returns the current nullspace
+      Eigen::MatrixXd getNullSpace() const;
+      /// Returns the mean reprojection error
+      Eigen::VectorXd getReprojectionErrorMean() const;
+      /// Returns the variance of the reprojection error
+      Eigen::VectorXd getReprojectionErrorVariance() const;
+      /// Returns the standard deviation of the reprojection error
+      Eigen::VectorXd getReprojectionErrorStandardDeviation() const;
       /** @}
         */
 
@@ -214,6 +260,8 @@ namespace aslam {
       bool addImage(const cv::Mat& image, sm::timing::NsecTime timestamp);
       /// Process the current batch
       void processBatch();
+      /// Write camera parameters to property tree
+      void write(sm::PropertyTree& config) const;
       /** @}
         */
 
@@ -237,7 +285,7 @@ namespace aslam {
       Options _options;
       /// Incremental estimator
       IncrementalEstimatorPtr _estimator;
-      /// Estimtator batch
+      /// Estimator batch
       BatchPtr _batch;
       /// Calibration target
       CalibrationTargetPtr _calibrationTarget;
@@ -251,6 +299,18 @@ namespace aslam {
       bool _geometryInitialized;
       /// Number of images in the batch
       size_t _batchNumImages;
+      /// Camera intrinsics design variable container
+      CameraDesignVariableContainerPtr _cameraDesignVariableContainer;
+      /// Observations in the current batch
+      std::vector<ObservationPtr> _batchObservations;
+      /// Observations accepted by the estimator
+      std::vector<ObservationPtr> _estimatorObservations;
+      /// Initial cost
+      double _initialCost;
+      /// Final cost
+      double _finalCost;
+      /// Statistics about the reprojection errors
+      EstimatorML<NormalDistribution<2> > _reprojectionErrorsStatistics;
       /** @}
         */
 

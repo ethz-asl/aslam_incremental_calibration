@@ -12,6 +12,7 @@
   <depend package="incremental_calibration"/>
   <depend package="sm_property_tree"/>
   <depend package="sm_timing"/>
+  <depend package="sm_boost"/>
   <depend package="sm_kinematics"/>
   <depend package="aslam_cameras"/>
   <depend package="aslam_backend_expressions"/>

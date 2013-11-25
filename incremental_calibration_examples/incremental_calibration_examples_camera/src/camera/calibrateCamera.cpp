@@ -49,16 +49,16 @@ int main(int argc, char** argv) {
 
   // loading configuration
   std::cout << "Loading configuration parameters..." << std::endl;
-  BoostPropertyTree propertyTree;
-  propertyTree.loadXml(argv[2]);
+  BoostPropertyTree config;
+  config.loadXml(argv[2]);
 
   // create the camera calibrator
-  CameraCalibrator calibrator(PropertyTree(propertyTree, "camera/calibrator"));
+  CameraCalibrator calibrator(PropertyTree(config, "camera/calibrator"));
 
   // load ros bag file
   rosbag::Bag bag(argv[1]);
   std::vector<std::string> topics;
-  const std::string rosTopic = propertyTree.getString("camera/rosTopic");
+  const std::string rosTopic = config.getString("camera/rosTopic");
   topics.push_back(rosTopic);
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
@@ -85,6 +85,33 @@ int main(int argc, char** argv) {
       calibrator.addImage(cvImage->image, image->header.stamp.toNSec());
     }
   }
+  calibrator.processBatch();
+
+  std::cout << "final parameters: " << std::endl;
+  std::cout << "projection: " << calibrator.getProjection().transpose()
+    << std::endl;
+  std::cout << "projection standard deviation: "
+    << calibrator.getProjectionStandardDeviation().transpose() << std::endl;
+  std::cout << "distortion: " << calibrator.getDistortion().transpose()
+    << std::endl;
+  std::cout << "distortion standard deviation: "
+    << calibrator.getDistortionStandardDeviation().transpose() << std::endl;
+  std::cout << "null space: " << std::endl << calibrator.getNullSpace()
+    << std::endl;
+  std::cout << "initial cost: " << calibrator.getInitialCost() << std::endl;
+  std::cout << "final cost: " << calibrator.getFinalCost() << std::endl;
+  std::cout << "number of images for estimation: "
+    << calibrator.getEstimatorObservations().size() << std::endl;
+  std::cout << "total number of images: " << view.size() << std::endl;
+  std::cout << "reprojection error mean: " <<
+    calibrator.getReprojectionErrorMean().transpose() << std::endl;
+  std::cout << "reprojection error standard deviation: " <<
+    calibrator.getReprojectionErrorStandardDeviation().transpose() << std::endl;
+
+  // write calibration to xml file
+  BoostPropertyTree calibrationData("intrinsics");
+  calibrator.write(calibrationData);
+  calibrationData.saveXml(config.getString("camera/cameraId") + ".xml");
 
   return 0;
 }

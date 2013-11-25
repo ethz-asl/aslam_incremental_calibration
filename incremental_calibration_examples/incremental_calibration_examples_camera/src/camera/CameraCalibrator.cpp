@@ -30,6 +30,8 @@
 #include <sm/kinematics/homogeneous_coordinates.hpp>
 #include <sm/kinematics/Transformation.hpp>
 
+#include <sm/boost/null_deleter.hpp>
+
 #include <aslam/Time.hpp>
 
 #include <aslam/cameras/GridCalibrationTarget.hpp>
@@ -49,14 +51,17 @@
 #include <aslam/backend/TransformationExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
-#include <aslam/backend/CompressedColumnMatrix.hpp>
+#include <aslam/backend/DesignVariable.hpp>
 
 #include <aslam/ReprojectionError.hpp>
+#include <aslam/CameraGeometryDesignVariableContainer.hpp>
 
 #include <aslam/calibration/core/IncrementalEstimator.h>
+#include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 #include <aslam/calibration/core/OptimizationProblem.h>
 #include <aslam/calibration/exceptions/BadArgumentException.h>
 #include <aslam/calibration/exceptions/InvalidOperationException.h>
+#include <aslam/calibration/exceptions/OutOfBoundException.h>
 #include <aslam/calibration/base/Timestamp.h>
 
 namespace aslam {
@@ -71,13 +76,17 @@ namespace aslam {
         _options(options),
         _estimator(estimator),
         _geometryInitialized(false),
-        _batchNumImages(0) {
+        _batchNumImages(0),
+        _initialCost(0),
+        _finalCost(0) {
       initVisionFramework();
     }
 
     CameraCalibrator::CameraCalibrator(const sm::PropertyTree& config) :
         _geometryInitialized(false),
-        _batchNumImages(0) {
+        _batchNumImages(0),
+        _initialCost(0),
+        _finalCost(0) {
       // read the options from the property tree
       _options.rows = config.getInt("rows", _options.rows);
       _options.cols = config.getInt("cols", _options.cols);
@@ -145,6 +154,111 @@ namespace aslam {
       return _batchNumImages;
     }
 
+    Eigen::VectorXd CameraCalibrator::getProjection() const {
+      Eigen::MatrixXd params;
+      _geometry->getParameters(params, true, false, false);
+      return params;
+    }
+
+    Eigen::VectorXd CameraCalibrator::getProjectionVariance() const {
+      if (_estimator->getNumBatches())
+        return _estimator->getMarginalizedCovariance().diagonal().head(
+          _geometry->minimalDimensionsProjection());
+      else
+        return Eigen::VectorXd::Zero(0);
+    }
+
+    Eigen::VectorXd CameraCalibrator::getProjectionStandardDeviation() const {
+      if (_estimator->getNumBatches())
+        return getProjectionVariance().array().sqrt();
+      else
+        return Eigen::VectorXd::Zero(0);
+    }
+
+    Eigen::VectorXd CameraCalibrator::getDistortion() const {
+      Eigen::MatrixXd params;
+      _geometry->getParameters(params, false, true, false);
+      return params;
+    }
+
+    Eigen::VectorXd CameraCalibrator::getDistortionVariance() const {
+      if (_estimator->getNumBatches())
+        return _estimator->getMarginalizedCovariance().diagonal().tail(
+          _geometry->minimalDimensionsDistortion());
+      else
+        return Eigen::VectorXd::Zero(0);
+    }
+
+    Eigen::VectorXd CameraCalibrator::getDistortionStandardDeviation() const {
+      if (_estimator->getNumBatches())
+        return getDistortionVariance().array().sqrt();
+      else
+        return Eigen::VectorXd::Zero(0);
+    }
+
+    const std::vector<CameraCalibrator::ObservationPtr>&
+        CameraCalibrator::getBatchObservations() const {
+      return _batchObservations;
+    }
+
+    const std::vector<CameraCalibrator::ObservationPtr>&
+        CameraCalibrator::getEstimatorObservations() const {
+      return _estimatorObservations;
+    }
+
+    double CameraCalibrator::getInitialCost() const {
+      return _initialCost;
+    }
+
+    double CameraCalibrator::getFinalCost() const {
+      return _finalCost;
+    }
+
+    Eigen::Matrix4d CameraCalibrator::getTransformation(size_t idx) const {
+      if (idx >= _estimatorObservations.size())
+        throw OutOfBoundException<size_t>(idx, _estimatorObservations.size(),
+          "idx must be stricly smaller than the number of observations",
+          __FILE__, __LINE__, __PRETTY_FUNCTION__);
+      auto dvs = _estimator->getProblem()->getDesignVariablesGroup(
+        _options.transformationsGroupId);
+      auto q_dv = const_cast<aslam::backend::RotationQuaternion*>(
+        dynamic_cast<const aslam::backend::RotationQuaternion*>(
+        dvs.at(idx * 2)));
+      auto t_dv = dynamic_cast<const aslam::backend::EuclideanPoint*>(
+        dvs.at(idx * 2 + 1));
+      sm::kinematics::Transformation T(q_dv->getQuaternion(),
+        t_dv->toEuclidean());
+      return T.T();
+    }
+
+    Eigen::MatrixXd CameraCalibrator::getNullSpace() const {
+      return _estimator->getMarginalizedNullSpace();
+    }
+
+    Eigen::VectorXd CameraCalibrator::getReprojectionErrorMean() const {
+      if (_reprojectionErrorsStatistics.getValid())
+        return _reprojectionErrorsStatistics.getDistribution().getMean();
+      else
+        return Eigen::VectorXd::Zero(0);
+    }
+
+    Eigen::VectorXd CameraCalibrator::getReprojectionErrorVariance() const {
+      if (_reprojectionErrorsStatistics.getValid())
+        return _reprojectionErrorsStatistics.getDistribution().getCovariance().
+            diagonal();
+      else
+        return Eigen::VectorXd::Zero(0);
+    }
+
+    Eigen::VectorXd CameraCalibrator::getReprojectionErrorStandardDeviation()
+        const {
+      if (_reprojectionErrorsStatistics.getValid())
+        return _reprojectionErrorsStatistics.getDistribution().getCovariance().
+            diagonal().array().sqrt();
+      else
+        return Eigen::VectorXd::Zero(0);
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -160,7 +274,7 @@ namespace aslam {
         detectorType = CalibrationTarget::DetectorType::AprilGrid;
       else
         throw BadArgumentException<std::string>(_options.detectorType,
-          "unkown calibration targetoTransformationMatrixt type", __FILE__, __LINE__,
+          "unkown calibration target type", __FILE__,__LINE__,
           __PRETTY_FUNCTION__);
       _calibrationTarget = boost::make_shared<CalibrationTarget>(_options.rows,
         _options.cols, _options.rowSpacingMeters, _options.colSpacingMeters,
@@ -189,6 +303,10 @@ namespace aslam {
         dv->setActive(_options.estimateLandmarks);
         _landmarkDesignVariables.push_back(dv);
       }
+
+      // create camera intrinsics design variable
+      _cameraDesignVariableContainer = boost::make_shared<
+        CameraDesignVariableContainer>(_geometry, true, true, false);
     }
 
     bool CameraCalibrator::initGeometry(const cv::Mat& image) {
@@ -212,30 +330,16 @@ namespace aslam {
         _batch->addDesignVariable(*it, _options.landmarksGroupId);
 
       // add the calibration design variables
-      if (_options.cameraProjectionType == "omni") {
-        auto dv = boost::make_shared<aslam::backend::CameraDesignVariable<
-          DistortedOmniCameraGeometry> >(boost::dynamic_pointer_cast<
-          DistortedOmniCameraGeometry>(_geometry));
-        dv->setActive(true, true, false);
-        _batch->addDesignVariable(dv->projectionDesignVariable(),
-          _options.calibrationGroupId);
-        _batch->addDesignVariable(dv->distortionDesignVariable(),
-          _options.calibrationGroupId);
-        _batch->addDesignVariable(dv->shutterDesignVariable(),
-          _options.calibrationGroupId);
-      }
-      else {
-        auto dv = boost::make_shared<aslam::backend::CameraDesignVariable<
-          DistortedPinholeCameraGeometry> >(boost::dynamic_pointer_cast<
-          DistortedPinholeCameraGeometry>(_geometry));
-        dv->setActive(true, true, false);
-        _batch->addDesignVariable(dv->projectionDesignVariable(),
-          _options.calibrationGroupId);
-        _batch->addDesignVariable(dv->distortionDesignVariable(),
-          _options.calibrationGroupId);
-        _batch->addDesignVariable(dv->shutterDesignVariable(),
-          _options.calibrationGroupId);
-      }
+      aslam::backend::DesignVariable::set_t cameraDesignVariables;
+      _cameraDesignVariableContainer->getDesignVariables(cameraDesignVariables);
+      for (auto it = cameraDesignVariables.begin();
+          it != cameraDesignVariables.end(); ++it)
+        _batch->addDesignVariable(
+          boost::shared_ptr<aslam::backend::DesignVariable>(
+          *it, sm::null_deleter()), _options.calibrationGroupId);
+
+      // clear the currently stored observations
+      _batchObservations.clear();
     }
 
     void CameraCalibrator::addObservation(const Observation& observation) {
@@ -276,14 +380,8 @@ namespace aslam {
         if (success) {
           auto re = boost::make_shared<aslam::ReprojectionError>(obsPoint,
             Eigen::Matrix2d::Identity(), T_c_t_e * targetPoint,
-            _geometry.get());
+            _cameraDesignVariableContainer.get());
           _batch->addErrorTerm(re);
-          Eigen::MatrixXd J;
-          Eigen::VectorXd hat_y;
-          aslam::backend::HomogeneousExpression p_c = T_c_t_e * targetPoint;
-          Eigen::Vector4d p = p_c.toHomogeneous();
-          _geometry->vsHomogeneousToKeypoint(p, hat_y, J);
-          std::cout << J << std::endl << std::endl;
         }
       }
 
@@ -297,18 +395,24 @@ namespace aslam {
           __LINE__, __PRETTY_FUNCTION__);
 
       // find the target in the input image
-      aslam::cameras::GridCalibrationTargetObservation observation;
+      auto observation = boost::make_shared<Observation>();
       const bool status = _detector->findTarget(image, aslam::Time(
-        sm::timing::nsecToSec(timestamp)), observation);
+        sm::timing::nsecToSec(timestamp)), *observation);
       if (!status) {
         if (_options.verbose)
           std::cerr << __PRETTY_FUNCTION__ << ": target not found at time "
             << sm::timing::nsecToSec(timestamp) << std::endl;
         return status;
       }
+      else {
+        if (_options.verbose)
+          std::cout << __PRETTY_FUNCTION__ << ": target found at time "
+            << sm::timing::nsecToSec(timestamp) << std::endl;
+      }
 
       // add observation to the batch
-      addObservation(observation);
+      addObservation(*observation);
+      _batchObservations.push_back(observation);
 
       // add batch if needed
       if (_batchNumImages == _options.batchNumImages)
@@ -318,18 +422,78 @@ namespace aslam {
     }
 
     void CameraCalibrator::processBatch() {
-      std::cout << "Processing batch..." << std::endl;
       if (!_batch)
         return;
       auto ret = _estimator->addBatch(_batch);
-      std::ofstream jacobianFile("J.txt");
-      _estimator->getJacobianTranspose().writeMATLAB(jacobianFile);
-      std::cout << "Batch added..." << std::endl;
-      std::cout << "accept: " << ret.batchAccepted << std::endl;
-      std::cout << "MI: " << ret.mutualInformation << std::endl;
-      ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+      if (ret.batchAccepted) {
+        _estimatorObservations.insert(_estimatorObservations.begin(),
+          _batchObservations.begin(), _batchObservations.end());
+        _initialCost = ret.JStart;
+        _finalCost = ret.JFinal;
+        for (auto it = _batch->getErrorTerms().cbegin();
+            it != _batch->getErrorTerms().cend(); ++it)
+          _reprojectionErrorsStatistics.addPoint(
+            boost::dynamic_pointer_cast<aslam::ReprojectionError>(*it)
+            ->error());
+      }
+      if (_options.verbose) {
+        std::cout << std::endl;
+        ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+        std::cout << std::endl;
+        std::cout << "MI: " << ret.mutualInformation << std::endl;
+        std::cout << "null space: " << std::endl << ret.nullSpace << std::endl;
+        std::cout << "projection: " << getProjection().transpose() << std::endl;
+        std::cout << "projection standard deviation: "
+          << getProjectionStandardDeviation().transpose() << std::endl;
+        std::cout << "distortion: " << getDistortion().transpose() << std::endl;
+        std::cout << "distortion standard deviation: "
+          << getDistortionStandardDeviation().transpose() << std::endl;
+        std::cout << "reprojection error mean: " <<
+          getReprojectionErrorMean().transpose() << std::endl;
+        std::cout << "reprojection error standard deviation: " <<
+          getReprojectionErrorStandardDeviation().transpose() << std::endl;
+         std::cout << "number of images used: " << _estimatorObservations.size()
+          << std::endl;
+         std::cout << std::endl;
+      }
       initBatch();
       _batchNumImages = 0;
+    }
+
+    void CameraCalibrator::write(sm::PropertyTree& config) const {
+      auto projection = getProjection();
+      auto distortion = getDistortion();
+      if (_options.cameraProjectionType == "omni") {
+        config.setDouble("projection/xi", projection(0));
+        config.setDouble("projection/fu", projection(1));
+        config.setDouble("projection/fv", projection(2));
+        config.setDouble("projection/cu", projection(3));
+        config.setDouble("projection/cv", projection(4));
+        config.setInt("projection/ru",
+          dynamic_cast<DistortedOmniCameraGeometry*>(
+          _geometry.get())->projection().ru());
+        config.setInt("projection/rv",
+          dynamic_cast<DistortedOmniCameraGeometry*>(
+          _geometry.get())->projection().rv());
+      }
+      else {
+        config.setDouble("projection/fu", projection(0));
+        config.setDouble("projection/fv", projection(1));
+        config.setDouble("projection/cu", projection(2));
+        config.setDouble("projection/cv", projection(3));
+        config.setInt("projection/ru",
+          dynamic_cast<DistortedPinholeCameraGeometry*>
+          (_geometry.get())->projection().ru());
+        config.setInt("projection/rv",
+          dynamic_cast<DistortedPinholeCameraGeometry*>(
+          _geometry.get())->projection().rv());
+      }
+      config.setDouble("projection/distortion/k1", distortion(0));
+      config.setDouble("projection/distortion/k2", distortion(1));
+      config.setDouble("projection/distortion/p1", distortion(2));
+      config.setDouble("projection/distortion/p2", distortion(3));
+      config.setDouble("shutter/line-delay", 0);
+      config.setString("mask/mask-file", "");
     }
 
   }

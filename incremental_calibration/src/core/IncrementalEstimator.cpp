@@ -361,8 +361,9 @@ namespace aslam {
 
       // batch is kept? MI improvement or rank goes up or force
       bool keepBatch = false;
-      if (((ret.mutualInformation > _options.miTol ||
-          ret.marginalRank > _svdRank) && solutionValid) || force) {
+//      if (((ret.mutualInformation > _options.miTol ||
+//          ret.marginalRank > _svdRank) && solutionValid) || force) {
+      if ((ret.mutualInformation > _options.miTol && solutionValid) || force) {
         // warning for rank going down
         if (ret.marginalRank < _svdRank && _options.verbose)
           std::cerr << "IncrementalEstimator::addBatch(): "
