@@ -49,12 +49,15 @@
 #include <aslam/backend/TransformationExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
+#include <aslam/backend/CompressedColumnMatrix.hpp>
+
 #include <aslam/ReprojectionError.hpp>
 
 #include <aslam/calibration/core/IncrementalEstimator.h>
 #include <aslam/calibration/core/OptimizationProblem.h>
 #include <aslam/calibration/exceptions/BadArgumentException.h>
 #include <aslam/calibration/exceptions/InvalidOperationException.h>
+#include <aslam/calibration/base/Timestamp.h>
 
 namespace aslam {
   namespace calibration {
@@ -157,7 +160,7 @@ namespace aslam {
         detectorType = CalibrationTarget::DetectorType::AprilGrid;
       else
         throw BadArgumentException<std::string>(_options.detectorType,
-          "unkown calibration target type", __FILE__, __LINE__,
+          "unkown calibration targetoTransformationMatrixt type", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       _calibrationTarget = boost::make_shared<CalibrationTarget>(_options.rows,
         _options.cols, _options.rowSpacingMeters, _options.colSpacingMeters,
@@ -189,9 +192,10 @@ namespace aslam {
     }
 
     bool CameraCalibrator::initGeometry(const cv::Mat& image) {
+      if (_geometryInitialized)
+        return true;
       if (_detector->initCameraGeometryFromObservation(image)) {
         _geometryInitialized = true;
-        initBatch();
         return true;
       }
       else
@@ -235,6 +239,10 @@ namespace aslam {
     }
 
     void CameraCalibrator::addObservation(const Observation& observation) {
+      // if the batch does not exist, create it
+      if (!_batch)
+        initBatch();
+
       // get the transformation that takes points from camera coordinates to
       // target coordinates
       auto T_t_c = const_cast<Observation&>(observation).T_t_c();
@@ -270,6 +278,12 @@ namespace aslam {
             Eigen::Matrix2d::Identity(), T_c_t_e * targetPoint,
             _geometry.get());
           _batch->addErrorTerm(re);
+          Eigen::MatrixXd J;
+          Eigen::VectorXd hat_y;
+          aslam::backend::HomogeneousExpression p_c = T_c_t_e * targetPoint;
+          Eigen::Vector4d p = p_c.toHomogeneous();
+          _geometry->vsHomogeneousToKeypoint(p, hat_y, J);
+          std::cout << J << std::endl << std::endl;
         }
       }
 
@@ -287,8 +301,9 @@ namespace aslam {
       const bool status = _detector->findTarget(image, aslam::Time(
         sm::timing::nsecToSec(timestamp)), observation);
       if (!status) {
-        std::cerr << __PRETTY_FUNCTION__ << ": target not found at time "
-          << sm::timing::nsecToSec(timestamp) << std::endl;
+        if (_options.verbose)
+          std::cerr << __PRETTY_FUNCTION__ << ": target not found at time "
+            << sm::timing::nsecToSec(timestamp) << std::endl;
         return status;
       }
 
@@ -296,13 +311,25 @@ namespace aslam {
       addObservation(observation);
 
       // add batch if needed
-      if (_batchNumImages == _options.batchNumImages) {
-        _estimator->addBatch(_batch);
-        initBatch();
-        _batchNumImages = 0;
-      }
+      if (_batchNumImages == _options.batchNumImages)
+        processBatch();
 
       return true;
+    }
+
+    void CameraCalibrator::processBatch() {
+      std::cout << "Processing batch..." << std::endl;
+      if (!_batch)
+        return;
+      auto ret = _estimator->addBatch(_batch);
+      std::ofstream jacobianFile("J.txt");
+      _estimator->getJacobianTranspose().writeMATLAB(jacobianFile);
+      std::cout << "Batch added..." << std::endl;
+      std::cout << "accept: " << ret.batchAccepted << std::endl;
+      std::cout << "MI: " << ret.mutualInformation << std::endl;
+      ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
+      initBatch();
+      _batchNumImages = 0;
     }
 
   }

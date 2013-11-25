@@ -17,6 +17,10 @@
   <depend package="aslam_backend_expressions"/>
   <depend package="aslam_time"/>
   <depend package="aslam_cv_backend"/>
+  <depend package="rosbag"/>
+  <depend package="sensor_msgs"/>
+  <depend package="std_msgs"/>
+  <depend package="cv_bridge"/>
 
   <export>
     <cpp cflags="-I${prefix}/include"

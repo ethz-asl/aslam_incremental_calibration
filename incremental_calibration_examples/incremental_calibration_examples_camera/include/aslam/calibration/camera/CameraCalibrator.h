@@ -212,6 +212,8 @@ namespace aslam {
       bool initGeometry(const cv::Mat& image);
       /// Add an image to the calibrator
       bool addImage(const cv::Mat& image, sm::timing::NsecTime timestamp);
+      /// Process the current batch
+      void processBatch();
       /** @}
         */
 

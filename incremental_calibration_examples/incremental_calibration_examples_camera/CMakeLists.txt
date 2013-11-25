@@ -26,19 +26,5 @@ rosbuild_add_library(${PROJECT_NAME}
   src/camera/CameraCalibrator.cpp
 )
 
-#rosbuild_add_gtest(${PROJECT_NAME}_test
-#  test/test_main.cpp
-#  test/ErrorTermMotionTest.cpp
-#  test/ErrorTermObservationTest.cpp
-#)
-#target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
-
-#rosbuild_add_executable(2dlrf-simulate-offline src/2dlrf/simulate-offline.cpp)
-#target_link_libraries(2dlrf-simulate-offline ${PROJECT_NAME})
-
-#rosbuild_add_executable(2dlrf-simulate-online src/2dlrf/simulate-online.cpp)
-#target_link_libraries(2dlrf-simulate-online ${PROJECT_NAME})
-
-#rosbuild_add_executable(2dlrf-simulate-online-new
-#  src/2dlrf/simulate-online-new.cpp)
-#target_link_libraries(2dlrf-simulate-online-new ${PROJECT_NAME})
+rosbuild_add_executable(calibrateCamera src/camera/calibrateCamera.cpp)
+target_link_libraries(calibrateCamera ${PROJECT_NAME})
