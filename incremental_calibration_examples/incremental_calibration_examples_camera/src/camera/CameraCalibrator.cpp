@@ -76,17 +76,13 @@ namespace aslam {
         _options(options),
         _estimator(estimator),
         _geometryInitialized(false),
-        _batchNumImages(0),
-        _initialCost(0),
-        _finalCost(0) {
+        _batchNumImages(0) {
       initVisionFramework();
     }
 
     CameraCalibrator::CameraCalibrator(const sm::PropertyTree& config) :
         _geometryInitialized(false),
-        _batchNumImages(0),
-        _initialCost(0),
-        _finalCost(0) {
+        _batchNumImages(0) {
       // read the options from the property tree
       _options.rows = config.getInt("rows", _options.rows);
       _options.cols = config.getInt("cols", _options.cols);
@@ -207,11 +203,11 @@ namespace aslam {
     }
 
     double CameraCalibrator::getInitialCost() const {
-      return _initialCost;
+      return _estimator->getInitialCost();
     }
 
     double CameraCalibrator::getFinalCost() const {
-      return _finalCost;
+      return _estimator->getFinalCost();
     }
 
     Eigen::Matrix4d CameraCalibrator::getTransformation(size_t idx) const {
@@ -428,8 +424,6 @@ namespace aslam {
       if (ret.batchAccepted) {
         _estimatorObservations.insert(_estimatorObservations.begin(),
           _batchObservations.begin(), _batchObservations.end());
-        _initialCost = ret.JStart;
-        _finalCost = ret.JFinal;
         for (auto it = _batch->getErrorTerms().cbegin();
             it != _batch->getErrorTerms().cend(); ++it)
           _reprojectionErrorsStatistics.addPoint(

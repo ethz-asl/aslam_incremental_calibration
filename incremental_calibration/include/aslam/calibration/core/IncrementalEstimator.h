@@ -224,6 +224,10 @@ namespace aslam {
       size_t getMemoryUsage() const;
       /// Returns the number of flops of the linear solver
       double getNumFlops() const;
+      /// Returns the current initial cost for the estimator
+      double getInitialCost() const;
+      /// Returns the current final cost for the estimator
+      double getFinalCost() const;
       /** @}
         */
 
@@ -283,6 +287,10 @@ namespace aslam {
       size_t _memoryUsage;
       /// Number of flops
       double _numFlops;
+      /// Initial cost
+      double _initialCost;
+      /// Final cost
+      double _finalCost;
       /** @}
         */
 

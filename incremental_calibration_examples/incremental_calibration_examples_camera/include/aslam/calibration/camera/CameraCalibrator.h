@@ -305,10 +305,6 @@ namespace aslam {
       std::vector<ObservationPtr> _batchObservations;
       /// Observations accepted by the estimator
       std::vector<ObservationPtr> _estimatorObservations;
-      /// Initial cost
-      double _initialCost;
-      /// Final cost
-      double _finalCost;
       /// Statistics about the reprojection errors
       EstimatorML<NormalDistribution<2> > _reprojectionErrorsStatistics;
       /** @}

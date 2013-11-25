@@ -59,7 +59,9 @@ namespace aslam {
         _qrRankDeficiency(-1),
         _peakMemoryUsage(0),
         _memoryUsage(0),
-        _numFlops(0) {
+        _numFlops(0),
+        _initialCost(0),
+        _finalCost(0) {
       // create linear solver and trust region policy for the optimizer
       OptimizerOptions& optOptions = _optimizer->options();
       optOptions.linearSystemSolver =
@@ -83,7 +85,9 @@ namespace aslam {
         _qrRankDeficiency(-1),
         _peakMemoryUsage(0),
         _memoryUsage(0),
-        _numFlops(0) {
+        _numFlops(0),
+        _initialCost(0),
+        _finalCost(0) {
       // create the optimizer, linear solver, and trust region policy
       _optimizer = boost::make_shared<Optimizer>(
         sm::PropertyTree(config, "optimizer"),
@@ -219,6 +223,14 @@ namespace aslam {
       return _scaledSingularValues;
     }
 
+    double IncrementalEstimator::getInitialCost() const {
+      return _initialCost;
+    }
+
+    double IncrementalEstimator::getFinalCost() const {
+      return _finalCost;
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -268,6 +280,8 @@ namespace aslam {
       _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
       _memoryUsage = linearSolver->getMemoryUsage();
       _numFlops = linearSolver->getNumFlops();
+      _initialCost = srv.JStart;
+      _finalCost = srv.JFinal;
 
       // update output structure
       ReturnValue ret;
@@ -286,8 +300,8 @@ namespace aslam {
       ret.singularValues = _singularValues;
       ret.scaledSingularValues = _scaledSingularValues;
       ret.numIterations = srv.iterations;
-      ret.JStart = srv.JStart;
-      ret.JFinal = srv.JFinal;
+      ret.JStart = _initialCost;
+      ret.JFinal = _finalCost;
       ret.elapsedTime = Timestamp::now() - timeStart;
       return ret;
     }
@@ -389,6 +403,8 @@ namespace aslam {
         _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
         _memoryUsage = linearSolver->getMemoryUsage();
         _numFlops = linearSolver->getNumFlops();
+        _initialCost = srv.JStart;
+        _finalCost = srv.JFinal;
       }
       ret.batchAccepted = keepBatch;
 
