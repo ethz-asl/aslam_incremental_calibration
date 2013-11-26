@@ -18,12 +18,12 @@
 
 #include "aslam/calibration/camera/CameraCalibrator.h"
 
+#include <cmath>
+
 #include <iostream>
 #include <iterator>
 
 #include <boost/make_shared.hpp>
-
-#include <Eigen/Core>
 
 #include <sm/PropertyTree.hpp>
 
@@ -52,6 +52,7 @@
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/DesignVariable.hpp>
+#include <aslam/backend/ErrorTerm.hpp>
 
 #include <aslam/ReprojectionError.hpp>
 #include <aslam/CameraGeometryDesignVariableContainer.hpp>
@@ -63,6 +64,8 @@
 #include <aslam/calibration/exceptions/InvalidOperationException.h>
 #include <aslam/calibration/exceptions/OutOfBoundException.h>
 #include <aslam/calibration/base/Timestamp.h>
+#include <aslam/calibration/statistics/EstimatorML.h>
+#include <aslam/calibration/statistics/NormalDistribution.h>
 
 namespace aslam {
   namespace calibration {
@@ -231,28 +234,37 @@ namespace aslam {
       return _estimator->getMarginalizedNullSpace();
     }
 
-    Eigen::VectorXd CameraCalibrator::getReprojectionErrorMean() const {
-      if (_reprojectionErrorsStatistics.getValid())
-        return _reprojectionErrorsStatistics.getDistribution().getMean();
-      else
-        return Eigen::VectorXd::Zero(0);
-    }
-
-    Eigen::VectorXd CameraCalibrator::getReprojectionErrorVariance() const {
-      if (_reprojectionErrorsStatistics.getValid())
-        return _reprojectionErrorsStatistics.getDistribution().getCovariance().
-            diagonal();
-      else
-        return Eigen::VectorXd::Zero(0);
-    }
-
-    Eigen::VectorXd CameraCalibrator::getReprojectionErrorStandardDeviation()
-        const {
-      if (_reprojectionErrorsStatistics.getValid())
-        return _reprojectionErrorsStatistics.getDistribution().getCovariance().
-            diagonal().array().sqrt();
-      else
-        return Eigen::VectorXd::Zero(0);
+    void CameraCalibrator::getReprojectionErrorStatistics(Eigen::VectorXd&
+        mean, Eigen::VectorXd& variance, Eigen::VectorXd& standardDeviation,
+        double& maxXError, double& maxYError) {
+      auto problem = const_cast<IncrementalOptimizationProblem*>(
+        _estimator->getProblem());
+      EstimatorML<NormalDistribution<2> > reprojectionErrorsStatistics;
+      maxXError = 0;
+      maxYError = 0;
+      for (size_t i = 0; i != problem->numErrorTerms(); ++i) {
+        auto et = problem->errorTerm(i);
+        et->evaluateError();
+        auto error = dynamic_cast<aslam::ReprojectionError*>(et)->error();
+        reprojectionErrorsStatistics.addPoint(error);
+        if (std::fabs(error(0)) > maxXError)
+          maxXError = std::fabs(error(0));
+        if (std::fabs(error(1)) > maxYError)
+          maxYError = std::fabs(error(1));
+      }
+      if (reprojectionErrorsStatistics.getValid()) {
+        mean = reprojectionErrorsStatistics.getDistribution().getMean();
+        variance = reprojectionErrorsStatistics.getDistribution().
+          getCovariance().diagonal();
+        standardDeviation = variance.array().sqrt();
+      }
+      else {
+        mean.resize(0);
+        variance.resize(0);
+        standardDeviation.resize(0);
+        maxXError = 0;
+        maxYError = 0;
+      }
     }
 
 /******************************************************************************/
@@ -424,11 +436,6 @@ namespace aslam {
       if (ret.batchAccepted) {
         _estimatorObservations.insert(_estimatorObservations.begin(),
           _batchObservations.begin(), _batchObservations.end());
-        for (auto it = _batch->getErrorTerms().cbegin();
-            it != _batch->getErrorTerms().cend(); ++it)
-          _reprojectionErrorsStatistics.addPoint(
-            boost::dynamic_pointer_cast<aslam::ReprojectionError>(*it)
-            ->error());
       }
       if (_options.verbose) {
         std::cout << std::endl;
@@ -442,11 +449,17 @@ namespace aslam {
         std::cout << "distortion: " << getDistortion().transpose() << std::endl;
         std::cout << "distortion standard deviation: "
           << getDistortionStandardDeviation().transpose() << std::endl;
-        std::cout << "reprojection error mean: " <<
-          getReprojectionErrorMean().transpose() << std::endl;
+        Eigen::VectorXd mean, variance, standardDeviation;
+        double maxXError, maxYError;
+        getReprojectionErrorStatistics(mean, variance, standardDeviation,
+          maxXError, maxYError);
+        std::cout << "reprojection error mean: " << mean.transpose()
+          << std::endl;
         std::cout << "reprojection error standard deviation: " <<
-          getReprojectionErrorStandardDeviation().transpose() << std::endl;
-         std::cout << "number of images used: " << _estimatorObservations.size()
+          standardDeviation.transpose() << std::endl;
+        std::cout << "max x reprojection error: " << maxXError << std::endl;
+        std::cout << "max y reprojection error: " << maxYError << std::endl;
+        std::cout << "number of images used: " << _estimatorObservations.size()
           << std::endl;
          std::cout << std::endl;
       }
@@ -482,6 +495,7 @@ namespace aslam {
           dynamic_cast<DistortedPinholeCameraGeometry*>(
           _geometry.get())->projection().rv());
       }
+      config.setString("projection/type", _options.cameraProjectionType);
       config.setDouble("projection/distortion/k1", distortion(0));
       config.setDouble("projection/distortion/k2", distortion(1));
       config.setDouble("projection/distortion/p1", distortion(2));

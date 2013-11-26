@@ -16,8 +16,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file calibrateCamera.cpp
-    \brief This file calibrates the camera intrinsics from a BAG file.
+/** \file validateCamera.cpp
+    \brief This file validates the camera intrinsics from a BAG file.
   */
 
 #include <iostream>
@@ -35,15 +35,15 @@
 
 #include <sm/BoostPropertyTree.hpp>
 
-#include "aslam/calibration/camera/CameraCalibrator.h"
+#include "aslam/calibration/camera/CameraValidator.h"
 
 using namespace aslam::calibration;
 using namespace sm;
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
-    std::cerr << "Usage: " << argv[0] << " <ros_bag_file> <conf_file>"
-      << std::endl;
+  if (argc != 4) {
+    std::cerr << "Usage: " << argv[0] << " <ros_bag_file> <conf_file> "
+      "<intrinsics_file>" << std::endl;
     return -1;
   }
 
@@ -52,8 +52,14 @@ int main(int argc, char** argv) {
   BoostPropertyTree config;
   config.loadXml(argv[2]);
 
-  // create the camera calibrator
-  CameraCalibrator calibrator(PropertyTree(config, "camera/calibrator"));
+  // loading intrinsics
+  std::cout << "Loading intrinsics..." << std::endl;
+  BoostPropertyTree intrinsics;
+  intrinsics.loadXml(argv[3]);
+
+  // create the camera validator
+  CameraValidator validator(PropertyTree(intrinsics, "intrinsics"),
+    PropertyTree(config, "camera/validator"));
 
   // load ros bag file
   rosbag::Bag bag(argv[1]);
@@ -61,17 +67,6 @@ int main(int argc, char** argv) {
   const std::string rosTopic = config.getString("camera/rosTopic");
   topics.push_back(rosTopic);
   rosbag::View view(bag, rosbag::TopicQuery(topics));
-
-  // initializing geometry from the dataset
-  std::cout << "Initializing geometry..." << std::endl;
-  for (auto it = view.begin(); it != view.end(); ++it) {
-    if (it->getTopic() == rosTopic) {
-      sensor_msgs::ImagePtr image(it->instantiate<sensor_msgs::Image>());
-      auto cvImage = cv_bridge::toCvCopy(image);
-      if (calibrator.initGeometry(cvImage->image))
-        break;
-    }
-  }
 
   // processing ros bag file
   std::cout << "Processing BAG file..." << std::endl;
@@ -82,42 +77,20 @@ int main(int argc, char** argv) {
     if (it->getTopic() == rosTopic) {
       sensor_msgs::ImagePtr image(it->instantiate<sensor_msgs::Image>());
       auto cvImage = cv_bridge::toCvCopy(image);
-      calibrator.addImage(cvImage->image, image->header.stamp.toNSec());
+      validator.addImage(cvImage->image, image->header.stamp.toNSec());
     }
   }
-  calibrator.processBatch();
 
-  std::cout << "final parameters: " << std::endl;
-  std::cout << "projection: " << calibrator.getProjection().transpose()
+  // results
+  std::cout << "reprojection error mean: "
+    << validator.getReprojectionErrorMean().transpose() << std::endl;
+  std::cout << "reprojection error standard deviation: "
+    << validator.getReprojectionErrorStandardDeviation().transpose()
     << std::endl;
-  std::cout << "projection standard deviation: "
-    << calibrator.getProjectionStandardDeviation().transpose() << std::endl;
-  std::cout << "distortion: " << calibrator.getDistortion().transpose()
-    << std::endl;
-  std::cout << "distortion standard deviation: "
-    << calibrator.getDistortionStandardDeviation().transpose() << std::endl;
-  std::cout << "null space: " << std::endl << calibrator.getNullSpace()
-    << std::endl;
-  std::cout << "initial cost: " << calibrator.getInitialCost() << std::endl;
-  std::cout << "final cost: " << calibrator.getFinalCost() << std::endl;
-  std::cout << "number of images for estimation: "
-    << calibrator.getEstimatorObservations().size() << std::endl;
-  std::cout << "total number of images: " << view.size() << std::endl;
-  Eigen::VectorXd mean, variance, standardDeviation;
-  double maxXError, maxYError;
-  calibrator.getReprojectionErrorStatistics(mean, variance, standardDeviation,
-    maxXError, maxYError);
-  std::cout << "reprojection error mean: " << mean.transpose()
-    << std::endl;
-  std::cout << "reprojection error standard deviation: " <<
-    standardDeviation.transpose() << std::endl;
-  std::cout << "max x reprojection error: " << maxXError << std::endl;
-  std::cout << "max y reprojection error: " << maxYError << std::endl;
-
-  // write calibration to xml file
-  BoostPropertyTree calibrationData("intrinsics");
-  calibrator.write(calibrationData);
-  calibrationData.saveXml(config.getString("camera/cameraId") + ".xml");
+  std::cout << "max x reprojection error: "
+    << validator.getReprojectionErrorMaxXError() << std::endl;
+  std::cout << "max y reprojection error: "
+    << validator.getReprojectionErrorMaxYError() << std::endl;
 
   return 0;
 }

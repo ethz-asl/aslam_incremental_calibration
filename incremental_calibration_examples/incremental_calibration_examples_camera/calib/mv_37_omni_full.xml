@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<intrinsics><projection><xi>1.489870655504356</xi><fu>1027.055881082944</fu><fv>1023.039606966397</fv><cu>642.8415320822933</cu><cv>491.9914941915564</cv><ru>1280</ru><rv>960</rv><type>omni</type><distortion><k1>-0.2633544425710219</k1><k2>0.07129603752927013</k2><p1>-0.001464901533028732</p1><p2>-0.0001318856622884826</p2></distortion></projection><shutter><line-delay>0</line-delay></shutter><mask><mask-file/></mask></intrinsics>

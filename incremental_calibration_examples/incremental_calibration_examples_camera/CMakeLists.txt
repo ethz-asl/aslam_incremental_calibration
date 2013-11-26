@@ -24,7 +24,11 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 rosbuild_add_library(${PROJECT_NAME}
   src/camera/CameraCalibrator.cpp
+  src/camera/CameraValidator.cpp
 )
 
 rosbuild_add_executable(calibrateCamera src/camera/calibrateCamera.cpp)
 target_link_libraries(calibrateCamera ${PROJECT_NAME})
+
+rosbuild_add_executable(validateCamera src/camera/validateCamera.cpp)
+target_link_libraries(validateCamera ${PROJECT_NAME})

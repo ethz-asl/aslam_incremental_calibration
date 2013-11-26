@@ -3,7 +3,7 @@
   <cameraId>mv_37</cameraId>
   <calibrator>
     <cameraProjectionType>omni</cameraProjectionType>
-    <batchNumImages>1</batchNumImages>
+    <batchNumImages>100000</batchNumImages>
     <verbose>true</verbose>
     <estimator>
       <groupId>0</groupId>
@@ -29,4 +29,7 @@
       </optimizer>
     </estimator>
   </calibrator>
+  <validator>
+    <verbose>true</verbose>
+  </validator>
 </camera>
