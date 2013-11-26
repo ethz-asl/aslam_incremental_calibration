@@ -24,6 +24,7 @@
 #include <iomanip>
 #include <vector>
 #include <string>
+#include <sstream>
 
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -34,6 +35,10 @@
 #include <cv_bridge/cv_bridge.h>
 
 #include <sm/BoostPropertyTree.hpp>
+
+#include <opencv2/highgui/highgui.hpp>
+
+#include <aslam/calibration/core/IncrementalEstimator.h>
 
 #include "aslam/calibration/camera/CameraCalibrator.h"
 
@@ -51,6 +56,10 @@ int main(int argc, char** argv) {
   std::cout << "Loading configuration parameters..." << std::endl;
   BoostPropertyTree config;
   config.loadXml(argv[2]);
+
+  if (config.getBool("camera/visualization")) {
+    cv::namedWindow("Checkerboard Image", CV_WINDOW_AUTOSIZE);
+  }
 
   // create the camera calibrator
   CameraCalibrator calibrator(PropertyTree(config, "camera/calibrator"));
@@ -82,7 +91,24 @@ int main(int argc, char** argv) {
     if (it->getTopic() == rosTopic) {
       sensor_msgs::ImagePtr image(it->instantiate<sensor_msgs::Image>());
       auto cvImage = cv_bridge::toCvCopy(image);
+      const size_t numBatches = calibrator.getEstimator()->getNumBatches();
       calibrator.addImage(cvImage->image, image->header.stamp.toNSec());
+      if (config.getBool("camera/visualization")) {
+        cv::Mat checkerboardImage;
+        calibrator.getLastCheckerboardImage(checkerboardImage);
+        cv::imshow("Checkerboard Image", checkerboardImage);
+        cv::waitKey(1);
+      }
+      if (config.getBool("camera/saveEstimatorImages")) {
+        if (calibrator.getEstimator()->getNumBatches() != numBatches) {
+          cv::Mat checkerboardImage;
+          calibrator.getLastCheckerboardImage(checkerboardImage);
+          std::stringstream stream;
+          stream << "images/" << config.getString("camera/cameraId") << "-"
+            << image->header.stamp.toNSec() << ".png";
+          cv::imwrite(stream.str().c_str(), checkerboardImage);
+        }
+      }
     }
   }
   calibrator.processBatch();

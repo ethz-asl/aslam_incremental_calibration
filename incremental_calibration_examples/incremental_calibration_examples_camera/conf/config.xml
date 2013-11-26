@@ -1,9 +1,11 @@
 <camera>
   <rosTopic>/mv_37/camera/image_raw</rosTopic>
   <cameraId>mv_37</cameraId>
+  <visualization>true</visualization>
+  <saveEstimatorImages>true</saveEstimatorImages>
   <calibrator>
     <cameraProjectionType>omni</cameraProjectionType>
-    <batchNumImages>100000</batchNumImages>
+    <batchNumImages>1</batchNumImages>
     <verbose>true</verbose>
     <estimator>
       <groupId>0</groupId>

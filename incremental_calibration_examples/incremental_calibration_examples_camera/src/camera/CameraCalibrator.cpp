@@ -267,6 +267,11 @@ namespace aslam {
       }
     }
 
+    void CameraCalibrator::getLastCheckerboardImage(cv::Mat& image) const {
+      if (_lastObservation)
+        image = _lastObservation->drawCorners();
+    }
+
 /******************************************************************************/
 /* Methods                                                                    */
 /******************************************************************************/
@@ -421,6 +426,7 @@ namespace aslam {
       // add observation to the batch
       addObservation(*observation);
       _batchObservations.push_back(observation);
+      _lastObservation = observation;
 
       // add batch if needed
       if (_batchNumImages == _options.batchNumImages)

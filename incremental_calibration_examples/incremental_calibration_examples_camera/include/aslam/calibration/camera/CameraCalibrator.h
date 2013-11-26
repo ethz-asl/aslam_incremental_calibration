@@ -243,6 +243,8 @@ namespace aslam {
       void getReprojectionErrorStatistics(Eigen::VectorXd&
         mean, Eigen::VectorXd& variance, Eigen::VectorXd& standardDeviation,
         double& maxXError, double& maxYError);
+      /// Returns the last checkerboard image
+      void getLastCheckerboardImage(cv::Mat& image) const;
       /** @}
         */
 
@@ -300,6 +302,8 @@ namespace aslam {
       std::vector<ObservationPtr> _batchObservations;
       /// Observations accepted by the estimator
       std::vector<ObservationPtr> _estimatorObservations;
+      /// Last observation
+      ObservationPtr _lastObservation;
       /** @}
         */
 
