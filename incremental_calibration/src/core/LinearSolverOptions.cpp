@@ -32,8 +32,8 @@ namespace aslam {
         epsNorm(std::numeric_limits<double>::epsilon()),
         epsSVD(std::numeric_limits<double>::epsilon()),
         epsQR(std::numeric_limits<double>::epsilon()),
-        svdTol(-1),
-        qrTol(-1),
+        svdTol(-1.0),
+        qrTol(-1.0),
         verbose(false) {
     }
 

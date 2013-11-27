@@ -120,7 +120,7 @@ namespace aslam {
       const double* values = reinterpret_cast<const double*>(A->x);
       const std::ptrdiff_t p = col_ptr[j];
       const std::ptrdiff_t numElements = col_ptr[j + 1] - p;
-      double norm = 0;
+      double norm = 0.0;
       for (std::ptrdiff_t i = 0; i < numElements; ++i)
         norm += values[p + i] * values[p + i];
       return std::sqrt(norm);
@@ -268,7 +268,7 @@ namespace aslam {
       if (cholmod == NULL)
         throw NullPointerException("cholmod", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
-      return 20 * (A->nrow + A->ncol) * eps *
+      return 20.0 * static_cast<double>(A->nrow + A->ncol) * eps *
         spqr_maxcolnorm<double>(A, cholmod);
     }
 
@@ -326,9 +326,9 @@ namespace aslam {
       }
       A_rt2->stype = 1;
       double alpha[2];
-      alpha[0] = 1;
+      alpha[0] = 1.0;
       double beta[2];
-      beta[0] = -1;
+      beta[0] = -1.0;
       *Omega = cholmod_l_add(A_rt2, A_rtQ2, alpha, beta, 1, 1, cholmod);
       cholmod_l_free_sparse(&A_rt2, cholmod);
       cholmod_l_free_sparse(&A_rtQ2, cholmod);
@@ -391,9 +391,9 @@ namespace aslam {
           __LINE__, __PRETTY_FUNCTION__);
       }
       double alpha[2];
-      alpha[0] = 1;
+      alpha[0] = 1.0;
       double beta[2];
-      beta[0] = -1;
+      beta[0] = -1.0;
       cholmod_sparse* bReducedSparse = cholmod_l_add(A_rtb, A_rtQQtb, alpha,
         beta, 1, 1, cholmod);
       cholmod_l_free_sparse(&A_rtb, cholmod);
@@ -468,9 +468,9 @@ namespace aslam {
         throw InvalidOperationException("cholmod_l_allocate_dense failed",
           __FILE__, __LINE__, __PRETTY_FUNCTION__);
       double alpha[2];
-      alpha[0] = 1;
+      alpha[0] = 1.0;
       double beta[2];
-      beta[0] = 0;
+      beta[0] = 0.0;
       if (!cholmod_l_sdmult(A_r, 0, alpha, beta, &x_rCholmod, A_rx_r,
           cholmod)) {
         cholmod_l_free_dense(&A_rx_r, cholmod);

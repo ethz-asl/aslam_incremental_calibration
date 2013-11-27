@@ -2,10 +2,12 @@
   <rosTopic>/mv_37/camera/image_raw</rosTopic>
   <cameraId>mv_37</cameraId>
   <visualization>true</visualization>
-  <saveEstimatorImages>true</saveEstimatorImages>
   <calibrator>
+    <saveEstimatorImages>true</saveEstimatorImages>
     <cameraProjectionType>omni</cameraProjectionType>
     <batchNumImages>1</batchNumImages>
+    <useMEstimator>false</useMEstimator>
+    <sigma2>1.0</sigma2>
     <verbose>true</verbose>
     <estimator>
       <groupId>0</groupId>
@@ -32,6 +34,7 @@
     </estimator>
   </calibrator>
   <validator>
+    <sigma2>1.0</sigma2>
     <verbose>true</verbose>
   </validator>
 </camera>

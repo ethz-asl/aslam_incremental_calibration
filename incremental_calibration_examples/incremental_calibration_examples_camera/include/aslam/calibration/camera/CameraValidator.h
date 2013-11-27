@@ -115,6 +115,7 @@ namespace aslam {
             normalizeImage(false),
             filterQuads(false),
             doSubpixelRefinement(true),
+            sigma2(1.0),
             verbose(false) {}
         /// Number of rows in the checkerboard
         size_t rows;
@@ -134,6 +135,8 @@ namespace aslam {
         bool filterQuads;
         /// Use doSubpixelRefinement for OpenCV detector
         bool doSubpixelRefinement;
+        /// Variance of the measurements (assume isotropic Gaussian)
+        double sigma2;
         /// Verbose mode
         bool verbose;
       };
@@ -181,6 +184,14 @@ namespace aslam {
       double getReprojectionErrorMaxXError() const;
       /// Returns the reprojection error maximum y error
       double getReprojectionErrorMaxYError() const;
+      /// Returns the last image with information
+      void getLastImage(cv::Mat& image) const;
+      /// Returns the errors
+      const std::vector<Eigen::Vector2d>& getErrors() const;
+      /// Returns the squared Mahalanobis distance of the errors
+      const std::vector<double>& getMahalanobisDistances() const;
+      /// Returns the number of outliers at a quantile
+      size_t getNumOutliers(double p = 0.975) const;
       /** @}
         */
 
@@ -220,6 +231,10 @@ namespace aslam {
       double _maxXError;
       /// Maximum reprojection error in y
       double _maxYError;
+      /// Errors
+      std::vector<Eigen::Vector2d> _errors;
+      /// Squared Mahalanobis distances of the errors
+      std::vector<double> _errorsMd2;
       /** @}
         */
 

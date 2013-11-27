@@ -33,6 +33,8 @@
 
 #include <cv_bridge/cv_bridge.h>
 
+#include <opencv2/highgui/highgui.hpp>
+
 #include <sm/BoostPropertyTree.hpp>
 
 #include "aslam/calibration/camera/CameraValidator.h"
@@ -51,6 +53,10 @@ int main(int argc, char** argv) {
   std::cout << "Loading configuration parameters..." << std::endl;
   BoostPropertyTree config;
   config.loadXml(argv[2]);
+
+  if (config.getBool("camera/visualization")) {
+    cv::namedWindow("Image Results", CV_WINDOW_AUTOSIZE);
+  }
 
   // loading intrinsics
   std::cout << "Loading intrinsics..." << std::endl;
@@ -78,6 +84,12 @@ int main(int argc, char** argv) {
       sensor_msgs::ImagePtr image(it->instantiate<sensor_msgs::Image>());
       auto cvImage = cv_bridge::toCvCopy(image);
       validator.addImage(cvImage->image, image->header.stamp.toNSec());
+      if (config.getBool("camera/visualization")) {
+        cv::Mat resultImage;
+        validator.getLastImage(resultImage);
+        cv::imshow("Image Results", resultImage);
+        cv::waitKey(1);
+      }
     }
   }
 
@@ -91,6 +103,8 @@ int main(int argc, char** argv) {
     << validator.getReprojectionErrorMaxXError() << std::endl;
   std::cout << "max y reprojection error: "
     << validator.getReprojectionErrorMaxYError() << std::endl;
+  std::cout << "number of outliers: " << validator.getNumOutliers()
+    << std::endl;
 
   return 0;
 }

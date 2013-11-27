@@ -38,8 +38,8 @@ namespace aslam {
      * \param[in, out] container vector to be permuted
      * \param[in] permutation permutation vector
      */
-    template <typename T> void permute(std::vector<T>& container,
-      const std::vector<size_t>& permutation);
+    template <typename T, typename I> void permute(std::vector<T>& container,
+      const std::vector<I>& permutation);
     /** @}
       */
 

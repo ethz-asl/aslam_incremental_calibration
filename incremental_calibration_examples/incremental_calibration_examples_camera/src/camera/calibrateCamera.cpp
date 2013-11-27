@@ -38,8 +38,6 @@
 
 #include <opencv2/highgui/highgui.hpp>
 
-#include <aslam/calibration/core/IncrementalEstimator.h>
-
 #include "aslam/calibration/camera/CameraCalibrator.h"
 
 using namespace aslam::calibration;
@@ -91,7 +89,8 @@ int main(int argc, char** argv) {
     if (it->getTopic() == rosTopic) {
       sensor_msgs::ImagePtr image(it->instantiate<sensor_msgs::Image>());
       auto cvImage = cv_bridge::toCvCopy(image);
-      const size_t numBatches = calibrator.getEstimator()->getNumBatches();
+      const size_t numObservations =
+        calibrator.getEstimatorObservations().size();
       calibrator.addImage(cvImage->image, image->header.stamp.toNSec());
       if (config.getBool("camera/visualization")) {
         cv::Mat checkerboardImage;
@@ -99,8 +98,8 @@ int main(int argc, char** argv) {
         cv::imshow("Checkerboard Image", checkerboardImage);
         cv::waitKey(1);
       }
-      if (config.getBool("camera/saveEstimatorImages")) {
-        if (calibrator.getEstimator()->getNumBatches() != numBatches) {
+      if (config.getBool("camera/calibrator/saveEstimatorImages")) {
+        if (calibrator.getEstimatorObservations().size() != numObservations) {
           cv::Mat checkerboardImage;
           calibrator.getLastCheckerboardImage(checkerboardImage);
           std::stringstream stream;
@@ -131,14 +130,16 @@ int main(int argc, char** argv) {
   std::cout << "total number of images: " << view.size() << std::endl;
   Eigen::VectorXd mean, variance, standardDeviation;
   double maxXError, maxYError;
-  calibrator.getReprojectionErrorStatistics(mean, variance, standardDeviation,
-    maxXError, maxYError);
+  size_t numOutliers;
+  calibrator.getStatistics(mean, variance, standardDeviation, maxXError,
+    maxYError, numOutliers);
   std::cout << "reprojection error mean: " << mean.transpose()
     << std::endl;
   std::cout << "reprojection error standard deviation: " <<
     standardDeviation.transpose() << std::endl;
   std::cout << "max x reprojection error: " << maxXError << std::endl;
   std::cout << "max y reprojection error: " << maxYError << std::endl;
+  std::cout << "number of outliers: " << numOutliers << std::endl;
 
   // write calibration to xml file
   BoostPropertyTree calibrationData("intrinsics");

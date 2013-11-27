@@ -27,19 +27,18 @@ namespace aslam {
 /* Methods                                                                    */
 /******************************************************************************/
 
-    template <typename T>
-    void permute(std::vector<T>& container, const std::vector<size_t>&
-        permutation) {
+    template <typename T, typename I>
+    void permute(std::vector<T>& container, const std::vector<I>& permutation) {
       if (container.size() != permutation.size())
-        throw OutOfBoundException<size_t>(permutation.size(), container.size(),
+        throw OutOfBoundException<I>(permutation.size(), container.size(),
           "permutation vector must match container size",
           __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      for (size_t i = 0; i < container.size(); ++i) {
-        if (permutation[i] >= container.size())
-          throw OutOfBoundException<size_t>(permutation[i], container.size(),
-            "permutation vector index out of bound",
+      for (I i = 0; i < container.size(); ++i) {
+        if (permutation[i] >= static_cast<I>(container.size()))
+          throw OutOfBoundException<I>(permutation[i], static_cast<I>(
+            container.size()), "permutation vector index out of bound",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
-        size_t k = permutation[i];
+        I k = permutation[i];
         while (k < i)
           k = permutation[k];
         if (k > i)

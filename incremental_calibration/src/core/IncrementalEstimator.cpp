@@ -49,19 +49,19 @@ namespace aslam {
         _margGroupId(groupId),
         _optimizer(boost::make_shared<Optimizer>(optimizerOptions)),
         _problem(boost::make_shared<IncrementalOptimizationProblem>()),
-        _mutualInformation(0),
-        _svLog2Sum(0),
-        _svdTolerance(0),
-        _qrTolerance(-1),
+        _mutualInformation(0.0),
+        _svLog2Sum(0.0),
+        _svdTolerance(0.0),
+        _qrTolerance(-1.0),
         _svdRank(-1),
         _svdRankDeficiency(-1),
         _qrRank(-1),
         _qrRankDeficiency(-1),
         _peakMemoryUsage(0),
         _memoryUsage(0),
-        _numFlops(0),
-        _initialCost(0),
-        _finalCost(0) {
+        _numFlops(0.0),
+        _initialCost(0.0),
+        _finalCost(0.0) {
       // create linear solver and trust region policy for the optimizer
       OptimizerOptions& optOptions = _optimizer->options();
       optOptions.linearSystemSolver =
@@ -75,19 +75,19 @@ namespace aslam {
     }
 
     IncrementalEstimator::IncrementalEstimator(const sm::PropertyTree& config) :
-        _mutualInformation(0),
-        _svLog2Sum(0),
-        _svdTolerance(0),
-        _qrTolerance(-1),
+        _mutualInformation(0.0),
+        _svLog2Sum(0.0),
+        _svdTolerance(0.0),
+        _qrTolerance(-1.0),
         _svdRank(-1),
         _svdRankDeficiency(-1),
         _qrRank(-1),
         _qrRankDeficiency(-1),
         _peakMemoryUsage(0),
         _memoryUsage(0),
-        _numFlops(0),
-        _initialCost(0),
-        _finalCost(0) {
+        _numFlops(0.0),
+        _initialCost(0.0),
+        _finalCost(0.0) {
       // create the optimizer, linear solver, and trust region policy
       _optimizer = boost::make_shared<Optimizer>(
         sm::PropertyTree(config, "optimizer"),
@@ -249,7 +249,7 @@ namespace aslam {
         JCols += _problem->getGroupDim(*it);
       const size_t dim = _problem->getGroupDim(_margGroupId);
       auto linearSolver = _optimizer->getSolver<LinearSolver>();
-      linearSolver->setMargStartIndex(JCols - dim);
+      linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
 
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
@@ -264,7 +264,7 @@ namespace aslam {
       linearSolver->analyzeMarginal();
 
       // retrieve informations from the linear solver
-      _mutualInformation = 0;
+      _mutualInformation = 0.0;
       _svLog2Sum = linearSolver->getSingularValuesLog2Sum();
       _nullSpace = linearSolver->getNullSpace();
       _columnSpace = linearSolver->getColumnSpace();
@@ -328,7 +328,7 @@ namespace aslam {
         JCols += _problem->getGroupDim(*it);
       const size_t dim = _problem->getGroupDim(_margGroupId);
       auto linearSolver = _optimizer->getSolver<LinearSolver>();
-      linearSolver->setMargStartIndex(JCols - dim);
+      linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
 
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();

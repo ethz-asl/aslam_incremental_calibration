@@ -21,9 +21,13 @@
 #include <cmath>
 
 #include <iostream>
-#include <iterator>
+#include <sstream>
+#include <algorithm>
+
+#include <opencv2/core/core.hpp>
 
 #include <boost/make_shared.hpp>
+#include <boost/math/distributions/chi_squared.hpp>
 
 #include <sm/PropertyTree.hpp>
 
@@ -55,15 +59,15 @@ namespace aslam {
     CameraValidator::CameraValidator(const sm::PropertyTree& intrinsics,
         const Options& options) :
         _options(options),
-        _maxXError(0),
-        _maxYError(0) {
+        _maxXError(0.0),
+        _maxYError(0.0) {
       initVisionFramework(intrinsics);
     }
 
     CameraValidator::CameraValidator(const sm::PropertyTree& intrinsics, const
         sm::PropertyTree& config) :
-        _maxXError(0),
-        _maxYError(0) {
+        _maxXError(0.0),
+        _maxYError(0.0) {
       // read the options from the property tree
       _options.rows = config.getInt("rows", _options.rows);
       _options.cols = config.getInt("cols", _options.cols);
@@ -81,6 +85,7 @@ namespace aslam {
         _options.filterQuads);
       _options.doSubpixelRefinement = config.getBool("doSubpixelRefinement",
         _options.doSubpixelRefinement);
+      _options.sigma2 = config.getDouble("sigma2", _options.sigma2);
       _options.verbose = config.getBool("verbose", _options.verbose);
 
       // init vision framework
@@ -136,6 +141,106 @@ namespace aslam {
 
     double CameraValidator::getReprojectionErrorMaxYError() const {
       return _maxYError;
+    }
+
+    void CameraValidator::getLastImage(cv::Mat& image) const {
+      if (_observations.empty())
+        return;
+      auto observation = _observations.back();
+      cv::Mat imageCopy(observation->image().rows,
+        observation->image().cols, CV_8UC3);
+      cv::cvtColor(observation->image(), imageCopy, CV_GRAY2RGB);
+      auto T_t_c = observation->T_t_c();
+      auto T_c_t = T_t_c.inverse();
+      cv::Scalar green(0, 255, 0);
+      cv::Scalar red(0, 0, 255);
+      EstimatorML<NormalDistribution<2> > reprojectionErrorsStatistics;
+      double maxXError = 0.0;
+      double maxYError = 0.0;
+      double errorNormSum = 0.0;
+      double maxErrorNorm = 0.0;
+      const int radius = 5;
+      size_t numOutliers = 0;
+      for (size_t i = 0; i < _calibrationTarget->size(); ++i) {
+        auto targetPoint = sm::kinematics::toHomogeneous(
+          _calibrationTarget->point(i));
+        Eigen::Vector2d observedPoint;
+        bool success = observation->imagePoint(i, observedPoint);
+        if (!success)
+          continue;
+        Eigen::VectorXd predictedPoint;
+        success = _geometry->vsHomogeneousToKeypoint(T_c_t * targetPoint,
+          predictedPoint);
+        if (!success)
+          continue;
+        cv::circle(imageCopy, cv::Point(cvRound(observedPoint(0)),
+          cvRound(observedPoint(1))), radius, green, 1, CV_AA);
+        cv::line(imageCopy, cv::Point(cvRound(observedPoint(0)) - radius,
+          cvRound(observedPoint(1)) - radius), cv::Point(cvRound(
+          observedPoint(0)) + radius, cvRound(observedPoint(1)) + radius),
+          green, 1, CV_AA);
+        cv::line(imageCopy, cv::Point(cvRound(observedPoint(0)) - radius,
+          cvRound(observedPoint(1)) + radius), cv::Point(cvRound(
+          observedPoint(0)) + radius, cvRound(observedPoint(1)) - radius),
+          green, 1, CV_AA);
+        cv::circle(imageCopy, cv::Point(cvRound(predictedPoint(0)),
+          cvRound(predictedPoint(1))), radius, red, 1, CV_AA);
+        cv::line(imageCopy, cv::Point(cvRound(predictedPoint(0)) - radius,
+          cvRound(predictedPoint(1)) - radius), cv::Point(cvRound(
+          predictedPoint(0)) + radius, cvRound(predictedPoint(1)) + radius),
+          red, 1, CV_AA);
+        cv::line(imageCopy, cv::Point(cvRound(predictedPoint(0)) - radius,
+          cvRound(predictedPoint(1)) + radius), cv::Point(cvRound(
+          predictedPoint(0)) + radius, cvRound(predictedPoint(1)) - radius),
+          red, 1, CV_AA);
+        const Eigen::Vector2d error = predictedPoint - observedPoint;
+        const double errorNorm = error.norm();
+        reprojectionErrorsStatistics.addPoint(error);
+        if (std::fabs(error(0)) > maxXError)
+          maxXError = std::fabs(error(0));
+        if (std::fabs(error(1)) > maxYError)
+          maxYError = std::fabs(error(1));
+        errorNormSum += errorNorm;
+        if (errorNorm > maxErrorNorm)
+          maxErrorNorm = errorNorm;
+        const double q = boost::math::quantile(
+          boost::math::chi_squared_distribution<>(2), 0.975);
+        const double md2 = (error.transpose() *
+          (1.0 / _options.sigma2) * Eigen::Matrix2d::Identity() * error)(0, 0);
+        if (md2 > q)
+          numOutliers++;
+      }
+      std::stringstream stream;
+      stream << "Reprojection error norm: avg = " << errorNormSum /
+        _calibrationTarget->size() << "   max = " << maxErrorNorm;
+      cv::putText(imageCopy, stream.str(), cv::Point(10, imageCopy.rows - 40),
+        cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(255, 255, 255), 1, CV_AA);
+      stream.str(std::string());
+      stream << "Reprojection error: mean = ["
+        << reprojectionErrorsStatistics.getDistribution().getMean().transpose()
+        << "]   std = [" << reprojectionErrorsStatistics.
+        getDistribution().getCovariance().diagonal().array().sqrt().transpose()
+        << "]   max = [" << maxXError << " " << maxYError
+        << "]   outliers = " << numOutliers;
+      cv::putText(imageCopy, stream.str(), cv::Point(10, imageCopy.rows - 10),
+        cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(255, 255, 255), 1, CV_AA);
+      image = imageCopy;
+    }
+
+    const std::vector<Eigen::Vector2d>& CameraValidator::getErrors() const {
+      return _errors;
+    }
+
+    const std::vector<double>& CameraValidator::getMahalanobisDistances()
+        const {
+      return _errorsMd2;
+    }
+
+    size_t CameraValidator::getNumOutliers(double p) const {
+      const double q = boost::math::quantile(
+        boost::math::chi_squared_distribution<>(2), p);
+      return std::count_if(_errorsMd2.cbegin(), _errorsMd2.cend(), [&](decltype(
+        *_errorsMd2.cbegin()) x){return x > q;});
     }
 
 /******************************************************************************/
@@ -215,12 +320,15 @@ namespace aslam {
           predictedPoint);
         if (!success)
           continue;
-        Eigen::Vector2d error = predictedPoint - observedPoint;
+        const Eigen::Vector2d error = predictedPoint - observedPoint;
         _reprojectionErrorsStatistics.addPoint(error);
         if (std::fabs(error(0)) > _maxXError)
           _maxXError = std::fabs(error(0));
         if (std::fabs(error(1)) > _maxYError)
           _maxYError = std::fabs(error(1));
+        _errors.push_back(error);
+        _errorsMd2.push_back((error.transpose() *
+          (1.0 / _options.sigma2) * Eigen::Matrix2d::Identity() * error)(0, 0));
       }
 
       // store observation for later use if needed

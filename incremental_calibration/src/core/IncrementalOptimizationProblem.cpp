@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <utility>
 #include <unordered_set>
+#include <iterator>
 
 #include <aslam/backend/DesignVariable.hpp>
 

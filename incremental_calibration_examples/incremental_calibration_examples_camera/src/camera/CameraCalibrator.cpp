@@ -22,8 +22,10 @@
 
 #include <iostream>
 #include <iterator>
+#include <algorithm>
 
 #include <boost/make_shared.hpp>
+#include <boost/math/distributions/chi_squared.hpp>
 
 #include <sm/PropertyTree.hpp>
 
@@ -53,6 +55,7 @@
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/DesignVariable.hpp>
 #include <aslam/backend/ErrorTerm.hpp>
+#include <aslam/backend/MEstimatorPolicies.hpp>
 
 #include <aslam/ReprojectionError.hpp>
 #include <aslam/CameraGeometryDesignVariableContainer.hpp>
@@ -79,13 +82,15 @@ namespace aslam {
         _options(options),
         _estimator(estimator),
         _geometryInitialized(false),
-        _batchNumImages(0) {
+        _batchNumImages(0),
+        _q(0.0) {
       initVisionFramework();
     }
 
     CameraCalibrator::CameraCalibrator(const sm::PropertyTree& config) :
         _geometryInitialized(false),
-        _batchNumImages(0) {
+        _batchNumImages(0),
+        _q(0.0) {
       // read the options from the property tree
       _options.rows = config.getInt("rows", _options.rows);
       _options.cols = config.getInt("cols", _options.cols);
@@ -115,6 +120,9 @@ namespace aslam {
         _options.transformationsGroupId);
       _options.batchNumImages = config.getInt("batchNumImages",
         _options.batchNumImages);
+      _options.useMEstimator = config.getBool("useMEstimator",
+        _options.useMEstimator);
+      _options.sigma2 = config.getDouble("sigma2", _options.sigma2);
       _options.verbose = config.getBool("verbose", _options.verbose);
 
       // init vision framework
@@ -234,36 +242,55 @@ namespace aslam {
       return _estimator->getMarginalizedNullSpace();
     }
 
-    void CameraCalibrator::getReprojectionErrorStatistics(Eigen::VectorXd&
+    void CameraCalibrator::getStatistics(Eigen::VectorXd&
         mean, Eigen::VectorXd& variance, Eigen::VectorXd& standardDeviation,
-        double& maxXError, double& maxYError) {
-      auto problem = const_cast<IncrementalOptimizationProblem*>(
-        _estimator->getProblem());
-      EstimatorML<NormalDistribution<2> > reprojectionErrorsStatistics;
-      maxXError = 0;
-      maxYError = 0;
-      for (size_t i = 0; i != problem->numErrorTerms(); ++i) {
-        auto et = problem->errorTerm(i);
-        et->evaluateError();
-        auto error = dynamic_cast<aslam::ReprojectionError*>(et)->error();
-        reprojectionErrorsStatistics.addPoint(error);
-        if (std::fabs(error(0)) > maxXError)
-          maxXError = std::fabs(error(0));
-        if (std::fabs(error(1)) > maxYError)
-          maxYError = std::fabs(error(1));
-      }
-      if (reprojectionErrorsStatistics.getValid()) {
-        mean = reprojectionErrorsStatistics.getDistribution().getMean();
-        variance = reprojectionErrorsStatistics.getDistribution().
-          getCovariance().diagonal();
+        double& maxXError, double& maxYError, size_t& numOutliers) {
+      std::vector<Eigen::Vector2d> errors;
+      std::vector<double> errorsMd2;
+      getErrors(errors, errorsMd2);
+      EstimatorML<NormalDistribution<2> > statistics;
+      statistics.addPoints(errors);
+      if (statistics.getValid()) {
+        mean = statistics.getDistribution().getMean();
+        variance = statistics.getDistribution().getCovariance().diagonal();
         standardDeviation = variance.array().sqrt();
+        maxXError = 0.0;
+        maxYError = 0.0;
+        for (auto it = errors.cbegin(); it != errors.cend(); ++it) {
+          if (std::fabs((*it)(0)) > maxXError)
+            maxXError = std::fabs((*it)(0));
+          if (std::fabs((*it)(1)) > maxYError)
+            maxYError = std::fabs((*it)(1));
+        }
+        if (_q == 0.0)
+          _q = boost::math::quantile(boost::math::chi_squared_distribution<>(2),
+            0.975);
+        numOutliers = std::count_if(errorsMd2.cbegin(), errorsMd2.cend(),
+          [&](decltype(*errorsMd2.cbegin()) x){return x > _q;});
       }
       else {
         mean.resize(0);
         variance.resize(0);
         standardDeviation.resize(0);
-        maxXError = 0;
-        maxYError = 0;
+        maxXError = 0.0;
+        maxYError = 0.0;
+        numOutliers = 0;
+      }
+    }
+
+    void CameraCalibrator::getErrors(std::vector<Eigen::Vector2d>& errors,
+        std::vector<double>& errorsMd2) {
+      errors.clear();
+      errorsMd2.clear();
+      auto problem = const_cast<IncrementalOptimizationProblem*>(
+        _estimator->getProblem());
+      errors.reserve(problem->numErrorTerms());
+      errorsMd2.reserve(problem->numErrorTerms());
+      for (size_t i = 0; i != problem->numErrorTerms(); ++i) {
+        auto e_re = problem->errorTerm(i);
+        errorsMd2.push_back(e_re->evaluateError());
+        errors.push_back(
+          dynamic_cast<aslam::ReprojectionError*>(e_re)->error());
       }
     }
 
@@ -391,10 +418,14 @@ namespace aslam {
         const bool success = observation.imagePoint(std::distance(
           _landmarkDesignVariables.cbegin(), it), obsPoint);
         if (success) {
-          auto re = boost::make_shared<aslam::ReprojectionError>(obsPoint,
-            Eigen::Matrix2d::Identity(), T_c_t_e * targetPoint,
-            _cameraDesignVariableContainer.get());
-          _batch->addErrorTerm(re);
+          auto e_re = boost::make_shared<aslam::ReprojectionError>(obsPoint,
+            _options.sigma2 * Eigen::Matrix2d::Identity(),
+            T_c_t_e * targetPoint, _cameraDesignVariableContainer.get());
+          if (_options.useMEstimator)
+            e_re->setMEstimatorPolicy(
+              boost::make_shared<aslam::backend::BlakeZissermanMEstimator>(
+              e_re->dimension()));
+          _batch->addErrorTerm(e_re);
         }
       }
 
@@ -457,14 +488,16 @@ namespace aslam {
           << getDistortionStandardDeviation().transpose() << std::endl;
         Eigen::VectorXd mean, variance, standardDeviation;
         double maxXError, maxYError;
-        getReprojectionErrorStatistics(mean, variance, standardDeviation,
-          maxXError, maxYError);
+        size_t numOutliers;
+        getStatistics(mean, variance, standardDeviation, maxXError, maxYError,
+          numOutliers);
         std::cout << "reprojection error mean: " << mean.transpose()
           << std::endl;
         std::cout << "reprojection error standard deviation: " <<
           standardDeviation.transpose() << std::endl;
         std::cout << "max x reprojection error: " << maxXError << std::endl;
         std::cout << "max y reprojection error: " << maxYError << std::endl;
+        std::cout << "number of outliers: " << numOutliers << std::endl;
         std::cout << "number of images used: " << _estimatorObservations.size()
           << std::endl;
          std::cout << std::endl;
@@ -506,7 +539,7 @@ namespace aslam {
       config.setDouble("projection/distortion/k2", distortion(1));
       config.setDouble("projection/distortion/p1", distortion(2));
       config.setDouble("projection/distortion/p2", distortion(3));
-      config.setDouble("shutter/line-delay", 0);
+      config.setDouble("shutter/line-delay", 0.0);
       config.setString("mask/mask-file", "");
     }
 

@@ -48,9 +48,9 @@ namespace aslam {
         _svGap(std::numeric_limits<double>::infinity()),
         _svdRankDeficiency(-1),
         _margStartIndex(-1),
-        _svdTolerance(-1),
-        _linearSolverTime(0),
-        _marginalAnalysisTime(0) {
+        _svdTolerance(-1.0),
+        _linearSolverTime(0.0),
+        _marginalAnalysisTime(0.0) {
       cholmod_l_start(&_cholmod);
       _cholmod.SPQR_grain = 16; // maybe useless
     }
@@ -61,9 +61,9 @@ namespace aslam {
         _svGap(std::numeric_limits<double>::infinity()),
         _svdRankDeficiency(-1),
         _margStartIndex(-1),
-        _svdTolerance(-1),
-        _linearSolverTime(0),
-        _marginalAnalysisTime(0) {
+        _svdTolerance(-1.0),
+        _linearSolverTime(0.0),
+        _marginalAnalysisTime(0.0) {
       cholmod_l_start(&_cholmod);
       _cholmod.SPQR_grain = 16; // maybe useless
       _options.columnScaling = config.getBool("columnScaling",
@@ -193,7 +193,7 @@ namespace aslam {
       if (_svdRank != -1)
         return _singularValues.head(_svdRank).array().log().sum() / std::log(2);
       else
-        return 0;
+        return 0.0;
     }
 
     size_t LinearSolver::getPeakMemoryUsage() const {
@@ -220,14 +220,14 @@ namespace aslam {
       if (_factor && _factor->QRsym)
         return _cholmod.other1[1];
       else
-        return 0;
+        return 0.0;
     }
 
     double LinearSolver::getNumericFactorizationTime() const {
       if (_factor && _factor->QRnum)
         return _cholmod.other1[2];
       else
-        return 0;
+        return 0.0;
     }
 
 /******************************************************************************/
@@ -281,7 +281,7 @@ namespace aslam {
     }
 
     double LinearSolver::rhsJtJrhs() {
-      return 0;
+      return 0.0;
     }
 
     void LinearSolver::initMatrixStructureImplementation(const
@@ -334,7 +334,7 @@ namespace aslam {
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
         }
       }
-      const double qrTolerance = (_options.qrTol != -1) ? _options.qrTol :
+      const double qrTolerance = (_options.qrTol != -1.0) ? _options.qrTol :
         qrTol(A_l, &_cholmod, _options.epsQR);
       const double t2 = Timestamp::now();
       const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
@@ -417,7 +417,7 @@ namespace aslam {
       }
       cholmod_l_free_sparse(&A_rt, &_cholmod);
       cholmod_l_free_sparse(&A_rtQ, &_cholmod);
-      _svdTolerance = (_options.svdTol != -1) ? _options.svdTol :
+      _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol :
         rankTol(_singularValues, _options.epsSVD);
       _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
       _svdRankDeficiency = _singularValues.size() - _svdRank;
@@ -479,7 +479,7 @@ namespace aslam {
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
         }
       }
-      const double qrTolerance = (_options.qrTol != -1) ? _options.qrTol :
+      const double qrTolerance = (_options.qrTol != -1.0) ? _options.qrTol :
         qrTol(A_l, &_cholmod, _options.epsQR);
       const double t2 = Timestamp::now();
       const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
@@ -513,7 +513,7 @@ namespace aslam {
       analyzeSVD(Omega, _singularValues, _matrixU);
       cholmod_l_free_sparse(&Omega, &_cholmod);
       if (_svdRank == -1) {
-        _svdTolerance = (_options.svdTol != -1) ? _options.svdTol :
+        _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol :
           rankTol(_singularValues, _options.epsSVD);
         _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
         _svdRankDeficiency = _singularValues.size() - _svdRank;
@@ -563,11 +563,11 @@ namespace aslam {
       _svdRank = -1;
       _svGap = std::numeric_limits<double>::infinity();
       _svdRankDeficiency = -1;
-      _svdTolerance = -1;
+      _svdTolerance = -1.0;
       _singularValues.resize(0);
       _matrixU.resize(0, 0);
-      _linearSolverTime = 0;
-      _marginalAnalysisTime = 0;
+      _linearSolverTime = 0.0;
+      _marginalAnalysisTime = 0.0;
     }
 
   }

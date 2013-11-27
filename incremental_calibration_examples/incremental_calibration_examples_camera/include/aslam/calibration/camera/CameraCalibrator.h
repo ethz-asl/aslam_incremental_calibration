@@ -144,6 +144,8 @@ namespace aslam {
             calibrationGroupId(0),
             transformationsGroupId(1),
             batchNumImages(1),
+            useMEstimator(false),
+            sigma2(1.0),
             verbose(false) {}
         /// Number of rows in the checkerboard
         size_t rows;
@@ -175,6 +177,10 @@ namespace aslam {
         size_t transformationsGroupId;
         /// Number of images in a batch
         size_t batchNumImages;
+        /// Use M-Estimator
+        bool useMEstimator;
+        /// Variance of the measurements (assume isotropic Gaussian)
+        double sigma2;
         /// Verbose mode
         bool verbose;
       };
@@ -240,11 +246,14 @@ namespace aslam {
       /// Returns the current nullspace
       Eigen::MatrixXd getNullSpace() const;
       /// Returns the statistics for the reprojection error
-      void getReprojectionErrorStatistics(Eigen::VectorXd&
+      void getStatistics(Eigen::VectorXd&
         mean, Eigen::VectorXd& variance, Eigen::VectorXd& standardDeviation,
-        double& maxXError, double& maxYError);
+        double& maxXError, double& maxYError, size_t& numOutliers);
       /// Returns the last checkerboard image
       void getLastCheckerboardImage(cv::Mat& image) const;
+      /// Returns the errors and the squared mahalanobis distances
+      void getErrors(std::vector<Eigen::Vector2d>& errors, std::vector<double>&
+        errorsMd2);
       /** @}
         */
 
@@ -304,6 +313,8 @@ namespace aslam {
       std::vector<ObservationPtr> _estimatorObservations;
       /// Last observation
       ObservationPtr _lastObservation;
+      /// Quantile for outlier detection
+      double _q;
       /** @}
         */
 

@@ -61,5 +61,5 @@ TEST(AslamCalibrationTestSuite, testVectorDesignVariable) {
   dv1.getParameters(dv1Param);
   ASSERT_EQ(Eigen::Vector3d::Ones(), dv1Param);
   ASSERT_THROW(dv1.setParameters(Eigen::Vector2d::Ones()),
-    aslam::calibration::OutOfBoundException<Eigen::MatrixXd>);
+    aslam::calibration::OutOfBoundException<int>);
 }
