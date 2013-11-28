@@ -55,13 +55,6 @@ namespace aslam {
     class GridCalibrationTarget;
     class GridCalibrationTargetObservation;
     class CameraGeometryBase;
-    template<typename PROJECTION_T, typename SHUTTER_T, typename MASK_T>
-      class CameraGeometry;
-    template<typename DISTORTION_T> class OmniProjection;
-    template<typename DISTORTION_T> class PinholeProjection;
-    class RadialTangentialDistortion;
-    class GlobalShutter;
-    class NoMask;
 
   }
   namespace calibration {
@@ -86,16 +79,6 @@ namespace aslam {
       typedef aslam::cameras::CameraGeometryBase CameraGeometry;
       /// Camera geometry shared pointer type
       typedef boost::shared_ptr<CameraGeometry> CameraGeometryPtr;
-      /// Distorted omni camera geometry type
-      typedef aslam::cameras::CameraGeometry<aslam::cameras::OmniProjection<
-          aslam::cameras::RadialTangentialDistortion>,
-          aslam::cameras::GlobalShutter, aslam::cameras::NoMask>
-          DistortedOmniCameraGeometry;
-      /// Distorted pinhole camera geometry type
-      typedef aslam::cameras::CameraGeometry<aslam::cameras::PinholeProjection<
-          aslam::cameras::RadialTangentialDistortion>,
-          aslam::cameras::GlobalShutter, aslam::cameras::NoMask>
-          DistortedPinholeCameraGeometry;
       /// Grid observation
       typedef aslam::cameras::GridCalibrationTargetObservation Observation;
       /// Grid observation shared pointer

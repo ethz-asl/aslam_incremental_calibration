@@ -36,14 +36,10 @@
 
 #include <aslam/Time.hpp>
 
+#include <aslam/cameras.hpp>
+
 #include <aslam/cameras/GridCalibrationTarget.hpp>
 #include <aslam/cameras/GridDetector.hpp>
-#include <aslam/cameras/CameraGeometry.hpp>
-#include <aslam/cameras/OmniProjection.hpp>
-#include <aslam/cameras/PinholeProjection.hpp>
-#include <aslam/cameras/RadialTangentialDistortion.hpp>
-#include <aslam/cameras/GlobalShutter.hpp>
-#include <aslam/cameras/NoMask.hpp>
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 
 #include <aslam/backend/HomogeneousPoint.hpp>
@@ -322,9 +318,11 @@ namespace aslam {
 
       // create camera geometry
       if (_options.cameraProjectionType == "omni")
-        _geometry = boost::make_shared<DistortedOmniCameraGeometry>();
+        _geometry =
+          boost::make_shared<aslam::cameras::DistortedOmniCameraGeometry>();
       else if (_options.cameraProjectionType == "pinhole")
-        _geometry = boost::make_shared<DistortedPinholeCameraGeometry>();
+        _geometry =
+          boost::make_shared<aslam::cameras::DistortedPinholeCameraGeometry>();
       else
         throw BadArgumentException<std::string>(_options.cameraProjectionType,
           "unkown camera projection type", __FILE__, __LINE__,
@@ -458,7 +456,9 @@ namespace aslam {
       addObservation(*observation);
       _batchObservations.push_back(observation);
       _lastObservation = observation;
-
+//      std::ofstream ofs("test");
+//      boost::archive::binary_oarchive oa(ofs);
+//      oa << observation;
       // add batch if needed
       if (_batchNumImages == _options.batchNumImages)
         processBatch();
@@ -516,10 +516,10 @@ namespace aslam {
         config.setDouble("projection/cu", projection(3));
         config.setDouble("projection/cv", projection(4));
         config.setInt("projection/ru",
-          dynamic_cast<DistortedOmniCameraGeometry*>(
+          dynamic_cast<aslam::cameras::DistortedOmniCameraGeometry*>(
           _geometry.get())->projection().ru());
         config.setInt("projection/rv",
-          dynamic_cast<DistortedOmniCameraGeometry*>(
+          dynamic_cast<aslam::cameras::DistortedOmniCameraGeometry*>(
           _geometry.get())->projection().rv());
       }
       else {
@@ -528,10 +528,10 @@ namespace aslam {
         config.setDouble("projection/cu", projection(2));
         config.setDouble("projection/cv", projection(3));
         config.setInt("projection/ru",
-          dynamic_cast<DistortedPinholeCameraGeometry*>
+          dynamic_cast<aslam::cameras::DistortedPinholeCameraGeometry*>
           (_geometry.get())->projection().ru());
         config.setInt("projection/rv",
-          dynamic_cast<DistortedPinholeCameraGeometry*>(
+          dynamic_cast<aslam::cameras::DistortedPinholeCameraGeometry*>(
           _geometry.get())->projection().rv());
       }
       config.setString("projection/type", _options.cameraProjectionType);

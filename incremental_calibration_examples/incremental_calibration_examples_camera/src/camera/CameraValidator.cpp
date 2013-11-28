@@ -36,14 +36,10 @@
 
 #include <aslam/Time.hpp>
 
+#include <aslam/cameras.hpp>
+
 #include <aslam/cameras/GridCalibrationTarget.hpp>
 #include <aslam/cameras/GridDetector.hpp>
-#include <aslam/cameras/CameraGeometry.hpp>
-#include <aslam/cameras/OmniProjection.hpp>
-#include <aslam/cameras/PinholeProjection.hpp>
-#include <aslam/cameras/RadialTangentialDistortion.hpp>
-#include <aslam/cameras/GlobalShutter.hpp>
-#include <aslam/cameras/NoMask.hpp>
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 
 #include <aslam/calibration/exceptions/BadArgumentException.h>
@@ -267,9 +263,12 @@ namespace aslam {
 
       // create camera geometry
       if (intrinsics.getString("projection/type") == "omni")
-        _geometry = boost::make_shared<DistortedOmniCameraGeometry>(intrinsics);
+        _geometry =
+          boost::make_shared<aslam::cameras::DistortedOmniCameraGeometry>(
+          intrinsics);
       else if (intrinsics.getString("projection/type") == "pinhole")
-        _geometry = boost::make_shared<DistortedPinholeCameraGeometry>(
+        _geometry =
+          boost::make_shared<aslam::cameras::DistortedPinholeCameraGeometry>(
           intrinsics);
       else
         throw BadArgumentException<std::string>(
