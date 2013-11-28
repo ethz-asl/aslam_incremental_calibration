@@ -4,6 +4,7 @@
   <visualization>true</visualization>
   <calibrator>
     <saveEstimatorImages>true</saveEstimatorImages>
+    <outputErrors>true</outputErrors>
     <cameraProjectionType>omni</cameraProjectionType>
     <batchNumImages>1</batchNumImages>
     <useMEstimator>false</useMEstimator>
@@ -34,6 +35,8 @@
     </estimator>
   </calibrator>
   <validator>
+    <saveImages>false</saveImages>
+    <outputErrors>true</outputErrors>
     <sigma2>1.0</sigma2>
     <verbose>true</verbose>
   </validator>

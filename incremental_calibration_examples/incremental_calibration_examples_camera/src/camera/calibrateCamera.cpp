@@ -21,10 +21,14 @@
   */
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <vector>
 #include <string>
 #include <sstream>
+#include <algorithm>
+
+#include <boost/filesystem.hpp>
 
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -55,9 +59,8 @@ int main(int argc, char** argv) {
   BoostPropertyTree config;
   config.loadXml(argv[2]);
 
-  if (config.getBool("camera/visualization")) {
+  if (config.getBool("camera/visualization"))
     cv::namedWindow("Checkerboard Image", CV_WINDOW_AUTOSIZE);
-  }
 
   // create the camera calibrator
   CameraCalibrator calibrator(PropertyTree(config, "camera/calibrator"));
@@ -102,6 +105,8 @@ int main(int argc, char** argv) {
         if (calibrator.getEstimatorObservations().size() != numObservations) {
           cv::Mat checkerboardImage;
           calibrator.getLastCheckerboardImage(checkerboardImage);
+          if (!boost::filesystem::exists("images"))
+            boost::filesystem::create_directory("images");
           std::stringstream stream;
           stream << "images/" << config.getString("camera/cameraId") << "-"
             << image->header.stamp.toNSec() << ".png";
@@ -145,6 +150,21 @@ int main(int argc, char** argv) {
   BoostPropertyTree calibrationData("intrinsics");
   calibrator.write(calibrationData);
   calibrationData.saveXml(config.getString("camera/cameraId") + ".xml");
+
+  // output errors
+  if (config.getBool("camera/calibrator/outputErrors")) {
+    std::vector<Eigen::Vector2d> errors;
+    std::vector<double> errorsMd2;
+    calibrator.getErrors(errors, errorsMd2);
+    std::ofstream errorsFile("errors.txt");
+    errorsFile << std::fixed << std::setprecision(18);
+    std::for_each(errors.cbegin(), errors.cend(), [&](
+      decltype(*errors.cbegin()) x){errorsFile << x.transpose() << std::endl;});
+    std::ofstream errorsMd2File("errorsMd2.txt");
+    errorsMd2File << std::fixed << std::setprecision(18);
+    std::for_each( errorsMd2.cbegin(),  errorsMd2.cend(), [&](
+      decltype(* errorsMd2.cbegin()) x){errorsMd2File << x << std::endl;});
+  }
 
   return 0;
 }

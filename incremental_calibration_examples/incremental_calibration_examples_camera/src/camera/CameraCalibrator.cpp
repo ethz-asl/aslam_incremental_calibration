@@ -456,9 +456,7 @@ namespace aslam {
       addObservation(*observation);
       _batchObservations.push_back(observation);
       _lastObservation = observation;
-//      std::ofstream ofs("test");
-//      boost::archive::binary_oarchive oa(ofs);
-//      oa << observation;
+
       // add batch if needed
       if (_batchNumImages == _options.batchNumImages)
         processBatch();

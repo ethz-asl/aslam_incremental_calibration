@@ -24,6 +24,9 @@
 #include <iomanip>
 #include <vector>
 #include <string>
+#include <sstream>
+
+#include <boost/filesystem.hpp>
 
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -54,9 +57,8 @@ int main(int argc, char** argv) {
   BoostPropertyTree config;
   config.loadXml(argv[2]);
 
-  if (config.getBool("camera/visualization")) {
+  if (config.getBool("camera/visualization"))
     cv::namedWindow("Image Results", CV_WINDOW_AUTOSIZE);
-  }
 
   // loading intrinsics
   std::cout << "Loading intrinsics..." << std::endl;
@@ -89,6 +91,14 @@ int main(int argc, char** argv) {
         validator.getLastImage(resultImage);
         cv::imshow("Image Results", resultImage);
         cv::waitKey(1);
+        if (config.getBool("camera/validator/saveImages")) {
+          if (!boost::filesystem::exists("images"))
+            boost::filesystem::create_directory("images");
+          std::stringstream stream;
+          stream << "images/" << config.getString("camera/cameraId") << "-"
+            << image->header.stamp.toNSec() << ".png";
+          cv::imwrite(stream.str().c_str(), resultImage);
+        }
       }
     }
   }
@@ -105,6 +115,20 @@ int main(int argc, char** argv) {
     << validator.getReprojectionErrorMaxYError() << std::endl;
   std::cout << "number of outliers: " << validator.getNumOutliers()
     << std::endl;
+
+  // output errors
+  if (config.getBool("camera/validator/outputErrors")) {
+    const std::vector<Eigen::Vector2d>& errors = validator.getErrors();
+    std::ofstream errorsFile("errors.txt");
+    errorsFile << std::fixed << std::setprecision(18);
+    std::for_each(errors.cbegin(), errors.cend(), [&](
+      decltype(*errors.cbegin()) x){errorsFile << x.transpose() << std::endl;});
+    const std::vector<double>& errorsMd2 = validator.getMahalanobisDistances();
+    std::ofstream errorsMd2File("errorsMd2.txt");
+    errorsMd2File << std::fixed << std::setprecision(18);
+    std::for_each( errorsMd2.cbegin(),  errorsMd2.cend(), [&](
+      decltype(* errorsMd2.cbegin()) x){errorsMd2File << x << std::endl;});
+  }
 
   return 0;
 }
