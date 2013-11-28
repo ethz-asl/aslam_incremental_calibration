@@ -89,8 +89,10 @@ int main(int argc, char** argv) {
       if (config.getBool("camera/visualization")) {
         cv::Mat resultImage;
         validator.getLastImage(resultImage);
-        cv::imshow("Image Results", resultImage);
-        cv::waitKey(1);
+        if (resultImage.data != NULL) {
+          cv::imshow("Image Results", resultImage);
+          cv::waitKey(1);
+        }
         if (config.getBool("camera/validator/saveImages")) {
           if (!boost::filesystem::exists("images"))
             boost::filesystem::create_directory("images");

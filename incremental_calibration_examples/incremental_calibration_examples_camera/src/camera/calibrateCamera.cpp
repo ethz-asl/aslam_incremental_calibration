@@ -98,8 +98,10 @@ int main(int argc, char** argv) {
       if (config.getBool("camera/visualization")) {
         cv::Mat checkerboardImage;
         calibrator.getLastCheckerboardImage(checkerboardImage);
-        cv::imshow("Checkerboard Image", checkerboardImage);
-        cv::waitKey(1);
+        if (checkerboardImage.data != NULL) {
+          cv::imshow("Checkerboard Image", checkerboardImage);
+          cv::waitKey(1);
+        }
       }
       if (config.getBool("camera/calibrator/saveEstimatorImages")) {
         if (calibrator.getEstimatorObservations().size() != numObservations) {
