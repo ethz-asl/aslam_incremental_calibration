@@ -149,7 +149,16 @@ int main(int argc, char** argv) {
   // write calibration to xml file
   BoostPropertyTree calibrationData("intrinsics");
   calibrator.write(calibrationData);
-  calibrationData.saveXml(config.getString("camera/cameraId") + ".xml");
+  const double startTime = view.getBeginTime().toSec();
+  struct timeval time;
+  time.tv_sec = startTime;
+  struct tm* ptm;
+  ptm = localtime(&time.tv_sec);
+  char timeString[40];
+  strftime(timeString, sizeof (timeString), "%Y-%m-%d-%H-%M-%S", ptm);
+  calibrationData.saveXml(config.getString("camera/cameraId") + "-" +
+    config.getString("camera/calibrator/cameraProjectionType") + "-" +
+    timeString + ".xml");
 
   // output errors
   if (config.getBool("camera/calibrator/outputErrors")) {
