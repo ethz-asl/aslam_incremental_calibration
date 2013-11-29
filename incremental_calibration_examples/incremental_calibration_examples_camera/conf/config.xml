@@ -1,10 +1,14 @@
 <camera>
-  <rosTopic>/mv_37/camera/image_raw</rosTopic>
-  <cameraId>mv_37</cameraId>
+<!--  <rosTopic>/mv_37/camera/image_raw</rosTopic>-->
+  <rosTopic>/mv_cameras_manager/GX002537/image_raw</rosTopic>
+  <cameraId>GX002537</cameraId>
   <visualization>true</visualization>
+  <imageTime>1</imageTime>
   <calibrator>
     <saveEstimatorImages>true</saveEstimatorImages>
     <outputErrors>true</outputErrors>
+    <rowSpacingMeters>0.06</rowSpacingMeters>
+    <colSpacingMeters>0.06</colSpacingMeters>
     <cameraProjectionType>omni</cameraProjectionType>
     <batchNumImages>1</batchNumImages>
     <useMEstimator>false</useMEstimator>

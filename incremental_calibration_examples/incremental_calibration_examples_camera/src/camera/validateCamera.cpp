@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
         validator.getLastImage(resultImage);
         if (resultImage.data != NULL) {
           cv::imshow("Image Results", resultImage);
-          cv::waitKey(1);
+          cv::waitKey(config.getInt("camera/imageTime"));
         }
         if (config.getBool("camera/validator/saveImages")) {
           if (!boost::filesystem::exists("images"))

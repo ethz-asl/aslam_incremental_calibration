@@ -90,6 +90,16 @@ namespace aslam {
       return std::string(timeString);
     }
 
+    std::string Timestamp::getDate(double seconds) {
+      struct timeval time;
+      time.tv_sec = seconds;
+      struct tm* ptm;
+      ptm = localtime(&time.tv_sec);
+      char timeString[40];
+      strftime(timeString, sizeof (timeString), "%Y-%m-%d-%H-%M-%S", ptm);
+      return std::string(timeString);
+    }
+
     Timestamp::operator double() const {
       return mSeconds;
     }

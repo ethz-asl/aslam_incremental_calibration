@@ -42,6 +42,9 @@
 
 #include <opencv2/highgui/highgui.hpp>
 
+#include <aslam/calibration/core/IncrementalEstimator.h>
+#include <aslam/calibration/base/Timestamp.h>
+
 #include "aslam/calibration/camera/CameraCalibrator.h"
 
 using namespace aslam::calibration;
@@ -100,7 +103,7 @@ int main(int argc, char** argv) {
         calibrator.getLastCheckerboardImage(checkerboardImage);
         if (checkerboardImage.data != NULL) {
           cv::imshow("Checkerboard Image", checkerboardImage);
-          cv::waitKey(1);
+          cv::waitKey(config.getInt("camera/imageTime"));
         }
       }
       if (config.getBool("camera/calibrator/saveEstimatorImages")) {
@@ -151,16 +154,13 @@ int main(int argc, char** argv) {
   // write calibration to xml file
   BoostPropertyTree calibrationData("intrinsics");
   calibrator.write(calibrationData);
-  const double startTime = view.getBeginTime().toSec();
-  struct timeval time;
-  time.tv_sec = startTime;
-  struct tm* ptm;
-  ptm = localtime(&time.tv_sec);
-  char timeString[40];
-  strftime(timeString, sizeof (timeString), "%Y-%m-%d-%H-%M-%S", ptm);
-  calibrationData.saveXml(config.getString("camera/cameraId") + "-" +
-    config.getString("camera/calibrator/cameraProjectionType") + "-" +
-    timeString + ".xml");
+  std::stringstream stream;
+  stream << config.getString("camera/cameraId") << "-"
+    << config.getString("camera/calibrator/cameraProjectionType") << "-"
+    << Timestamp::getDate(view.getBeginTime().toSec()) << "-"
+    << calibrator.getOptions().batchNumImages << "-"
+    << calibrator.getEstimator()->getOptions().miTol<< ".xml";
+  calibrationData.saveXml(stream.str());
 
   // output errors
   if (config.getBool("camera/calibrator/outputErrors")) {

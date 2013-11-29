@@ -106,6 +106,8 @@ namespace aslam {
       static double now();
       /// Returns the date of the system in string
       static std::string getDate();
+      /// Returns the date from timestamp in seconds
+      static std::string getDate(double seconds);
       /** @}
         */
 
