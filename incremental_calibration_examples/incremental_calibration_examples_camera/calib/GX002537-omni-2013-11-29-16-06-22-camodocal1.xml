@@ -1,0 +1,22 @@
+<intrinsics>
+  <projection>
+    <xi>1.3428642238179689e+00</xi>
+    <fu>2.8763571718955659e+03</fu>
+    <fv>2.8660601050743467e+03</fv>
+    <cu>6.2873905505796154e+02</cu>
+    <cv>5.0435586987301912e+02</cv>
+    <ru>1280</ru>
+    <rv>960</rv>
+    <type>omni</type>
+    <distortion>
+      <k1>-2.1126001734771119e-01</k1>
+      <k2>2.9770167774073275e-01</k2>
+      <p1>1.2036544919414175e-03</p1>
+      <p2>-3.5194010614902481e-04</p2>
+    </distortion>
+  </projection>
+  <shutter>
+    <line-delay>0</line-delay>
+  </shutter>
+  <mask><mask-file/></mask>
+</intrinsics>
