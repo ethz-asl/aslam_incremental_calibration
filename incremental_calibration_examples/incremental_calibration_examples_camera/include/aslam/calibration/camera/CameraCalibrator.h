@@ -228,6 +228,8 @@ namespace aslam {
       double getFinalCost() const;
       /// Returns the current nullspace
       Eigen::MatrixXd getNullSpace() const;
+      /// Returns the current scaled nullspace
+      Eigen::MatrixXd getScaledNullSpace() const;
       /// Returns the statistics for the reprojection error
       void getStatistics(Eigen::VectorXd&
         mean, Eigen::VectorXd& variance, Eigen::VectorXd& standardDeviation,

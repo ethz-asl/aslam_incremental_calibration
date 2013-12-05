@@ -199,6 +199,11 @@ namespace aslam {
       return _nullSpace;
     }
 
+    const Eigen::MatrixXd&
+        IncrementalEstimator::getScaledMarginalizedNullSpace() const {
+      return _scaledNullSpace;
+    }
+
     const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedColumnSpace()
         const {
       return _columnSpace;
@@ -254,11 +259,15 @@ namespace aslam {
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
-      // grep the scaled singular values if scaling enabled
-      if (linearSolver->getOptions().columnScaling)
+      // grep the scaled singular values and null space if scaling enabled
+      if (linearSolver->getOptions().columnScaling) {
         _scaledSingularValues = linearSolver->getSingularValues();
-      else
+        _scaledNullSpace = linearSolver->getNullSpace();
+      }
+      else  {
         _scaledSingularValues.resize(0);
+        _scaledNullSpace.resize(0, 0);
+      }
 
       // analyze marginal system
       linearSolver->analyzeMarginal();
@@ -294,6 +303,7 @@ namespace aslam {
       ret.svdTolerance = _svdTolerance;
       ret.qrTolerance = _qrTolerance;
       ret.nullSpace = _nullSpace;
+      ret.scaledNullSpace = _scaledNullSpace;
       ret.columnSpace = _columnSpace;
       ret.covariance = _covariance;
       ret.projectedCovariance = _projectedCovariance;
@@ -342,10 +352,14 @@ namespace aslam {
       ret.JFinal = srv.JFinal;
 
       // grep the scaled singular values if scaling enabled
-      if (linearSolver->getOptions().columnScaling)
+      if (linearSolver->getOptions().columnScaling) {
         ret.scaledSingularValues = linearSolver->getSingularValues();
-      else
+        ret.scaledNullSpace = linearSolver->getNullSpace();
+      }
+      else {
         ret.scaledSingularValues.resize(0);
+        ret.scaledNullSpace.resize(0, 0);
+      }
 
       // analyze marginal system
       linearSolver->analyzeMarginal();
@@ -389,6 +403,7 @@ namespace aslam {
         _mutualInformation = ret.mutualInformation;
         _svLog2Sum = svLog2Sum;
         _nullSpace = ret.nullSpace;
+        _scaledNullSpace = ret.scaledNullSpace;
         _columnSpace = ret.columnSpace;
         _covariance = ret.covariance;
         _projectedCovariance = ret.projectedCovariance;

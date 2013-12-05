@@ -238,6 +238,10 @@ namespace aslam {
       return _estimator->getMarginalizedNullSpace();
     }
 
+    Eigen::MatrixXd CameraCalibrator::getScaledNullSpace() const {
+      return _estimator->getScaledMarginalizedNullSpace();
+    }
+
     void CameraCalibrator::getStatistics(Eigen::VectorXd&
         mean, Eigen::VectorXd& variance, Eigen::VectorXd& standardDeviation,
         double& maxXError, double& maxYError, size_t& numOutliers) {
@@ -506,13 +510,20 @@ namespace aslam {
 
     void CameraCalibrator::write(sm::PropertyTree& config) const {
       auto projection = getProjection();
+      Eigen::VectorXd projectionStd = getProjectionStandardDeviation();
       auto distortion = getDistortion();
+      Eigen::VectorXd distortionStd = getDistortionStandardDeviation();
       if (_options.cameraProjectionType == "omni") {
         config.setDouble("projection/xi", projection(0));
+        config.setDouble("projection/sigma_xi", projectionStd(0));
         config.setDouble("projection/fu", projection(1));
+        config.setDouble("projection/sigma_fu", projectionStd(1));
         config.setDouble("projection/fv", projection(2));
+        config.setDouble("projection/sigma_fv", projectionStd(2));
         config.setDouble("projection/cu", projection(3));
+        config.setDouble("projection/sigma_cu", projectionStd(3));
         config.setDouble("projection/cv", projection(4));
+        config.setDouble("projection/sigma_cv", projectionStd(4));
         config.setInt("projection/ru",
           dynamic_cast<aslam::cameras::DistortedOmniCameraGeometry*>(
           _geometry.get())->projection().ru());
@@ -522,9 +533,13 @@ namespace aslam {
       }
       else {
         config.setDouble("projection/fu", projection(0));
+        config.setDouble("projection/sigma_fu", projectionStd(0));
         config.setDouble("projection/fv", projection(1));
+        config.setDouble("projection/sigma_fv", projectionStd(1));
         config.setDouble("projection/cu", projection(2));
+        config.setDouble("projection/sigma_cu", projectionStd(2));
         config.setDouble("projection/cv", projection(3));
+        config.setDouble("projection/sigma_cv", projectionStd(3));
         config.setInt("projection/ru",
           dynamic_cast<aslam::cameras::DistortedPinholeCameraGeometry*>
           (_geometry.get())->projection().ru());
@@ -534,9 +549,13 @@ namespace aslam {
       }
       config.setString("projection/type", _options.cameraProjectionType);
       config.setDouble("projection/distortion/k1", distortion(0));
+      config.setDouble("projection/distortion/sigma_k1", distortionStd(0));
       config.setDouble("projection/distortion/k2", distortion(1));
+      config.setDouble("projection/distortion/sigma_k2", distortionStd(1));
       config.setDouble("projection/distortion/p1", distortion(2));
+      config.setDouble("projection/distortion/sigma_p1", distortionStd(2));
       config.setDouble("projection/distortion/p2", distortion(3));
+      config.setDouble("projection/distortion/sigma_p2", distortionStd(3));
       config.setDouble("shutter/line-delay", 0.0);
       config.setString("mask/mask-file", "");
     }

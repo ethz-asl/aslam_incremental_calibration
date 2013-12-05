@@ -7,10 +7,12 @@
   <calibrator>
     <saveEstimatorImages>true</saveEstimatorImages>
     <outputErrors>true</outputErrors>
+    <rows>6</cols>
+    <cols>7</cols>
     <rowSpacingMeters>0.06</rowSpacingMeters>
     <colSpacingMeters>0.06</colSpacingMeters>
     <cameraProjectionType>omni</cameraProjectionType>
-    <batchNumImages>1</batchNumImages>
+    <batchNumImages>10000</batchNumImages>
     <useMEstimator>false</useMEstimator>
     <sigma2>1.0</sigma2>
     <verbose>true</verbose>
@@ -29,7 +31,7 @@
         <linearSolver>
           <columnScaling>true</columnScaling>
   <!--        <epsNorm>1e-16</epsNorm>-->
-          <epsSVD>1e-8</epsSVD>
+          <epsSVD>1e-9</epsSVD>
   <!--        <epsQR>1e-16</epsQR>-->
   <!--        <svdTol>-1</svdTol>-->
   <!--        <qrTol>-1</qrTol>-->

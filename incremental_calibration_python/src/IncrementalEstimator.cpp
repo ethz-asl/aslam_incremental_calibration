@@ -41,6 +41,11 @@ Eigen::MatrixXd getMarginalizedNullSpace(const IncrementalEstimator* ie) {
 }
 
 /// This functions gets rid of the reference
+Eigen::MatrixXd getScaledMarginalizedNullSpace(const IncrementalEstimator* ie) {
+  return ie->getScaledMarginalizedNullSpace();
+}
+
+/// This functions gets rid of the reference
 Eigen::MatrixXd getMarginalizedColumnSpace(const IncrementalEstimator* ie) {
   return ie->getMarginalizedColumnSpace();
 }
@@ -92,6 +97,8 @@ void exportIncrementalEstimator() {
     .def_readwrite("qrTolerance",
       &IncrementalEstimator::ReturnValue::qrTolerance)
     .def_readwrite("nullSpace", &IncrementalEstimator::ReturnValue::nullSpace)
+    .def_readwrite("scaledNullSpace",
+      &IncrementalEstimator::ReturnValue::scaledNullSpace)
     .def_readwrite("columnSpace",
       &IncrementalEstimator::ReturnValue::columnSpace)
     .def_readwrite("covariance", &IncrementalEstimator::ReturnValue::covariance)
@@ -157,6 +164,7 @@ void exportIncrementalEstimator() {
     .def("getMemoryUsage", &IncrementalEstimator::getMemoryUsage)
     .def("getNumFlops", &IncrementalEstimator::getNumFlops)
     .def("getMarginalizedNullSpace", &getMarginalizedNullSpace)
+    .def("getScaledMarginalizedNullSpace", &getScaledMarginalizedNullSpace)
     .def("getMarginalizedColumnSpace", &getMarginalizedColumnSpace)
     .def("getMarginalizedCovariance", &getMarginalizedCovariance)
     .def("getProjectedMarginalizedCovariance",

@@ -110,6 +110,8 @@ namespace aslam {
         double qrTolerance;
         /// Null space of the marginalized system
         Eigen::MatrixXd nullSpace;
+        /// Scaled null space of the marginalized system
+        Eigen::MatrixXd scaledNullSpace;
         /// Column space of the marginalized system
         Eigen::MatrixXd columnSpace;
         /// Covariance of the marginalized system
@@ -208,6 +210,8 @@ namespace aslam {
       double getQRTolerance() const;
       /// Returns the current marginalized null space
       const Eigen::MatrixXd& getMarginalizedNullSpace() const;
+      /// Returns the current scaled marginalized null space
+      const Eigen::MatrixXd& getScaledMarginalizedNullSpace() const;
       /// Returns the current marginalized column space
       const Eigen::MatrixXd& getMarginalizedColumnSpace() const;
       /// Returns the current marginalized covariance
@@ -259,6 +263,8 @@ namespace aslam {
       double _svLog2Sum;
       /// Null space of the marginalized system
       Eigen::MatrixXd _nullSpace;
+      /// Scaled null space of the marginalized system if scaling enabled
+      Eigen::MatrixXd _scaledNullSpace;
       /// Column space of the marginalized system
       Eigen::MatrixXd _columnSpace;
       /// Covariance of the marginalized system
