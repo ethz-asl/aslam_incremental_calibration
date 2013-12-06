@@ -23,6 +23,7 @@
 #include <iostream>
 #include <iterator>
 #include <algorithm>
+#include <sstream>
 
 #include <boost/make_shared.hpp>
 #include <boost/math/distributions/chi_squared.hpp>
@@ -556,6 +557,36 @@ namespace aslam {
       config.setDouble("projection/distortion/sigma_p2", distortionStd(3));
       config.setDouble("shutter/line-delay", 0.0);
       config.setString("mask/mask-file", "");
+      Eigen::MatrixXd nullSpace = getNullSpace();
+      for (std::ptrdiff_t c = 0; c < nullSpace.cols(); ++c) {
+        for (std::ptrdiff_t r = 0; r < nullSpace.rows(); ++r) {
+          std::stringstream stream;
+          stream << "nullSpace/c" << c << "/r" << r;
+          config.setDouble(stream.str(), nullSpace(r, c));
+        }
+      }
+      nullSpace = getNullSpace(true);
+      for (std::ptrdiff_t c = 0; c < nullSpace.cols(); ++c) {
+        for (std::ptrdiff_t r = 0; r < nullSpace.rows(); ++r) {
+          std::stringstream stream;
+          stream << "scaledNullSpace/c" << c << "/r" << r;
+          config.setDouble(stream.str(), nullSpace(r, c));
+        }
+      }
+      Eigen::VectorXd singularValues = _estimator->getSingularValues();
+      for (std::ptrdiff_t i = 0; i < singularValues.size(); ++i) {
+        std::stringstream stream;
+        stream << "singularValues/x" << i;
+        config.setDouble(stream.str(), singularValues(i));
+      }
+      singularValues = _estimator->getSingularValues(true);
+      for (std::ptrdiff_t i = 0; i < singularValues.size(); ++i) {
+        std::stringstream stream;
+        stream << "scaledSingularValues/x" << i;
+        config.setDouble(stream.str(), singularValues(i));
+      }
+      config.setDouble("epsSVD", _estimator->getLinearSolverOptions().epsSVD);
+      config.setDouble("miTol", _estimator->getOptions().miTol);
     }
 
   }

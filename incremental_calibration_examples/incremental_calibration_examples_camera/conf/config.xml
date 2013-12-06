@@ -31,7 +31,7 @@
         <linearSolver>
           <columnScaling>true</columnScaling>
   <!--        <epsNorm>1e-16</epsNorm>-->
-          <epsSVD>1e-9</epsSVD>
+          <epsSVD>1e-5</epsSVD>
   <!--        <epsQR>1e-16</epsQR>-->
   <!--        <svdTol>-1</svdTol>-->
   <!--        <qrTol>-1</qrTol>-->
