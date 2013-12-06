@@ -267,6 +267,9 @@ int main(int argc, char** argv) {
     std::cout << "marginal rank: " << ret.marginalRank << std::endl;
     std::cout << "marginal rank deficiency: " << ret.marginalRankDeficiency
       << std::endl;
+    std::cout << "null space: " << std::endl << ret.nullSpace << std::endl;
+    std::cout << "scaled null space: " << std::endl << ret.scaledNullSpace
+      << std::endl;
     std::cout << "QR tolerance: " << ret.qrTolerance << std::endl;
     std::cout << "SVD tolerance: " << ret.svdTolerance << std::endl;
     std::cout << "time [s]: " << ret.elapsedTime << std::endl;
@@ -297,6 +300,8 @@ int main(int argc, char** argv) {
     << std::endl;
   std::cout << "null space: " << std::endl
     << incrementalEstimator.getMarginalizedNullSpace() << std::endl;
+  std::cout << "scaled null space: " << std::endl
+    << incrementalEstimator.getMarginalizedNullSpace(true) << std::endl;
   std::cout << "column space: " << std::endl
     << incrementalEstimator.getMarginalizedColumnSpace() << std::endl;
   std::cout << "projected covariance: " << std::endl

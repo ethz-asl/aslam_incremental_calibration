@@ -234,12 +234,8 @@ namespace aslam {
       return T.T();
     }
 
-    Eigen::MatrixXd CameraCalibrator::getNullSpace() const {
-      return _estimator->getMarginalizedNullSpace();
-    }
-
-    Eigen::MatrixXd CameraCalibrator::getScaledNullSpace() const {
-      return _estimator->getScaledMarginalizedNullSpace();
+    Eigen::MatrixXd CameraCalibrator::getNullSpace(bool scaled) const {
+      return _estimator->getMarginalizedNullSpace(scaled);
     }
 
     void CameraCalibrator::getStatistics(Eigen::VectorXd&
@@ -482,6 +478,8 @@ namespace aslam {
         std::cout << std::endl;
         std::cout << "MI: " << ret.mutualInformation << std::endl;
         std::cout << "null space: " << std::endl << ret.nullSpace << std::endl;
+        std::cout << "scaled null space: " << std::endl << ret.scaledNullSpace
+          << std::endl;
         std::cout << "projection: " << getProjection().transpose() << std::endl;
         std::cout << "projection standard deviation: "
           << getProjectionStandardDeviation().transpose() << std::endl;

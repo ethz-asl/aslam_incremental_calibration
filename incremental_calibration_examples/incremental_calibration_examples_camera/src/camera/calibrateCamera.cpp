@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
   std::cout << "null space: " << std::endl << calibrator.getNullSpace()
     << std::endl;
   std::cout << "scaled null space: " << std::endl
-    << calibrator.getScaledNullSpace() << std::endl;
+    << calibrator.getNullSpace(true) << std::endl;
   std::cout << "initial cost: " << calibrator.getInitialCost() << std::endl;
   std::cout << "final cost: " << calibrator.getFinalCost() << std::endl;
   std::cout << "number of images for estimation: "

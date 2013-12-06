@@ -194,38 +194,45 @@ namespace aslam {
       return _numFlops;
     }
 
-    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedNullSpace()
-        const {
-      return _nullSpace;
+    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedNullSpace(bool
+        scaled) const {
+      if (scaled)
+        return _scaledNullSpace;
+      else
+        return _nullSpace;
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedColumnSpace(bool
+        scaled) const {
+      if (scaled)
+        return _scaledColumnSpace;
+      else
+        return _columnSpace;
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedCovariance(bool
+        scaled) const {
+      if (scaled)
+        return _scaledCovariance;
+      else
+        return _covariance;
     }
 
     const Eigen::MatrixXd&
-        IncrementalEstimator::getScaledMarginalizedNullSpace() const {
-      return _scaledNullSpace;
-    }
-
-    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedColumnSpace()
+        IncrementalEstimator::getProjectedMarginalizedCovariance(bool scaled)
         const {
-      return _columnSpace;
+      if (scaled)
+        return _scaledProjectedCovariance;
+      else
+        return _projectedCovariance;
     }
 
-    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedCovariance()
+    const Eigen::VectorXd& IncrementalEstimator::getSingularValues(bool scaled)
         const {
-      return _covariance;
-    }
-
-    const Eigen::MatrixXd&
-        IncrementalEstimator::getProjectedMarginalizedCovariance() const {
-      return _projectedCovariance;
-    }
-
-    const Eigen::VectorXd& IncrementalEstimator::getSingularValues() const {
-      return _singularValues;
-    }
-
-    const Eigen::VectorXd& IncrementalEstimator::getScaledSingularValues()
-        const {
-      return _scaledSingularValues;
+      if (scaled)
+        return _scaledSingularValues;
+      else
+        return _singularValues;
     }
 
     double IncrementalEstimator::getInitialCost() const {
@@ -259,17 +266,23 @@ namespace aslam {
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
-      // grep the scaled singular values and null space if scaling enabled
+      // grep the scaled linear system informations
       if (linearSolver->getOptions().columnScaling) {
         _scaledSingularValues = linearSolver->getSingularValues();
         _scaledNullSpace = linearSolver->getNullSpace();
+        _scaledColumnSpace = linearSolver->getColumnSpace();
+        _scaledCovariance = linearSolver->getCovariance();
+        _scaledProjectedCovariance = linearSolver->getProjectedCovariance();
       }
-      else  {
+      else {
         _scaledSingularValues.resize(0);
         _scaledNullSpace.resize(0, 0);
+        _scaledColumnSpace.resize(0, 0);
+        _scaledCovariance.resize(0, 0);
+        _scaledProjectedCovariance.resize(0, 0);
       }
 
-      // analyze marginal system
+      // analyze the unscaled marginal system
       linearSolver->analyzeMarginal();
 
       // retrieve informations from the linear solver
@@ -305,8 +318,11 @@ namespace aslam {
       ret.nullSpace = _nullSpace;
       ret.scaledNullSpace = _scaledNullSpace;
       ret.columnSpace = _columnSpace;
+      ret.scaledColumnSpace = _scaledColumnSpace;
       ret.covariance = _covariance;
+      ret.scaledCovariance = _scaledCovariance;
       ret.projectedCovariance = _projectedCovariance;
+      ret.scaledProjectedCovariance = _scaledProjectedCovariance;
       ret.singularValues = _singularValues;
       ret.scaledSingularValues = _scaledSingularValues;
       ret.numIterations = srv.iterations;
@@ -355,13 +371,19 @@ namespace aslam {
       if (linearSolver->getOptions().columnScaling) {
         ret.scaledSingularValues = linearSolver->getSingularValues();
         ret.scaledNullSpace = linearSolver->getNullSpace();
+        ret.scaledColumnSpace = linearSolver->getColumnSpace();
+        ret.scaledCovariance = linearSolver->getCovariance();
+        ret.scaledProjectedCovariance = linearSolver->getProjectedCovariance();
       }
       else {
         ret.scaledSingularValues.resize(0);
         ret.scaledNullSpace.resize(0, 0);
+        ret.scaledColumnSpace.resize(0, 0);
+        ret.scaledCovariance.resize(0, 0);
+        ret.scaledProjectedCovariance.resize(0, 0);
       }
 
-      // analyze marginal system
+      // analyze marginal system (unscaled system)
       linearSolver->analyzeMarginal();
 
       // fill statistics from the linear solver
@@ -405,8 +427,11 @@ namespace aslam {
         _nullSpace = ret.nullSpace;
         _scaledNullSpace = ret.scaledNullSpace;
         _columnSpace = ret.columnSpace;
+        _scaledColumnSpace = ret.scaledColumnSpace;
         _covariance = ret.covariance;
+        _scaledCovariance = ret.scaledCovariance;
         _projectedCovariance = ret.projectedCovariance;
+        _scaledProjectedCovariance = ret.scaledProjectedCovariance;
         _singularValues = ret.singularValues;
         _scaledSingularValues = ret.scaledSingularValues;
         _svdTolerance = ret.svdTolerance;

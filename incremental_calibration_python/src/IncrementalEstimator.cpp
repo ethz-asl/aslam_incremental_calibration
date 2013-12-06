@@ -42,7 +42,7 @@ Eigen::MatrixXd getMarginalizedNullSpace(const IncrementalEstimator* ie) {
 
 /// This functions gets rid of the reference
 Eigen::MatrixXd getScaledMarginalizedNullSpace(const IncrementalEstimator* ie) {
-  return ie->getScaledMarginalizedNullSpace();
+  return ie->getMarginalizedNullSpace(true);
 }
 
 /// This functions gets rid of the reference
@@ -51,8 +51,20 @@ Eigen::MatrixXd getMarginalizedColumnSpace(const IncrementalEstimator* ie) {
 }
 
 /// This functions gets rid of the reference
+Eigen::MatrixXd getScaledMarginalizedColumnSpace(const IncrementalEstimator*
+    ie) {
+  return ie->getMarginalizedColumnSpace(true);
+}
+
+/// This functions gets rid of the reference
 Eigen::MatrixXd getMarginalizedCovariance(const IncrementalEstimator* ie) {
   return ie->getMarginalizedCovariance();
+}
+
+/// This functions gets rid of the reference
+Eigen::MatrixXd getScaledMarginalizedCovariance(const IncrementalEstimator*
+    ie) {
+  return ie->getMarginalizedCovariance(true);
 }
 
 /// This functions gets rid of the reference
@@ -62,13 +74,19 @@ Eigen::MatrixXd getProjectedMarginalizedCovariance(const IncrementalEstimator*
 }
 
 /// This functions gets rid of the reference
+Eigen::MatrixXd getScaledProjectedMarginalizedCovariance(const
+    IncrementalEstimator* ie) {
+  return ie->getProjectedMarginalizedCovariance(true);
+}
+
+/// This functions gets rid of the reference
 Eigen::MatrixXd getSingularValues(const IncrementalEstimator* ie) {
   return ie->getSingularValues();
 }
 
 /// This functions gets rid of the reference
 Eigen::MatrixXd getScaledSingularValues(const IncrementalEstimator* ie) {
-  return ie->getScaledSingularValues();
+  return ie->getSingularValues(true);
 }
 
 void exportIncrementalEstimator() {
@@ -101,9 +119,15 @@ void exportIncrementalEstimator() {
       &IncrementalEstimator::ReturnValue::scaledNullSpace)
     .def_readwrite("columnSpace",
       &IncrementalEstimator::ReturnValue::columnSpace)
+    .def_readwrite("scaledColumnSpace",
+      &IncrementalEstimator::ReturnValue::scaledColumnSpace)
     .def_readwrite("covariance", &IncrementalEstimator::ReturnValue::covariance)
+    .def_readwrite("scaledCovariance",
+      &IncrementalEstimator::ReturnValue::scaledCovariance)
     .def_readwrite("projectedCovariance",
       &IncrementalEstimator::ReturnValue::projectedCovariance)
+    .def_readwrite("scaledProjectedCovariance",
+      &IncrementalEstimator::ReturnValue::scaledProjectedCovariance)
     .def_readwrite("singularValues",
       &IncrementalEstimator::ReturnValue::singularValues)
     .def_readwrite("scaledSingularValues",
@@ -166,9 +190,13 @@ void exportIncrementalEstimator() {
     .def("getMarginalizedNullSpace", &getMarginalizedNullSpace)
     .def("getScaledMarginalizedNullSpace", &getScaledMarginalizedNullSpace)
     .def("getMarginalizedColumnSpace", &getMarginalizedColumnSpace)
+    .def("getScaledMarginalizedColumnSpace", &getScaledMarginalizedColumnSpace)
     .def("getMarginalizedCovariance", &getMarginalizedCovariance)
+    .def("getScaledMarginalizedCovariance", &getScaledMarginalizedCovariance)
     .def("getProjectedMarginalizedCovariance",
       &getProjectedMarginalizedCovariance)
+    .def("getScaledProjectedMarginalizedCovariance",
+      &getScaledProjectedMarginalizedCovariance)
     .def("getSingularValues", &getSingularValues)
     .def("getScaledSingularValues", &getScaledSingularValues)
     ;

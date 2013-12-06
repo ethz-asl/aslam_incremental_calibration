@@ -114,10 +114,16 @@ namespace aslam {
         Eigen::MatrixXd scaledNullSpace;
         /// Column space of the marginalized system
         Eigen::MatrixXd columnSpace;
+        /// Scaled column space of the marginalized system
+        Eigen::MatrixXd scaledColumnSpace;
         /// Covariance of the marginalized system
         Eigen::MatrixXd covariance;
+        /// Scaled covariance of the marginalized system
+        Eigen::MatrixXd scaledCovariance;
         /// Projected covariance of the marginalized system
         Eigen::MatrixXd projectedCovariance;
+        /// Scaled projected covariance of the marginalized system
+        Eigen::MatrixXd scaledProjectedCovariance;
         /// Singular values of the marginalized system
         Eigen::VectorXd singularValues;
         /// Scaled singular values of the marginalized system
@@ -209,19 +215,19 @@ namespace aslam {
       /// Returns the current tolerance for the QR decomposition
       double getQRTolerance() const;
       /// Returns the current marginalized null space
-      const Eigen::MatrixXd& getMarginalizedNullSpace() const;
-      /// Returns the current scaled marginalized null space
-      const Eigen::MatrixXd& getScaledMarginalizedNullSpace() const;
+      const Eigen::MatrixXd& getMarginalizedNullSpace(bool scaled = false)
+        const;
       /// Returns the current marginalized column space
-      const Eigen::MatrixXd& getMarginalizedColumnSpace() const;
+      const Eigen::MatrixXd& getMarginalizedColumnSpace(bool scaled = false)
+        const;
       /// Returns the current marginalized covariance
-      const Eigen::MatrixXd& getMarginalizedCovariance() const;
+      const Eigen::MatrixXd& getMarginalizedCovariance(bool scaled = false)
+        const;
       /// Returns the current projected marginalized covariance
-      const Eigen::MatrixXd& getProjectedMarginalizedCovariance() const;
+      const Eigen::MatrixXd& getProjectedMarginalizedCovariance(bool
+        scaled = false) const;
       /// Returns the current singular values of the marginalized system
-      const Eigen::VectorXd& getSingularValues() const;
-      /// Returns the current scaled singular values if scaling enabled
-      const Eigen::VectorXd& getScaledSingularValues() const;
+      const Eigen::VectorXd& getSingularValues(bool scaled = false) const;
       /// Returns the peak memory usage in bytes
       size_t getPeakMemoryUsage() const;
       /// Returns the current memory usage in bytes
@@ -267,10 +273,16 @@ namespace aslam {
       Eigen::MatrixXd _scaledNullSpace;
       /// Column space of the marginalized system
       Eigen::MatrixXd _columnSpace;
+      /// Scaled column space of the marginalized system if scaling enabled
+      Eigen::MatrixXd _scaledColumnSpace;
       /// Covariance of the marginalized system
       Eigen::MatrixXd _covariance;
+      /// Scaled covariance of the marginalized system if scaling enabled
+      Eigen::MatrixXd _scaledCovariance;
       /// Projected covariance of the marginalized system
       Eigen::MatrixXd _projectedCovariance;
+      /// Scaled projected covariance of the marginalized system if scaling on
+      Eigen::MatrixXd _scaledProjectedCovariance;
       /// Singular values of the marginalized system
       Eigen::VectorXd _singularValues;
       /// Scaled singular values of the marginalized system if scaling enabled
