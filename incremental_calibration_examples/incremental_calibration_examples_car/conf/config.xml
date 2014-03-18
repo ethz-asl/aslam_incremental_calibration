@@ -2,62 +2,68 @@
   <calibrator>
     <windowDuration>1e18</windowDuration>
     <verbose>true</verbose>
+    <usePose>false</usePose>
+    <useVelocities>true</useVelocities>
     <splines>
-      <transSplineLambda>0</transSplineLambda>
-      <rotSplineLambda>0</rotSplineLambda>
-      <splineKnotsPerSecond>5</splineKnotsPerSecond>
+      <transSplineLambda>1e-1</transSplineLambda>
+      <rotSplineLambda>1e-1</rotSplineLambda>
+      <splineKnotsPerSecond>3</splineKnotsPerSecond>
       <transSplineOrder>4</transSplineOrder>
       <rotSplineOrder>4</rotSplineOrder>
     </splines>
     <odometry>
       <sensors>
         <wheelSpeedSensorCutoff>350</wheelSpeedSensorCutoff>
-        <linearVelocityTolerance>1</linearVelocityTolerance>
+        <linearVelocityTolerance>1.0</linearVelocityTolerance>
         <fws>
+          <topic>/can_prius/front_wheels_speed</topic>
           <active>true</active>
           <noise>
             <flwPercentError>0.2</flwPercentError>
             <frwPercentError>0.2</frwPercentError>
-            <flwVariance>1000</flwVariance>
-            <frwVariance>1000</frwVariance>
+            <flwVariance>50</flwVariance>
+            <frwVariance>50</frwVariance>
           </noise>
         </fws>
         <rws>
+          <topic>/can_prius/rear_wheels_speed</topic>
           <active>true</active>
           <noise>
             <rlwPercentError>0.2</rlwPercentError>
             <rrwPercentError>0.2</rrwPercentError>
-            <rlwVariance>1000</rlwVariance>
-            <rrwVariance>1000</rrwVariance>
+            <rlwVariance>50</rlwVariance>
+            <rrwVariance>50</rrwVariance>
           </noise>
         </rws>
         <st>
+          <topic>/can_prius/steering1</topic>
           <active>true</active>
           <noise>
-            <steeringVariance>1</steeringVariance>
+            <steeringVariance>0.004</steeringVariance>
           </noise>
         </st>
         <dmi>
+          <topic>/poslv/time_tagged_dmi_data</topic>
           <active>true</active>
           <noise>
             <dmiPercentError>0.1</dmiPercentError>
-            <dmiVariance>1</dmiVariance>
+            <dmiVariance>0.0063</dmiVariance>
           </noise>
         </dmi>
       </sensors>
       <intrinsics>
-        <wheelBase>2.7</wheelBase>
-        <halfRearTrack>0.74</halfRearTrack>
-        <halfFrontTrack>0.755</halfFrontTrack>
+        <wheelBase>2.70002</wheelBase>
+        <halfRearTrack>0.74041</halfRearTrack>
+        <halfFrontTrack>0.75311</halfFrontTrack>
         <steeringCoefficient0>0</steeringCoefficient0>
-        <steeringCoefficient1> 0.001745329251994</steeringCoefficient1>
+        <steeringCoefficient1>0.001745329251994</steeringCoefficient1>
         <steeringCoefficient2>0</steeringCoefficient2>
         <steeringCoefficient3>0</steeringCoefficient3>
-        <rlwCoefficient>0.002777777777778</rlwCoefficient>
-        <rrwCoefficient>0.002777777777778</rrwCoefficient>
-        <flwCoefficient>0.002777777777778</flwCoefficient>
-        <frwCoefficient>0.002777777777778</frwCoefficient>
-        <dmiCoefficient>1.0</dmiCoefficient>
+        <rlwCoefficient>360</rlwCoefficient>
+        <rrwCoefficient>360</rrwCoefficient>
+        <flwCoefficient>360</flwCoefficient>
+        <frwCoefficient>360</frwCoefficient>
+        <dmiCoefficient>1</dmiCoefficient>
       </intrinsics>
       <extrinsics>
         <translation>
@@ -72,20 +78,26 @@
         </rotation>
       </extrinsics>
       <constraints>
-        <active>false</active>
+        <active>true</active>
           <noise>
-            <vyVariance>1e-1</vyVariance>
-            <vzVariance>1e-1</vzVariance>
-            <omxVariance>1e-1</omxVariance>
-            <omyVariance>1e-1</omyVariance>
+            <vyVariance>0.005</vyVariance>
+            <vzVariance>0.006</vzVariance>
           </noise>
       </constraints>
     </odometry>
+    <applanix>
+      <vns>
+        <topic>/poslv/vehicle_navigation_solution</topic>
+      </vns>
+      <vnp>
+        <topic>/poslv/vehicle_navigation_performance</topic>
+      </vnp>
+    </applanix>
     <estimator>
+      <infoGainDelta>0.2</infoGainDelta>
       <groupId>1</groupId>
-      <miTol>0.5</miTol>
       <verbose>true</verbose>
-  <!--    commenting tags leave them to their default value-->
+      <checkValidity>true</checkValidity>
       <optimizer>
         <convergenceDeltaJ>1e-3</convergenceDeltaJ>
         <convergenceDeltaX>1e-3</convergenceDeltaX>
@@ -94,61 +106,15 @@
         <nThreads>16</nThreads>
         <verbose>true</verbose>
         <linearSolver>
-          <columnScaling>false</columnScaling>
-<!--          <epsNorm>1e-16</epsNorm>-->
-<!--          <epsSVD>1e-3</epsSVD>-->
-<!--          <epsQR>1e-16</epsQR>-->
-<!--          <svdTol>-1</svdTol>-->
-<!--          <qrTol>-1</qrTol>-->
+          <columnScaling>true</columnScaling>
+          <epsNorm>1e-8</epsNorm>
+          <epsSVD>1e-5</epsSVD>
+          <epsQR>1e-16</epsQR>
+          <svdTol>-1</svdTol>
+          <qrTol>-1</qrTol>
           <verbose>true</verbose>
         </linearSolver>
       </optimizer>
     </estimator>
   </calibrator>
-  <simulation>
-    <x0>
-      <x>0</x>
-      <y>0</y>
-      <z>0</z>
-      <yaw>0.392699081698724</yaw>
-      <pitch>0</pitch>
-      <roll>0</roll>
-    </x0>
-    <timestep>10000000</timestep>
-    <numSteps>10000</numSteps>
-    <splineKnotsPerSecond>5</splineKnotsPerSecond>
-    <splineLambda>1e+4</splineLambda>
-    <applanixFrequency>100</applanixFrequency>
-    <wheelSpeedFrequency>60</wheelSpeedFrequency>
-    <calibration>
-      <odometry>
-        <intrinsics>
-          <wheelBase>2.7</wheelBase>
-          <halfRearTrack>0.74</halfRearTrack>
-          <halfFrontTrack>0.755</halfFrontTrack>
-          <steeringCoefficient0>0</steeringCoefficient0>
-          <steeringCoefficient1> 0.001745329251994</steeringCoefficient1>
-          <steeringCoefficient2>0</steeringCoefficient2>
-          <steeringCoefficient3>0</steeringCoefficient3>
-          <rlwCoefficient>0.002777777777778</rlwCoefficient>
-          <rrwCoefficient>0.002777777777778</rrwCoefficient>
-          <flwCoefficient>0.002777777777778</flwCoefficient>
-          <frwCoefficient>0.002777777777778</frwCoefficient>
-          <dmiCoefficient>1.0</dmiCoefficient>
-        </intrinsics>
-        <extrinsics>
-          <translation>
-            <x>0</x>
-            <y>0</y>
-            <z>0.785</z>
-          </translation>
-          <rotation>
-            <yaw>0</yaw>
-            <pitch>0</pitch>
-            <roll>3.141592653589793</roll>
-          </rotation>
-        </extrinsics>
-      </odometry>
-    </calibration>
-  </simulation>
 </car>

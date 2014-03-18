@@ -411,33 +411,35 @@ namespace aslam {
     }
 
     void analyzeSVD(const cholmod_sparse* Omega, Eigen::VectorXd& sv,
-        Eigen::MatrixXd& U) {
+        Eigen::MatrixXd& U, Eigen::MatrixXd& V) {
       if (Omega == NULL)
         throw NullPointerException("Omega", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       Eigen::MatrixXd OmegaDense;
       cholmodSparseToEigenDenseCopy(Omega, OmegaDense);
       const Eigen::JacobiSVD<Eigen::MatrixXd> svd(OmegaDense,
-        Eigen::ComputeThinU);
+        Eigen::ComputeThinU | Eigen::ComputeThinV);
       U = svd.matrixU();
+      V = svd.matrixV();
       sv = svd.singularValues();
     }
 
     void solveSVD(const cholmod_dense* b, const Eigen::VectorXd& sv, const
-        Eigen::MatrixXd& U, std::ptrdiff_t rank, Eigen::VectorXd& x) {
+        Eigen::MatrixXd& U, const Eigen::MatrixXd& V, std::ptrdiff_t rank,
+        Eigen::VectorXd& x) {
       if (b == NULL)
         throw NullPointerException("b", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
-      if (rank > U.cols())
-        throw OutOfBoundException<std::ptrdiff_t>(rank, U.cols(),
+      if (rank > V.cols())
+        throw OutOfBoundException<std::ptrdiff_t>(rank, V.cols(),
           "inconsistent rank", __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      if (U.cols() != sv.rows() ||
+      if (V.cols() != sv.rows() ||
           U.rows() != static_cast<std::ptrdiff_t>(b->nrow))
-        throw OutOfBoundException<std::ptrdiff_t>(U.cols(), sv.rows(),
+        throw OutOfBoundException<std::ptrdiff_t>(U.rows(), b->nrow,
           "inconsistent matrices", __FILE__, __LINE__, __PRETTY_FUNCTION__);
       Eigen::Map<const Eigen::VectorXd> bEigen(
         reinterpret_cast<const double*>(b->x), b->nrow);
-      x = U.leftCols(rank) * sv.head(rank).asDiagonal().inverse() *
+      x = V.leftCols(rank) * sv.head(rank).asDiagonal().inverse() *
         U.leftCols(rank).adjoint() * bEigen;
     }
 

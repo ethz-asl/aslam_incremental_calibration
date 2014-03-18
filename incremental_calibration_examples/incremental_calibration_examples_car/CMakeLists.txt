@@ -22,114 +22,32 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 # set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-# Package config
-include($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
-
-# Find libposlv
-pkg_check_modules(LIBPOSLV REQUIRED libposlv)
-include_directories(${LIBPOSLV_INCLUDE_DIRS})
-link_directories(${LIBPOSLV_LIBRARY_DIRS})
-pkg_check_modules(LIBPOSLV_GEO_TOOLS REQUIRED libposlv-geo-tools)
-include_directories(${LIBPOSLV_GEO_TOOLS_INCLUDE_DIRS})
-link_directories(${LIBPOSLV_GEO_TOOLS_LIBRARY_DIRS})
-
-# Find libcan-prius
-pkg_check_modules(LIBCAN_PRIUS REQUIRED libcan-prius)
-include_directories(${LIBCAN_PRIUS_INCLUDE_DIRS})
-link_directories(${LIBCAN_PRIUS_LIBRARY_DIRS})
-
-# Find robot-odometry
-pkg_check_modules(ROBOT_ODOMETRY REQUIRED robot-odometry)
-include_directories(${ROBOT_ODOMETRY_INCLUDE_DIRS})
-link_directories(${ROBOT_ODOMETRY_LIBRARY_DIRS})
-pkg_check_modules(ROBOT_ODOMETRY REQUIRED robot-odometry-janeth)
-include_directories(${ROBOT_ODOMETRY_JANETH_INCLUDE_DIRS})
-link_directories(${ROBOT_ODOMETRY_JANETH_LIBRARY_DIRS})
-
 rosbuild_add_library(${PROJECT_NAME}
-  src/car/ErrorTermPose.cpp
-  src/car/ErrorTermOdometry.cpp
-  src/car/utils.cpp
-  src/car/ErrorTermFws.cpp
-  src/car/ErrorTermRws.cpp
-  src/car/ErrorTermSteering.cpp
-  src/car/ErrorTermDMI.cpp
-  src/car/ErrorTermVehicleModel.cpp
-  src/car/CarCalibrator.cpp
-  src/car/OptimizationProblemSpline.cpp
-  src/car/CovarianceEstimator1v.cpp
+  src/error-terms/ErrorTermWheel.cpp
+  src/error-terms/ErrorTermSteering.cpp
+  src/error-terms/ErrorTermPose.cpp
+  src/error-terms/ErrorTermVelocities.cpp
+  src/algo/CarCalibratorOptions.cpp
+  src/algo/OptimizationProblemSpline.cpp
+  src/algo/CarCalibrator.cpp
+  src/algo/bestQuat.cpp
+  src/algo/splinesToFile.cpp
+  src/design-variables/OdometryDesignVariables.cpp
+  src/geo/geodetic.cpp
 )
 
-# Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
+# Avoid clash with tr1::tuple:
+# https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
 add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
 
 rosbuild_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
-  test/ErrorTermPoseTest.cpp
-  test/ErrorTermOdometryTest.cpp
-  test/ErrorTermVehicleModelTest.cpp
-  test/CarCalibratorTest.cpp
-  test/CovarianceEstimatorTest.cpp
+  test/error-terms/ErrorTermWheelTest.cpp
+  test/error-terms/ErrorTermSteeringTest.cpp
+  test/error-terms/ErrorTermPoseTest.cpp
+  test/error-terms/ErrorTermVelocitiesTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
-rosbuild_add_executable(calibrateCarOdometryMorselBatch
-  src/car/calibrateCarOdometryMorselBatch.cpp)
-target_link_libraries(calibrateCarOdometryMorselBatch ${PROJECT_NAME})
-
-rosbuild_add_executable(processBagNewSpline src/car/processBagNewSpline.cpp)
-target_link_libraries(processBagNewSpline ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(processBagOldSpline src/car/processBagOldSpline.cpp)
-target_link_libraries(processBagOldSpline ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(calibrateCar src/car/calibrateCar.cpp)
-target_link_libraries(calibrateCar ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(optimizeNewSpline src/car/optimizeNewSpline.cpp)
-target_link_libraries(optimizeNewSpline ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(optimizeOldSpline src/car/optimizeOldSpline.cpp)
-target_link_libraries(optimizeOldSpline ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(calibrateCarOdometryNewSplineBatch
-  src/car/calibrateCarOdometryNewSplineBatch.cpp)
-target_link_libraries(calibrateCarOdometryNewSplineBatch ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES} ${ROBOT_ODOMETRY_LIBRARIES})
-
-rosbuild_add_executable(calibrateCarOdometryOldSplineBatch
-  src/car/calibrateCarOdometryOldSplineBatch.cpp)
-target_link_libraries(calibrateCarOdometryOldSplineBatch ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(convertBinaryToBag src/car/convertBinaryToBag.cpp)
-target_link_libraries(convertBinaryToBag ${PROJECT_NAME}
-  ${LIBPOSLV_LIBRARIES} ${LIBCAN_PRIUS_LIBRARIES})
-
-rosbuild_add_executable(simulateCarOdometry src/car/simulateCarOdometry.cpp)
-target_link_libraries(simulateCarOdometry ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(calibrateCarOdometrySimulationBatch
-  src/car/calibrateCarOdometrySimulationBatch.cpp)
-target_link_libraries(calibrateCarOdometrySimulationBatch ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES} ${ROBOT_ODOMETRY_LIBRARIES}
-  ${ROBOT_ODOMETRY_JANETH_LIBRARIES})
-
-rosbuild_add_executable(calibrateCarOdometrySimulationBatchTest
-  src/car/calibrateCarOdometrySimulationBatchTest.cpp)
-target_link_libraries(calibrateCarOdometrySimulationBatchTest ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES} ${ROBOT_ODOMETRY_LIBRARIES}
-  ${ROBOT_ODOMETRY_JANETH_LIBRARIES})
-
-rosbuild_add_executable(odometryVelocities src/car/odometryVelocities.cpp)
-target_link_libraries(odometryVelocities ${PROJECT_NAME}
-  ${LIBPOSLV_GEO_TOOLS_LIBRARIES})
-
-rosbuild_add_executable(calibrateCarSimulation src/car/calibrateCarSimulation.cpp)
-target_link_libraries(calibrateCarSimulation ${PROJECT_NAME})
+rosbuild_add_executable(calibrator src/realworld/calibrator.cpp)
+target_link_libraries(calibrator ${PROJECT_NAME})

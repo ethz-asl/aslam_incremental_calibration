@@ -116,7 +116,6 @@ namespace aslam {
       B(1, 1) = cos((_xkm1->getValue())(2));
       error_t error = _uk -
         (1 / _T * B * (_xk->getValue() - _xkm1->getValue()));
-      error(2) = sm::kinematics::angleMod(error(2));
       setError(error);
       return evaluateChiSquaredError();
     }

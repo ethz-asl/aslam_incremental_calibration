@@ -82,11 +82,14 @@ namespace aslam {
       /// Options for the incremental estimator
       struct Options {
         Options() :
-            miTol(0.5),
+            infoGainDelta(0.2),
+            checkValidity(false),
             verbose(false) {
         }
-        /// Mutual information threshold
-        double miTol;
+        /// Information gain delta
+        double infoGainDelta;
+        /// Check validity of the solution
+        bool checkValidity;
         /// Verbosity of the estimator
         bool verbose;
       };
@@ -94,40 +97,40 @@ namespace aslam {
       struct ReturnValue {
         /// True if the batch was accepted
         bool batchAccepted;
-        /// Mutual information that the batch contributed
-        double mutualInformation;
-        /// Rank that this batch lead
-        std::ptrdiff_t rank;
-        /// Rank deficiency that this batch lead
-        std::ptrdiff_t rankDeficiency;
-        /// Marginal rank that this batch lead
-        std::ptrdiff_t marginalRank;
-        /// Marginal rank deficiency that this batch lead
-        std::ptrdiff_t marginalRankDeficiency;
+        /// Information gain
+        double informationGain;
+        /// Numerical rank of J_psi
+        std::ptrdiff_t rankPsi;
+        /// Numerical rank deficiency of J_psi
+        std::ptrdiff_t rankPsiDeficiency;
+        /// Numerical rank of A_theta
+        std::ptrdiff_t rankTheta;
+        /// Numerical rank deficiency of A_theta
+        std::ptrdiff_t rankThetaDeficiency;
         /// SVD tolerance used for this batch
         double svdTolerance;
         /// QR tolerance used for this batch
         double qrTolerance;
-        /// Null space of the marginalized system
-        Eigen::MatrixXd nullSpace;
-        /// Scaled null space of the marginalized system
-        Eigen::MatrixXd scaledNullSpace;
-        /// Column space of the marginalized system
-        Eigen::MatrixXd columnSpace;
-        /// Scaled column space of the marginalized system
-        Eigen::MatrixXd scaledColumnSpace;
-        /// Covariance of the marginalized system
-        Eigen::MatrixXd covariance;
-        /// Scaled covariance of the marginalized system
-        Eigen::MatrixXd scaledCovariance;
-        /// Projected covariance of the marginalized system
-        Eigen::MatrixXd projectedCovariance;
-        /// Scaled projected covariance of the marginalized system
-        Eigen::MatrixXd scaledProjectedCovariance;
-        /// Singular values of the marginalized system
+        /// Orthonormal basis for the unobservable subspace of theta
+        Eigen::MatrixXd nobsBasis;
+        /// Orthonormal basis for the unobservable subspace of scaled theta
+        Eigen::MatrixXd nobsBasisScaled;
+        /// Orthonormal basis for the observable subspace of theta
+        Eigen::MatrixXd obsBasis;
+        /// Orthonormal basis for the observable subspace of theta
+        Eigen::MatrixXd obsBasisScaled;
+        /// Covariance of theta
+        Eigen::MatrixXd sigma2Theta;
+        /// Covariance of scaled theta
+        Eigen::MatrixXd sigma2ThetaScaled;
+        /// Covariance of theta_obs
+        Eigen::MatrixXd sigma2ThetaObs;
+        /// Covariance of scaled theta_obs
+        Eigen::MatrixXd sigma2ThetaObsScaled;
+        /// Singular values of A_theta
         Eigen::VectorXd singularValues;
-        /// Scaled singular values of the marginalized system
-        Eigen::VectorXd scaledSingularValues;
+        /// Singular values of scaled A_theta
+        Eigen::VectorXd singularValuesScaled;
         /// Number of iterations
         size_t numIterations;
         /// Cost function at start
@@ -171,8 +174,6 @@ namespace aslam {
       void removeBatch(size_t idx);
       /// Removes a measurement batch from the estimator
       void removeBatch(const BatchSP& batch);
-      /// The number of batches
-      size_t getNumBatches() const;
       /// Re-runs the optimizer
       ReturnValue reoptimize();
       /** @}
@@ -181,6 +182,8 @@ namespace aslam {
       /** \name Accessors
         @{
         */
+      /// Returns the number of batches
+      size_t getNumBatches() const;
       /// Returns the incremental optimization problem
       const IncrementalOptimizationProblem* getProblem() const;
       /// Returns the current options
@@ -197,36 +200,32 @@ namespace aslam {
       OptimizerOptions& getOptimizerOptions();
       /// Return the marginalized group ID
       size_t getMargGroupId() const;
-      /// Returns the last computed mutual information
-      double getMutualInformation() const;
+      /// Returns the last information gain
+      double getInformationGain() const;
       /// Returns the current Jacobian transpose if available
       const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
         getJacobianTranspose() const;
-      /// Returns the current estimated non marginal numerical rank
-      std::ptrdiff_t getRank() const;
-      /// Returns the current estimated non marginal numerical rank deficiency
-      std::ptrdiff_t getRankDeficiency() const;
-      /// Returns the current estimated marginal numerical rank
-      std::ptrdiff_t getMarginalRank() const;
-      /// Returns the current estimated marginal numerical rank deficiency
-      std::ptrdiff_t getMarginalRankDeficiency() const;
+      /// Returns the current estimated numerical rank of J_psi
+      std::ptrdiff_t getRankPsi() const;
+      /// Returns the current estimated numerical rank deficiency of J_psi
+      std::ptrdiff_t getRankPsiDeficiency() const;
+      /// Returns the current estimated numerical rank of A_theta
+      std::ptrdiff_t getRankTheta() const;
+      /// Returns the current estimated numerical rank deficiency of A_theta
+      std::ptrdiff_t getRankThetaDeficiency() const;
       /// Returns the current tolerance for the SVD decomposition
       double getSVDTolerance() const;
       /// Returns the current tolerance for the QR decomposition
       double getQRTolerance() const;
-      /// Returns the current marginalized null space
-      const Eigen::MatrixXd& getMarginalizedNullSpace(bool scaled = false)
-        const;
-      /// Returns the current marginalized column space
-      const Eigen::MatrixXd& getMarginalizedColumnSpace(bool scaled = false)
-        const;
-      /// Returns the current marginalized covariance
-      const Eigen::MatrixXd& getMarginalizedCovariance(bool scaled = false)
-        const;
-      /// Returns the current projected marginalized covariance
-      const Eigen::MatrixXd& getProjectedMarginalizedCovariance(bool
-        scaled = false) const;
-      /// Returns the current singular values of the marginalized system
+      /// Returns the orthonormal basis for the unobservable subspace of theta
+      const Eigen::MatrixXd& getNobsBasis(bool scaled = false) const;
+      /// Returns the orthonormal basis for the observable subspace of theta
+      const Eigen::MatrixXd& getObsBasis(bool scaled = false) const;
+      /// Returns the covariance of theta
+      const Eigen::MatrixXd& getSigma2Theta(bool scaled = false) const;
+      /// Returns the covariance of theta_obs
+      const Eigen::MatrixXd& getSigma2ThetaObs(bool scaled = false) const;
+      /// Returns the singular values of A_theta
       const Eigen::VectorXd& getSingularValues(bool scaled = false) const;
       /// Returns the peak memory usage in bytes
       size_t getPeakMemoryUsage() const;
@@ -263,42 +262,42 @@ namespace aslam {
       OptimizerSP _optimizer;
       /// Underlying optimization problem
       IncrementalOptimizationProblemSP _problem;
-      /// Mutual information
-      double _mutualInformation;
-      /// Sum of the log2 of the singular values up to the numerical rank
+      /// Information gain
+      double _informationGain;
+      /// Sum of the log2 of the singular values of A_theta (up to rankTheta)
       double _svLog2Sum;
-      /// Null space of the marginalized system
-      Eigen::MatrixXd _nullSpace;
-      /// Scaled null space of the marginalized system if scaling enabled
-      Eigen::MatrixXd _scaledNullSpace;
-      /// Column space of the marginalized system
-      Eigen::MatrixXd _columnSpace;
-      /// Scaled column space of the marginalized system if scaling enabled
-      Eigen::MatrixXd _scaledColumnSpace;
-      /// Covariance of the marginalized system
-      Eigen::MatrixXd _covariance;
-      /// Scaled covariance of the marginalized system if scaling enabled
-      Eigen::MatrixXd _scaledCovariance;
-      /// Projected covariance of the marginalized system
-      Eigen::MatrixXd _projectedCovariance;
-      /// Scaled projected covariance of the marginalized system if scaling on
-      Eigen::MatrixXd _scaledProjectedCovariance;
-      /// Singular values of the marginalized system
+      /// Orthonormal basis for the unobservable subspace of theta
+      Eigen::MatrixXd _nobsBasis;
+      /// Orthonormal basis for the unobservable subspace of scaled theta
+      Eigen::MatrixXd _nobsBasisScaled;
+      /// Orthonormal basis for the observable subspace of theta
+      Eigen::MatrixXd _obsBasis;
+      /// Orthonormal basis for the observable subspace of scaled theta
+      Eigen::MatrixXd _obsBasisScaled;
+      /// Covariance of theta
+      Eigen::MatrixXd _sigma2Theta;
+      /// Covariance of scaled theta
+      Eigen::MatrixXd _sigma2ThetaScaled;
+      /// Covariance of theta_obs
+      Eigen::MatrixXd _sigma2ThetaObs;
+      /// Covariance of scaled theta_obs
+      Eigen::MatrixXd _sigma2ThetaObsScaled;
+      /// Singular values of A_theta
       Eigen::VectorXd _singularValues;
-      /// Scaled singular values of the marginalized system if scaling enabled
-      Eigen::VectorXd _scaledSingularValues;
+      /// Singular values of scaled A_theta
+      Eigen::VectorXd _singularValuesScaled;
       /// Tolerance for SVD
       double _svdTolerance;
       /// Tolerance for QR
       double _qrTolerance;
-      /// Estimated numerical rank of the marginalized system
-      std::ptrdiff_t _svdRank;
-      /// Estimated numerical rank deficiency of the marginalized system
-      std::ptrdiff_t _svdRankDeficiency;
-      /// Estimated numerical rank of the non-marginalized system
-      std::ptrdiff_t _qrRank;
-      /// Estimated numerical rank deficiency of the non-marginalized system
-      std::ptrdiff_t _qrRankDeficiency;
+      /// Estimated numerical rank of A_theta
+      std::ptrdiff_t _rankTheta;
+      /// Estimated numerical rank deficiency of A_theta
+      std::ptrdiff_t _rankThetaDeficiency;
+      /// Estimated numerical rank of J_psi
+      std::ptrdiff_t _rankPsi;
+      /// Estimated numerical rank deficiency of J_psi
+      std::ptrdiff_t _rankPsiDeficiency;
       /// Peak memory usage
       size_t _peakMemoryUsage;
       /// Memory usage

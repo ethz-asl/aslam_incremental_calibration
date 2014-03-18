@@ -16,25 +16,21 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/core/LinearSolverOptions.h"
-
-#include <limits>
+#include "aslam/calibration/car/algo/bestQuat.h"
 
 namespace aslam {
   namespace calibration {
 
 /******************************************************************************/
-/* Constructors and Destructor                                                */
+/* Methods                                                                    */
 /******************************************************************************/
 
-    LinearSolverOptions::LinearSolverOptions() :
-        columnScaling(false),
-        epsNorm(std::numeric_limits<double>::epsilon()),
-        epsSVD(std::numeric_limits<double>::epsilon()),
-        epsQR(std::numeric_limits<double>::epsilon()),
-        svdTol(-1.0),
-        qrTol(-1.0),
-        verbose(false) {
+    Eigen::Vector4d bestQuat(const Eigen::Vector4d& pquat, const
+        Eigen::Vector4d& cquat) {
+      if ((pquat + cquat).norm() < (pquat - cquat).norm())
+        return -cquat;
+      else
+        return cquat;
     }
 
   }

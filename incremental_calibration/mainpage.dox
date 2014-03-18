@@ -8,12 +8,11 @@
 Provide an overview of your package.
 -->
 
-A C++-based library for calibrating robot sensors. It employs a Gauss-Newton
-algorithm with Truncated QR (TQR) linear system solving. Therefore, it can well
-cope with unobservability in the input data. For long term and online operation,
-an information theoeretic scheme selects informative measurements for updating
+A C++-based library for calibrating robot sensors. It employs nonlinear
+optimization with regularization. Therefore, it can well cope with
+unobservability in the input data. For long-term and online operation,
+an information-theoeretic scheme selects informative measurements for updating
 the calibration.
-
 
 */
 

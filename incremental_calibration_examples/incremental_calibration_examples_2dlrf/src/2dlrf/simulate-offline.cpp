@@ -250,10 +250,10 @@ int main(int argc, char** argv) {
   std::cout << "Calibration after: " << *dv_Theta << std::endl;
   std::cout << "Singular values (scaled): "
     << linearSolver->getSingularValues().transpose() << std::endl;
-  std::cout << "Null space (scaled): " << std::endl
+  std::cout << "Unobservable basis (scaled): " << std::endl
     << linearSolver->getNullSpace() << std::endl;
-  std::cout << "Column space (scaled): " << std::endl
-    << linearSolver->getColumnSpace() << std::endl;
+  std::cout << "Observable basis (scaled): " << std::endl
+    << linearSolver->getRowSpace() << std::endl;
   linearSolver->analyzeMarginal();
   std::cout << "SVD rank: " << linearSolver->getSVDRank() << std::endl;
   std::cout << "SVD rank deficiency: " << linearSolver->getSVDRankDeficiency()
@@ -267,14 +267,14 @@ int main(int argc, char** argv) {
   std::cout << "QR rank deficiency: " << optimizer.getSolver<LinearSolver>()
     ->getQRRankDeficiency() << std::endl;
   std::cout << "QR tolerance: " << linearSolver->getQRTolerance() << std::endl;
-  std::cout << "Null space: " << std::endl << linearSolver->getNullSpace()
-    << std::endl;
-  std::cout << "Column space: " << std::endl << linearSolver->getColumnSpace()
+  std::cout << "Unobservable basis: " << std::endl
+    << linearSolver->getNullSpace() << std::endl;
+  std::cout << "Observable basis: " << std::endl << linearSolver->getRowSpace()
     << std::endl;
   std::cout << "Covariance: " << std::endl << linearSolver->getCovariance()
     << std::endl;
-  std::cout << "Projected covariance: " << std::endl
-    << linearSolver->getProjectedCovariance() << std::endl;
+  std::cout << "Observable covariance: " << std::endl
+    << linearSolver->getRowSpaceCovariance() << std::endl;
   std::cout << "Peak memory usage (MB): " << linearSolver->getPeakMemoryUsage()
     / 1024.0 / 1024.0 << std::endl;
   std::cout << "Memory usage (MB): " << linearSolver->getMemoryUsage() /

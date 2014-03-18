@@ -49,14 +49,14 @@ namespace aslam {
         _margGroupId(groupId),
         _optimizer(boost::make_shared<Optimizer>(optimizerOptions)),
         _problem(boost::make_shared<IncrementalOptimizationProblem>()),
-        _mutualInformation(0.0),
+        _informationGain(0.0),
         _svLog2Sum(0.0),
         _svdTolerance(0.0),
         _qrTolerance(-1.0),
-        _svdRank(-1),
-        _svdRankDeficiency(-1),
-        _qrRank(-1),
-        _qrRankDeficiency(-1),
+        _rankTheta(-1),
+        _rankThetaDeficiency(-1),
+        _rankPsi(-1),
+        _rankPsiDeficiency(-1),
         _peakMemoryUsage(0),
         _memoryUsage(0),
         _numFlops(0.0),
@@ -75,14 +75,14 @@ namespace aslam {
     }
 
     IncrementalEstimator::IncrementalEstimator(const sm::PropertyTree& config) :
-        _mutualInformation(0.0),
+        _informationGain(0.0),
         _svLog2Sum(0.0),
         _svdTolerance(0.0),
         _qrTolerance(-1.0),
-        _svdRank(-1),
-        _svdRankDeficiency(-1),
-        _qrRank(-1),
-        _qrRankDeficiency(-1),
+        _rankTheta(-1),
+        _rankThetaDeficiency(-1),
+        _rankPsi(-1),
+        _rankPsiDeficiency(-1),
         _peakMemoryUsage(0),
         _memoryUsage(0),
         _numFlops(0.0),
@@ -100,7 +100,10 @@ namespace aslam {
       _optimizer->setProblem(_problem);
 
       // parse the options and set them
-      _options.miTol = config.getDouble("miTol", _options.miTol);
+      _options.infoGainDelta = config.getDouble("infoGainDelta",
+        _options.infoGainDelta);
+      _options.checkValidity = config.getBool("checkValidity",
+        _options.checkValidity);
       _options.verbose = config.getBool("verbose", _options.verbose);
       _margGroupId = config.getInt("groupId");
     }
@@ -149,8 +152,8 @@ namespace aslam {
       return _margGroupId;
     }
 
-    double IncrementalEstimator::getMutualInformation() const {
-      return _mutualInformation;
+    double IncrementalEstimator::getInformationGain() const {
+      return _informationGain;
     }
 
     const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
@@ -158,20 +161,20 @@ namespace aslam {
       return _optimizer->getSolver<LinearSolver>()->getJacobianTranspose();
     }
 
-    std::ptrdiff_t IncrementalEstimator::getRank() const {
-      return _qrRank;
+    std::ptrdiff_t IncrementalEstimator::getRankPsi() const {
+      return _rankPsi;
     }
 
-    std::ptrdiff_t IncrementalEstimator::getRankDeficiency() const {
-      return _qrRankDeficiency;
+    std::ptrdiff_t IncrementalEstimator::getRankPsiDeficiency() const {
+      return _rankPsiDeficiency;
     }
 
-    std::ptrdiff_t IncrementalEstimator::getMarginalRank() const {
-      return _svdRank;
+    std::ptrdiff_t IncrementalEstimator::getRankTheta() const {
+      return _rankTheta;
     }
 
-    std::ptrdiff_t IncrementalEstimator::getMarginalRankDeficiency() const {
-      return _svdRankDeficiency;
+    std::ptrdiff_t IncrementalEstimator::getRankThetaDeficiency() const {
+      return _rankThetaDeficiency;
     }
 
     double IncrementalEstimator::getSVDTolerance() const {
@@ -194,43 +197,42 @@ namespace aslam {
       return _numFlops;
     }
 
-    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedNullSpace(bool
-        scaled) const {
-      if (scaled)
-        return _scaledNullSpace;
-      else
-        return _nullSpace;
-    }
-
-    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedColumnSpace(bool
-        scaled) const {
-      if (scaled)
-        return _scaledColumnSpace;
-      else
-        return _columnSpace;
-    }
-
-    const Eigen::MatrixXd& IncrementalEstimator::getMarginalizedCovariance(bool
-        scaled) const {
-      if (scaled)
-        return _scaledCovariance;
-      else
-        return _covariance;
-    }
-
-    const Eigen::MatrixXd&
-        IncrementalEstimator::getProjectedMarginalizedCovariance(bool scaled)
+    const Eigen::MatrixXd& IncrementalEstimator::getNobsBasis(bool scaled)
         const {
       if (scaled)
-        return _scaledProjectedCovariance;
+        return _nobsBasisScaled;
       else
-        return _projectedCovariance;
+        return _nobsBasis;
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getObsBasis(bool scaled)
+        const {
+      if (scaled)
+        return _obsBasisScaled;
+      else
+        return _obsBasis;
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getSigma2Theta(bool scaled)
+        const {
+      if (scaled)
+        return _sigma2ThetaScaled;
+      else
+        return _sigma2Theta;
+    }
+
+    const Eigen::MatrixXd& IncrementalEstimator::getSigma2ThetaObs(bool scaled)
+        const {
+      if (scaled)
+        return _sigma2ThetaObsScaled;
+      else
+        return _sigma2ThetaObs;
     }
 
     const Eigen::VectorXd& IncrementalEstimator::getSingularValues(bool scaled)
         const {
       if (scaled)
-        return _scaledSingularValues;
+        return _singularValuesScaled;
       else
         return _singularValues;
     }
@@ -268,37 +270,37 @@ namespace aslam {
 
       // grep the scaled linear system informations
       if (linearSolver->getOptions().columnScaling) {
-        _scaledSingularValues = linearSolver->getSingularValues();
-        _scaledNullSpace = linearSolver->getNullSpace();
-        _scaledColumnSpace = linearSolver->getColumnSpace();
-        _scaledCovariance = linearSolver->getCovariance();
-        _scaledProjectedCovariance = linearSolver->getProjectedCovariance();
+        _singularValuesScaled = linearSolver->getSingularValues();
+        _nobsBasisScaled = linearSolver->getNullSpace();
+        _obsBasisScaled = linearSolver->getRowSpace();
+        _sigma2ThetaScaled = linearSolver->getCovariance();
+        _sigma2ThetaObsScaled = linearSolver->getRowSpaceCovariance();
       }
       else {
-        _scaledSingularValues.resize(0);
-        _scaledNullSpace.resize(0, 0);
-        _scaledColumnSpace.resize(0, 0);
-        _scaledCovariance.resize(0, 0);
-        _scaledProjectedCovariance.resize(0, 0);
+        _singularValuesScaled.resize(0);
+        _nobsBasisScaled.resize(0, 0);
+        _obsBasisScaled.resize(0, 0);
+        _sigma2ThetaScaled.resize(0, 0);
+        _sigma2ThetaObsScaled.resize(0, 0);
       }
 
       // analyze the unscaled marginal system
       linearSolver->analyzeMarginal();
 
       // retrieve informations from the linear solver
-      _mutualInformation = 0.0;
+      _informationGain = 0.0;
       _svLog2Sum = linearSolver->getSingularValuesLog2Sum();
-      _nullSpace = linearSolver->getNullSpace();
-      _columnSpace = linearSolver->getColumnSpace();
-      _covariance = linearSolver->getCovariance();
-      _projectedCovariance = linearSolver->getProjectedCovariance();
+      _nobsBasis = linearSolver->getNullSpace();
+      _obsBasis = linearSolver->getRowSpace();
+      _sigma2Theta = linearSolver->getCovariance();
+      _sigma2ThetaObs = linearSolver->getRowSpaceCovariance();
       _singularValues = linearSolver->getSingularValues();
       _svdTolerance = linearSolver->getSVDTolerance();
       _qrTolerance = linearSolver->getQRTolerance();
-      _svdRank = linearSolver->getSVDRank();
-      _svdRankDeficiency = linearSolver->getSVDRankDeficiency();
-      _qrRank = linearSolver->getQRRank();
-      _qrRankDeficiency = linearSolver->getQRRankDeficiency();
+      _rankTheta = linearSolver->getSVDRank();
+      _rankThetaDeficiency = linearSolver->getSVDRankDeficiency();
+      _rankPsi = linearSolver->getQRRank();
+      _rankPsiDeficiency = linearSolver->getQRRankDeficiency();
       _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
       _memoryUsage = linearSolver->getMemoryUsage();
       _numFlops = linearSolver->getNumFlops();
@@ -308,23 +310,23 @@ namespace aslam {
       // update output structure
       ReturnValue ret;
       ret.batchAccepted = true;
-      ret.mutualInformation = 0.0;
-      ret.rank = _qrRank;
-      ret.rankDeficiency = _qrRankDeficiency;
-      ret.marginalRank = _svdRank;
-      ret.marginalRankDeficiency = _svdRankDeficiency;
+      ret.informationGain = 0.0;
+      ret.rankPsi = _rankPsi;
+      ret.rankPsiDeficiency = _rankPsiDeficiency;
+      ret.rankTheta = _rankTheta;
+      ret.rankThetaDeficiency = _rankThetaDeficiency;
       ret.svdTolerance = _svdTolerance;
       ret.qrTolerance = _qrTolerance;
-      ret.nullSpace = _nullSpace;
-      ret.scaledNullSpace = _scaledNullSpace;
-      ret.columnSpace = _columnSpace;
-      ret.scaledColumnSpace = _scaledColumnSpace;
-      ret.covariance = _covariance;
-      ret.scaledCovariance = _scaledCovariance;
-      ret.projectedCovariance = _projectedCovariance;
-      ret.scaledProjectedCovariance = _scaledProjectedCovariance;
+      ret.nobsBasis = _nobsBasis;
+      ret.nobsBasisScaled = _nobsBasisScaled;
+      ret.obsBasis = _obsBasis;
+      ret.obsBasisScaled = _obsBasisScaled;
+      ret.sigma2Theta = _sigma2Theta;
+      ret.sigma2ThetaScaled = _sigma2ThetaScaled;
+      ret.sigma2ThetaObs = _sigma2ThetaObs;
+      ret.sigma2ThetaObsScaled = _sigma2ThetaObsScaled;
       ret.singularValues = _singularValues;
-      ret.scaledSingularValues = _scaledSingularValues;
+      ret.singularValuesScaled = _singularValuesScaled;
       ret.numIterations = srv.iterations;
       ret.JStart = _initialCost;
       ret.JFinal = _finalCost;
@@ -369,77 +371,76 @@ namespace aslam {
 
       // grep the scaled singular values if scaling enabled
       if (linearSolver->getOptions().columnScaling) {
-        ret.scaledSingularValues = linearSolver->getSingularValues();
-        ret.scaledNullSpace = linearSolver->getNullSpace();
-        ret.scaledColumnSpace = linearSolver->getColumnSpace();
-        ret.scaledCovariance = linearSolver->getCovariance();
-        ret.scaledProjectedCovariance = linearSolver->getProjectedCovariance();
+        ret.singularValuesScaled = linearSolver->getSingularValues();
+        ret.nobsBasisScaled = linearSolver->getNullSpace();
+        ret.obsBasisScaled = linearSolver->getRowSpace();
+        ret.sigma2ThetaScaled = linearSolver->getCovariance();
+        ret.sigma2ThetaObsScaled = linearSolver->getRowSpaceCovariance();
       }
       else {
-        ret.scaledSingularValues.resize(0);
-        ret.scaledNullSpace.resize(0, 0);
-        ret.scaledColumnSpace.resize(0, 0);
-        ret.scaledCovariance.resize(0, 0);
-        ret.scaledProjectedCovariance.resize(0, 0);
+        ret.singularValuesScaled.resize(0);
+        ret.nobsBasisScaled.resize(0, 0);
+        ret.obsBasisScaled.resize(0, 0);
+        ret.sigma2ThetaScaled.resize(0, 0);
+        ret.sigma2ThetaObsScaled.resize(0, 0);
       }
 
       // analyze marginal system (unscaled system)
       linearSolver->analyzeMarginal();
 
       // fill statistics from the linear solver
-      ret.rank = linearSolver->getQRRank();
-      ret.rankDeficiency = linearSolver->getQRRankDeficiency();
-      ret.marginalRank = linearSolver->getSVDRank();
-      ret.marginalRankDeficiency = linearSolver->getSVDRankDeficiency();
+      ret.rankPsi = linearSolver->getQRRank();
+      ret.rankPsiDeficiency = linearSolver->getQRRankDeficiency();
+      ret.rankTheta = linearSolver->getSVDRank();
+      ret.rankThetaDeficiency = linearSolver->getSVDRankDeficiency();
       ret.svdTolerance = linearSolver->getSVDTolerance();
       ret.qrTolerance = linearSolver->getQRTolerance();
-      ret.nullSpace = linearSolver->getNullSpace();
-      ret.columnSpace = linearSolver->getColumnSpace();
-      ret.covariance = linearSolver->getCovariance();
-      ret.projectedCovariance = linearSolver->getProjectedCovariance();
+      ret.nobsBasis = linearSolver->getNullSpace();
+      ret.obsBasis = linearSolver->getRowSpace();
+      ret.sigma2Theta = linearSolver->getCovariance();
+      ret.sigma2ThetaObs = linearSolver->getRowSpaceCovariance();
       ret.singularValues = linearSolver->getSingularValues();
 
       // check if the solution is valid
       bool solutionValid = true;
-      if (srv.iterations == _optimizer->options().maxIterations ||
-          srv.JFinal >= srv.JStart)
+      if (_options.checkValidity && (srv.iterations ==
+          _optimizer->options().maxIterations || srv.JFinal >= srv.JStart))
         solutionValid = false;
 
-      // compute the mutual information
+      // compute the information gain
       const double svLog2Sum = linearSolver->getSingularValuesLog2Sum();
-      ret.mutualInformation = 0.5 * (svLog2Sum - _svLog2Sum);
+      ret.informationGain = 0.5 * (svLog2Sum - _svLog2Sum);
 
-      // batch is kept? MI improvement or rank goes up or force
+      // batch is kept? information gain improvement or rank goes up or force
       bool keepBatch = false;
-//      if (((ret.mutualInformation > _options.miTol ||
-//          ret.marginalRank > _svdRank) && solutionValid) || force) {
-      if ((ret.mutualInformation > _options.miTol && solutionValid) || force) {
+      if (((ret.informationGain > _options.infoGainDelta ||
+          ret.rankTheta > _rankTheta) && solutionValid) || force) {
         // warning for rank going down
-        if (ret.marginalRank < _svdRank && _options.verbose)
+        if (ret.rankTheta < _rankTheta && _options.verbose)
           std::cerr << "IncrementalEstimator::addBatch(): "
             "WARNING: RANK GOING DOWN!" << std::endl;
 
         keepBatch = true;
 
         // update internal variables
-        _mutualInformation = ret.mutualInformation;
+        _informationGain = ret.informationGain;
         _svLog2Sum = svLog2Sum;
-        _nullSpace = ret.nullSpace;
-        _scaledNullSpace = ret.scaledNullSpace;
-        _columnSpace = ret.columnSpace;
-        _scaledColumnSpace = ret.scaledColumnSpace;
-        _covariance = ret.covariance;
-        _scaledCovariance = ret.scaledCovariance;
-        _projectedCovariance = ret.projectedCovariance;
-        _scaledProjectedCovariance = ret.scaledProjectedCovariance;
+        _nobsBasis = ret.nobsBasis;
+        _nobsBasisScaled = ret.nobsBasisScaled;
+        _obsBasis = ret.obsBasis;
+        _obsBasisScaled = ret.obsBasisScaled;
+        _sigma2Theta = ret.sigma2Theta;
+        _sigma2ThetaScaled = ret.sigma2ThetaScaled;
+        _sigma2ThetaObs = ret.sigma2ThetaObs;
+        _sigma2ThetaObsScaled = ret.sigma2ThetaObsScaled;
         _singularValues = ret.singularValues;
-        _scaledSingularValues = ret.scaledSingularValues;
+        _singularValuesScaled = ret.singularValuesScaled;
         _svdTolerance = ret.svdTolerance;
         _qrTolerance = ret.qrTolerance;
-        _svdRank = ret.marginalRank;
-        _svdRankDeficiency = ret.marginalRankDeficiency;
-        _qrRank = ret.rank;
-        _qrRankDeficiency = ret.rankDeficiency;
+        _rankTheta = ret.rankTheta;
+        _rankThetaDeficiency = ret.rankThetaDeficiency;
+        _rankPsi = ret.rankPsi;
+        _rankPsiDeficiency = ret.rankPsiDeficiency;
         _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
         _memoryUsage = linearSolver->getMemoryUsage();
         _numFlops = linearSolver->getNumFlops();

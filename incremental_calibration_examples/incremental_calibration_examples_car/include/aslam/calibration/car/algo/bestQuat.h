@@ -16,26 +16,28 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/core/LinearSolverOptions.h"
+/** \file bestQuat.h
+    \brief This file contains a utility to avoid jumps in quaternions.
+  */
 
-#include <limits>
+#ifndef ASLAM_CALIBRATION_CAR_BESTQUAT_H
+#define ASLAM_CALIBRATION_CAR_BESTQUAT_H
+
+#include <Eigen/Core>
 
 namespace aslam {
   namespace calibration {
 
-/******************************************************************************/
-/* Constructors and Destructor                                                */
-/******************************************************************************/
-
-    LinearSolverOptions::LinearSolverOptions() :
-        columnScaling(false),
-        epsNorm(std::numeric_limits<double>::epsilon()),
-        epsSVD(std::numeric_limits<double>::epsilon()),
-        epsQR(std::numeric_limits<double>::epsilon()),
-        svdTol(-1.0),
-        qrTol(-1.0),
-        verbose(false) {
-    }
+    /** \name Methods
+      @{
+      */
+    /// Finds the best quaternion avoiding jumps
+    Eigen::Vector4d bestQuat(const Eigen::Vector4d& pquat, const
+      Eigen::Vector4d& cquat);
+    /** @}
+      */
 
   }
 }
+
+#endif // ASLAM_CALIBRATION_CAR_BESTQUAT_H

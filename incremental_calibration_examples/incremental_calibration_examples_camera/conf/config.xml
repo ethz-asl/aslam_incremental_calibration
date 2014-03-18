@@ -12,15 +12,15 @@
     <rowSpacingMeters>0.06</rowSpacingMeters>
     <colSpacingMeters>0.06</colSpacingMeters>
     <cameraProjectionType>omni</cameraProjectionType>
-    <batchNumImages>10000</batchNumImages>
+    <batchNumImages>1</batchNumImages>
     <useMEstimator>false</useMEstimator>
     <sigma2>1.0</sigma2>
     <verbose>true</verbose>
     <estimator>
+      <checkValidity>true</checkValidity>
+      <infoGainDelta>0.2</infoGainDelta>
       <groupId>0</groupId>
-      <miTol>0.5</miTol>
       <verbose>true</verbose>
-  <!--    commenting tags leave them to their default value-->
       <optimizer>
         <convergenceDeltaJ>1e-3</convergenceDeltaJ>
         <convergenceDeltaX>1e-3</convergenceDeltaX>
@@ -30,11 +30,11 @@
         <verbose>true</verbose>
         <linearSolver>
           <columnScaling>true</columnScaling>
-  <!--        <epsNorm>1e-16</epsNorm>-->
-          <epsSVD>1e-5</epsSVD>
-  <!--        <epsQR>1e-16</epsQR>-->
-  <!--        <svdTol>-1</svdTol>-->
-  <!--        <qrTol>-1</qrTol>-->
+          <epsNorm>1e-16</epsNorm>
+          <epsSVD>1e-6</epsSVD>
+          <epsQR>1e-16</epsQR>
+          <svdTol>-1</svdTol>
+          <qrTol>-1</qrTol>
           <verbose>true</verbose>
         </linearSolver>
       </optimizer>

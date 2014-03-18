@@ -36,47 +36,43 @@ using namespace aslam::backend;
 using namespace aslam::calibration;
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getMarginalizedNullSpace(const IncrementalEstimator* ie) {
-  return ie->getMarginalizedNullSpace();
+Eigen::MatrixXd getNobsBasis(const IncrementalEstimator* ie) {
+  return ie->getNobsBasis();
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getScaledMarginalizedNullSpace(const IncrementalEstimator* ie) {
-  return ie->getMarginalizedNullSpace(true);
+Eigen::MatrixXd getNobsBasisScaled(const IncrementalEstimator* ie) {
+  return ie->getNobsBasis(true);
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getMarginalizedColumnSpace(const IncrementalEstimator* ie) {
-  return ie->getMarginalizedColumnSpace();
+Eigen::MatrixXd getObsBasis(const IncrementalEstimator* ie) {
+  return ie->getObsBasis();
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getScaledMarginalizedColumnSpace(const IncrementalEstimator*
-    ie) {
-  return ie->getMarginalizedColumnSpace(true);
+Eigen::MatrixXd getObsBasisScaled(const IncrementalEstimator* ie) {
+  return ie->getObsBasis(true);
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getMarginalizedCovariance(const IncrementalEstimator* ie) {
-  return ie->getMarginalizedCovariance();
+Eigen::MatrixXd getSigma2Theta(const IncrementalEstimator* ie) {
+  return ie->getSigma2Theta();
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getScaledMarginalizedCovariance(const IncrementalEstimator*
-    ie) {
-  return ie->getMarginalizedCovariance(true);
+Eigen::MatrixXd getSigma2ThetaScaled(const IncrementalEstimator* ie) {
+  return ie->getSigma2Theta(true);
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getProjectedMarginalizedCovariance(const IncrementalEstimator*
-    ie) {
-  return ie->getProjectedMarginalizedCovariance();
+Eigen::MatrixXd getSigma2ThetaObs(const IncrementalEstimator* ie) {
+  return ie->getSigma2ThetaObs();
 }
 
 /// This functions gets rid of the reference
-Eigen::MatrixXd getScaledProjectedMarginalizedCovariance(const
-    IncrementalEstimator* ie) {
-  return ie->getProjectedMarginalizedCovariance(true);
+Eigen::MatrixXd getSigma2ThetaObsScaled(const IncrementalEstimator* ie) {
+  return ie->getSigma2ThetaObs(true);
 }
 
 /// This functions gets rid of the reference
@@ -92,7 +88,10 @@ Eigen::MatrixXd getScaledSingularValues(const IncrementalEstimator* ie) {
 void exportIncrementalEstimator() {
   /// Export options for the IncrementalEstimator class
   class_<IncrementalEstimator::Options>("IncrementalEstimatorOptions", init<>())
-    .def_readwrite("miTol", &IncrementalEstimator::Options::miTol)
+    .def_readwrite("infoGainDelta",
+      &IncrementalEstimator::Options::infoGainDelta)
+    .def_readwrite("checkValidity",
+      &IncrementalEstimator::Options::checkValidity)
     .def_readwrite("verbose", &IncrementalEstimator::Options::verbose)
     ;
 
@@ -101,37 +100,38 @@ void exportIncrementalEstimator() {
     init<>())
     .def_readwrite("batchAccepted",
       &IncrementalEstimator::ReturnValue::batchAccepted)
-    .def_readwrite("mutualInformation",
-      &IncrementalEstimator::ReturnValue::mutualInformation)
-    .def_readwrite("rank", &IncrementalEstimator::ReturnValue::rank)
-    .def_readwrite("rankDeficiency",
-      &IncrementalEstimator::ReturnValue::rankDeficiency)
-    .def_readwrite("marginalRank",
-      &IncrementalEstimator::ReturnValue::marginalRank)
-    .def_readwrite("marginalRankDeficiency",
-      &IncrementalEstimator::ReturnValue::marginalRankDeficiency)
+    .def_readwrite("informationGain",
+      &IncrementalEstimator::ReturnValue::informationGain)
+    .def_readwrite("rankPsi", &IncrementalEstimator::ReturnValue::rankPsi)
+    .def_readwrite("rankPsiDeficiency",
+      &IncrementalEstimator::ReturnValue::rankPsiDeficiency)
+    .def_readwrite("rankTheta",
+      &IncrementalEstimator::ReturnValue::rankTheta)
+    .def_readwrite("rankThetaDeficiency",
+      &IncrementalEstimator::ReturnValue::rankThetaDeficiency)
     .def_readwrite("svdTolerance",
       &IncrementalEstimator::ReturnValue::svdTolerance)
     .def_readwrite("qrTolerance",
       &IncrementalEstimator::ReturnValue::qrTolerance)
-    .def_readwrite("nullSpace", &IncrementalEstimator::ReturnValue::nullSpace)
-    .def_readwrite("scaledNullSpace",
-      &IncrementalEstimator::ReturnValue::scaledNullSpace)
-    .def_readwrite("columnSpace",
-      &IncrementalEstimator::ReturnValue::columnSpace)
-    .def_readwrite("scaledColumnSpace",
-      &IncrementalEstimator::ReturnValue::scaledColumnSpace)
-    .def_readwrite("covariance", &IncrementalEstimator::ReturnValue::covariance)
-    .def_readwrite("scaledCovariance",
-      &IncrementalEstimator::ReturnValue::scaledCovariance)
-    .def_readwrite("projectedCovariance",
-      &IncrementalEstimator::ReturnValue::projectedCovariance)
-    .def_readwrite("scaledProjectedCovariance",
-      &IncrementalEstimator::ReturnValue::scaledProjectedCovariance)
+    .def_readwrite("nobsBasis", &IncrementalEstimator::ReturnValue::nobsBasis)
+    .def_readwrite("nobsBasisScaled",
+      &IncrementalEstimator::ReturnValue::nobsBasisScaled)
+    .def_readwrite("obsBasis",
+      &IncrementalEstimator::ReturnValue::obsBasis)
+    .def_readwrite("obsBasisScaled",
+      &IncrementalEstimator::ReturnValue::obsBasisScaled)
+    .def_readwrite("sigma2Theta",
+      &IncrementalEstimator::ReturnValue::sigma2Theta)
+    .def_readwrite("sigma2ThetaScaled",
+      &IncrementalEstimator::ReturnValue::sigma2ThetaScaled)
+    .def_readwrite("sigma2ThetaObs",
+      &IncrementalEstimator::ReturnValue::sigma2ThetaObs)
+    .def_readwrite("sigma2ThetaObsScaled",
+      &IncrementalEstimator::ReturnValue::sigma2ThetaObsScaled)
     .def_readwrite("singularValues",
       &IncrementalEstimator::ReturnValue::singularValues)
-    .def_readwrite("scaledSingularValues",
-      &IncrementalEstimator::ReturnValue::scaledSingularValues)
+    .def_readwrite("singularValuesScaled",
+      &IncrementalEstimator::ReturnValue::singularValuesScaled)
     .def_readwrite("numIterations",
       &IncrementalEstimator::ReturnValue::numIterations)
     .def_readwrite("JStart", &IncrementalEstimator::ReturnValue::JStart)
@@ -174,29 +174,27 @@ void exportIncrementalEstimator() {
     .def("removeBatch", removeBatch1)
     .def("removeBatch", removeBatch2)
     .def("getMargGroupId", &IncrementalEstimator::getMargGroupId)
-    .def("getMutualInformation", &IncrementalEstimator::getMutualInformation)
+    .def("getInformationGain", &IncrementalEstimator::getInformationGain)
     .def("getJacobianTranspose", &IncrementalEstimator::getJacobianTranspose,
       return_internal_reference<>())
-    .def("getRank", &IncrementalEstimator::getRank)
-    .def("getRankDeficiency", &IncrementalEstimator::getRankDeficiency)
-    .def("getMarginalRank", &IncrementalEstimator::getMarginalRank)
-    .def("getMarginalRankDeficiency",
-      &IncrementalEstimator::getMarginalRankDeficiency)
+    .def("getRankPsi", &IncrementalEstimator::getRankPsi)
+    .def("getRankPsiDeficiency", &IncrementalEstimator::getRankPsiDeficiency)
+    .def("getRankTheta", &IncrementalEstimator::getRankTheta)
+    .def("getRankThetaDeficiency",
+      &IncrementalEstimator::getRankThetaDeficiency)
     .def("getSVDTolerance", &IncrementalEstimator::getSVDTolerance)
     .def("getQRTolerance", &IncrementalEstimator::getQRTolerance)
     .def("getPeakMemoryUsage", &IncrementalEstimator::getPeakMemoryUsage)
     .def("getMemoryUsage", &IncrementalEstimator::getMemoryUsage)
     .def("getNumFlops", &IncrementalEstimator::getNumFlops)
-    .def("getMarginalizedNullSpace", &getMarginalizedNullSpace)
-    .def("getScaledMarginalizedNullSpace", &getScaledMarginalizedNullSpace)
-    .def("getMarginalizedColumnSpace", &getMarginalizedColumnSpace)
-    .def("getScaledMarginalizedColumnSpace", &getScaledMarginalizedColumnSpace)
-    .def("getMarginalizedCovariance", &getMarginalizedCovariance)
-    .def("getScaledMarginalizedCovariance", &getScaledMarginalizedCovariance)
-    .def("getProjectedMarginalizedCovariance",
-      &getProjectedMarginalizedCovariance)
-    .def("getScaledProjectedMarginalizedCovariance",
-      &getScaledProjectedMarginalizedCovariance)
+    .def("getNobsBasis", &getNobsBasis)
+    .def("getNobsBasisScaled", &getNobsBasisScaled)
+    .def("getObsBasis", &getObsBasis)
+    .def("getObsBasisScaled", &getObsBasisScaled)
+    .def("getSigma2Theta", &getSigma2Theta)
+    .def("getSigma2ThetaScaled", &getSigma2ThetaScaled)
+    .def("getSigma2ThetaObs", &getSigma2ThetaObs)
+    .def("getSigma2ThetaObsScaled", &getSigma2ThetaObsScaled)
     .def("getSingularValues", &getSingularValues)
     .def("getScaledSingularValues", &getScaledSingularValues)
     ;

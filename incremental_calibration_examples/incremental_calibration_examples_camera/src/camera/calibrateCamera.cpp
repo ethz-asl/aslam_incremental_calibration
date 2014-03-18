@@ -131,10 +131,10 @@ int main(int argc, char** argv) {
     << std::endl;
   std::cout << "distortion standard deviation: "
     << calibrator.getDistortionStandardDeviation().transpose() << std::endl;
-  std::cout << "null space: " << std::endl << calibrator.getNullSpace()
+  std::cout << "unobservable basis: " << std::endl << calibrator.getNobsBasis()
     << std::endl;
-  std::cout << "scaled null space: " << std::endl
-    << calibrator.getNullSpace(true) << std::endl;
+  std::cout << "unobservable basis (scaled): " << std::endl
+    << calibrator.getNobsBasis(true) << std::endl;
   std::cout << "initial cost: " << calibrator.getInitialCost() << std::endl;
   std::cout << "final cost: " << calibrator.getFinalCost() << std::endl;
   std::cout << "number of images for estimation: "
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
     << config.getString("camera/calibrator/cameraProjectionType") << "-"
     << Timestamp::getDate(view.getBeginTime().toSec()) << "-"
     << calibrator.getOptions().batchNumImages << "-"
-    << calibrator.getEstimator()->getOptions().miTol<< ".xml";
+    << calibrator.getEstimator()->getOptions().infoGainDelta<< ".xml";
   calibrationData.saveXml(stream.str());
 
   // output errors
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
       decltype(*errors.cbegin()) x){errorsFile << x.transpose() << std::endl;});
     std::ofstream errorsMd2File("errorsMd2.txt");
     errorsMd2File << std::fixed << std::setprecision(18);
-    std::for_each( errorsMd2.cbegin(),  errorsMd2.cend(), [&](
+    std::for_each( errorsMd2.cbegin(), errorsMd2.cend(), [&](
       decltype(* errorsMd2.cbegin()) x){errorsMd2File << x << std::endl;});
   }
 

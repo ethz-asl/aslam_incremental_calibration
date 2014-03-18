@@ -166,7 +166,7 @@ namespace aslam {
 
     Eigen::VectorXd CameraCalibrator::getProjectionVariance() const {
       if (_estimator->getNumBatches())
-        return _estimator->getMarginalizedCovariance().diagonal().head(
+        return _estimator->getSigma2Theta().diagonal().head(
           _geometry->minimalDimensionsProjection());
       else
         return Eigen::VectorXd::Zero(0);
@@ -187,7 +187,7 @@ namespace aslam {
 
     Eigen::VectorXd CameraCalibrator::getDistortionVariance() const {
       if (_estimator->getNumBatches())
-        return _estimator->getMarginalizedCovariance().diagonal().tail(
+        return _estimator->getSigma2Theta().diagonal().tail(
           _geometry->minimalDimensionsDistortion());
       else
         return Eigen::VectorXd::Zero(0);
@@ -235,8 +235,8 @@ namespace aslam {
       return T.T();
     }
 
-    Eigen::MatrixXd CameraCalibrator::getNullSpace(bool scaled) const {
-      return _estimator->getMarginalizedNullSpace(scaled);
+    Eigen::MatrixXd CameraCalibrator::getNobsBasis(bool scaled) const {
+      return _estimator->getNobsBasis(scaled);
     }
 
     void CameraCalibrator::getStatistics(Eigen::VectorXd&
@@ -477,10 +477,15 @@ namespace aslam {
         std::cout << std::endl;
         ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
         std::cout << std::endl;
-        std::cout << "MI: " << ret.mutualInformation << std::endl;
-        std::cout << "null space: " << std::endl << ret.nullSpace << std::endl;
-        std::cout << "scaled null space: " << std::endl << ret.scaledNullSpace
+        std::cout << "information gain: " << ret.informationGain << std::endl;
+        std::cout << "unobservable basis: " << std::endl << ret.nobsBasis
           << std::endl;
+        std::cout << "singular values: "
+          << ret.singularValues.transpose() << std::endl;
+        std::cout << "unobservable basis (scaled): " << std::endl
+          << ret.nobsBasisScaled << std::endl;
+        std::cout << "singular values (scaled): "
+          << ret.singularValuesScaled.transpose() << std::endl;
         std::cout << "projection: " << getProjection().transpose() << std::endl;
         std::cout << "projection standard deviation: "
           << getProjectionStandardDeviation().transpose() << std::endl;
@@ -557,20 +562,20 @@ namespace aslam {
       config.setDouble("projection/distortion/sigma_p2", distortionStd(3));
       config.setDouble("shutter/line-delay", 0.0);
       config.setString("mask/mask-file", "");
-      Eigen::MatrixXd nullSpace = getNullSpace();
-      for (std::ptrdiff_t c = 0; c < nullSpace.cols(); ++c) {
-        for (std::ptrdiff_t r = 0; r < nullSpace.rows(); ++r) {
+      Eigen::MatrixXd nobsBasis = getNobsBasis();
+      for (std::ptrdiff_t c = 0; c < nobsBasis.cols(); ++c) {
+        for (std::ptrdiff_t r = 0; r < nobsBasis.rows(); ++r) {
           std::stringstream stream;
-          stream << "nullSpace/c" << c << "/r" << r;
-          config.setDouble(stream.str(), nullSpace(r, c));
+          stream << "nobsBasis/c" << c << "/r" << r;
+          config.setDouble(stream.str(), nobsBasis(r, c));
         }
       }
-      nullSpace = getNullSpace(true);
-      for (std::ptrdiff_t c = 0; c < nullSpace.cols(); ++c) {
-        for (std::ptrdiff_t r = 0; r < nullSpace.rows(); ++r) {
+      nobsBasis = getNobsBasis(true);
+      for (std::ptrdiff_t c = 0; c < nobsBasis.cols(); ++c) {
+        for (std::ptrdiff_t r = 0; r < nobsBasis.rows(); ++r) {
           std::stringstream stream;
-          stream << "scaledNullSpace/c" << c << "/r" << r;
-          config.setDouble(stream.str(), nullSpace(r, c));
+          stream << "nobsBasisScaled/c" << c << "/r" << r;
+          config.setDouble(stream.str(), nobsBasis(r, c));
         }
       }
       Eigen::VectorXd singularValues = _estimator->getSingularValues();
@@ -586,7 +591,7 @@ namespace aslam {
         config.setDouble(stream.str(), singularValues(i));
       }
       config.setDouble("epsSVD", _estimator->getLinearSolverOptions().epsSVD);
-      config.setDouble("miTol", _estimator->getOptions().miTol);
+      config.setDouble("infoGainDelta", _estimator->getOptions().infoGainDelta);
     }
 
   }

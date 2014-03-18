@@ -45,7 +45,7 @@ namespace aslam {
       */
     /** 
      * This function extracts a submatrix based on column indices from a sparse
-     " matrix.
+     * matrix.
      * \brief Submatrix column extraction
      * 
      * \return column submatrix pointer (owned by caller)
@@ -216,17 +216,17 @@ namespace aslam {
       factor, cholmod_sparse* A_rt, cholmod_sparse* A_rtQ, cholmod_dense* b,
       cholmod_common* cholmod);
     /** 
-     * This function performs SVD analysis on the input matrix which is supposed
-     * to be a square symmetric matrix, therefore returning only U, since U = V.
+     * This function performs SVD analysis on the input matrix.
      * \brief SVD analysis
      * 
      * \return void
      * \param[in] Omega matrix to analyze
      * \param[out] sv vector of singular values
-     * \param[out] U U part from SVD
+     * \param[out] U left-singular vectors
+     * \param[out] V right-singular vectors
      */
     void analyzeSVD(const cholmod_sparse* Omega, Eigen::VectorXd& sv,
-      Eigen::MatrixXd& U);
+      Eigen::MatrixXd& U, Eigen::MatrixXd& V);
     /** 
      * This function solves a system with its SVD factorization, assuming the
      " system comes from a square symmetric matrix.
@@ -235,12 +235,14 @@ namespace aslam {
      * \return void
      * \param[in] b right-hand side
      * \param[in] sv vector of singular values
-     * \param[in] U part from SVD
+     * \param[in] U left-singular vectors
+     * \param[in] V right-singular vectors
      * \param[in] rank estimated numerical rank
      * \param[out] x result
      */
     void solveSVD(const cholmod_dense* b, const Eigen::VectorXd& sv, const
-      Eigen::MatrixXd& U, std::ptrdiff_t rank, Eigen::VectorXd& x);
+      Eigen::MatrixXd& U, const Eigen::MatrixXd& V, std::ptrdiff_t rank,
+      Eigen::VectorXd& x);
     /** 
      * This function solves the rest of the system with the QR factorization.
      * \brief Solver for rest of the system

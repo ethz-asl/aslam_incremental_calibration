@@ -159,30 +159,34 @@ namespace aslam {
       return _matrixU;
     }
 
+    const Eigen::MatrixXd& LinearSolver::getMatrixV() const {
+      return _matrixV;
+    }
+
     Eigen::MatrixXd LinearSolver::getNullSpace() const {
-      if (_svdRank != -1 && _svdRank <= _matrixU.cols())
-        return _matrixU.rightCols(_matrixU.cols() - _svdRank);
+      if (_svdRank != -1 && _svdRank <= _matrixV.cols())
+        return _matrixV.rightCols(_matrixV.cols() - _svdRank);
       else
         return Eigen::MatrixXd(0, 0);
     }
 
-    Eigen::MatrixXd LinearSolver::getColumnSpace() const {
-      if (_svdRank != -1 && _svdRank <= _matrixU.cols())
-        return _matrixU.leftCols(_svdRank);
+    Eigen::MatrixXd LinearSolver::getRowSpace() const {
+      if (_svdRank != -1 && _svdRank <= _matrixV.cols())
+        return _matrixV.leftCols(_svdRank);
       else
         return Eigen::MatrixXd(0, 0);
     }
 
     Eigen::MatrixXd LinearSolver::getCovariance() const {
-      if (_svdRank != -1 && _svdRank <= _matrixU.cols())
-        return _matrixU.leftCols(_svdRank) *
+      if (_svdRank != -1 && _svdRank <= _matrixV.cols())
+        return _matrixV.leftCols(_svdRank) *
           _singularValues.head(_svdRank).asDiagonal().inverse() *
-          _matrixU.leftCols(_svdRank).adjoint();
+          _matrixV.leftCols(_svdRank).adjoint();
       else
         return Eigen::MatrixXd(0, 0);
     }
 
-    Eigen::MatrixXd LinearSolver::getProjectedCovariance() const {
+    Eigen::MatrixXd LinearSolver::getRowSpaceCovariance() const {
       if (_svdRank != -1)
         return _singularValues.head(_svdRank).asDiagonal().inverse();
       else
@@ -399,7 +403,7 @@ namespace aslam {
           cholmod_l_free_dense(&G_r, &_cholmod);
         throw;
       }
-      analyzeSVD(Omega, _singularValues, _matrixU);
+      analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
       cholmod_l_free_sparse(&Omega, &_cholmod);
       cholmod_dense* b_r;
       try {
@@ -423,7 +427,7 @@ namespace aslam {
       _svdRankDeficiency = _singularValues.size() - _svdRank;
       _svGap = svGap(_singularValues, _svdRank);
       Eigen::VectorXd x_r;
-      solveSVD(b_r, _singularValues, _matrixU, _svdRank, x_r);
+      solveSVD(b_r, _singularValues, _matrixU, _matrixV, _svdRank, x_r);
       cholmod_l_free_dense(&b_r, &_cholmod);
       cholmod_dense* x_l;
       try {
@@ -510,7 +514,7 @@ namespace aslam {
       cholmod_l_free_sparse(&A_r, &_cholmod);
       cholmod_l_free_sparse(&A_rt, &_cholmod);
       cholmod_l_free_sparse(&A_rtQ, &_cholmod);
-      analyzeSVD(Omega, _singularValues, _matrixU);
+      analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
       cholmod_l_free_sparse(&Omega, &_cholmod);
       if (_svdRank == -1) {
         _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol :
@@ -566,6 +570,7 @@ namespace aslam {
       _svdTolerance = -1.0;
       _singularValues.resize(0);
       _matrixU.resize(0, 0);
+      _matrixV.resize(0, 0);
       _linearSolverTime = 0.0;
       _marginalAnalysisTime = 0.0;
     }

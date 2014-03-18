@@ -261,15 +261,17 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
     ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
     std::cout << std::endl;
-    std::cout << "MI: " << ret.mutualInformation << std::endl;
-    std::cout << "rank: " << ret.rank << std::endl;
-    std::cout << "rank deficiency: " << ret.rankDeficiency << std::endl;
-    std::cout << "marginal rank: " << ret.marginalRank << std::endl;
-    std::cout << "marginal rank deficiency: " << ret.marginalRankDeficiency
+    std::cout << "information gain: " << ret.informationGain << std::endl;
+    std::cout << "rank of Psi: " << ret.rankPsi << std::endl;
+    std::cout << "rank deficiency of Psi: " << ret.rankPsiDeficiency
       << std::endl;
-    std::cout << "null space: " << std::endl << ret.nullSpace << std::endl;
-    std::cout << "scaled null space: " << std::endl << ret.scaledNullSpace
+    std::cout << "rank of Theta: " << ret.rankTheta << std::endl;
+    std::cout << "rank deficiency of Theta: " << ret.rankThetaDeficiency
       << std::endl;
+    std::cout << "unobservable basis: " << std::endl << ret.nobsBasis
+      << std::endl;
+    std::cout << "unobservable basis (scaled): " << std::endl
+      << ret.nobsBasisScaled << std::endl;
     std::cout << "QR tolerance: " << ret.qrTolerance << std::endl;
     std::cout << "SVD tolerance: " << ret.svdTolerance << std::endl;
     std::cout << "time [s]: " << ret.elapsedTime << std::endl;
@@ -278,34 +280,35 @@ int main(int argc, char** argv) {
 
   std::cout << "final calibration: " << *dv_Theta << std::endl;
   std::cout << "covariance: " << std::endl <<
-    incrementalEstimator.getMarginalizedCovariance() << std::endl;
+    incrementalEstimator.getSigma2Theta() << std::endl;
 
   // for debugging purpose, write the Jacobian to file
   std::ofstream jacobianFile("J.txt");
   incrementalEstimator.getJacobianTranspose().writeMATLAB(jacobianFile);
 
   // for debugging purpose, output some infos
-  std::cout << "MI: " << incrementalEstimator.getMutualInformation()
+  std::cout << "information gain: " << incrementalEstimator.getInformationGain()
     << std::endl;
-  std::cout << "rank: " << incrementalEstimator.getRank() << std::endl;
-  std::cout << "rank deficiency: " << incrementalEstimator.getRankDeficiency()
+  std::cout << "rank of Psi: " << incrementalEstimator.getRankPsi()
     << std::endl;
-  std::cout << "marginal rank: " << incrementalEstimator.getMarginalRank()
+  std::cout << "rank deficiency of Psi: "
+    << incrementalEstimator.getRankPsiDeficiency() << std::endl;
+  std::cout << "rank of Theta: " << incrementalEstimator.getRankTheta()
     << std::endl;
-  std::cout << "marginal rank deficiency: "
-    << incrementalEstimator.getMarginalRankDeficiency() << std::endl;
+  std::cout << "rank deficiency of Theta: "
+    << incrementalEstimator.getRankThetaDeficiency() << std::endl;
   std::cout << "QR tolerance: " << incrementalEstimator.getQRTolerance()
     << std::endl;
   std::cout << "SVD tolerance: " << incrementalEstimator.getSVDTolerance()
     << std::endl;
-  std::cout << "null space: " << std::endl
-    << incrementalEstimator.getMarginalizedNullSpace() << std::endl;
-  std::cout << "scaled null space: " << std::endl
-    << incrementalEstimator.getMarginalizedNullSpace(true) << std::endl;
-  std::cout << "column space: " << std::endl
-    << incrementalEstimator.getMarginalizedColumnSpace() << std::endl;
-  std::cout << "projected covariance: " << std::endl
-    << incrementalEstimator.getProjectedMarginalizedCovariance() << std::endl;
+  std::cout << "unobservable basis: " << std::endl
+    << incrementalEstimator.getNobsBasis() << std::endl;
+    std::cout << "unobservable basis (scaled): " << std::endl
+    << incrementalEstimator.getNobsBasis(true) << std::endl;
+  std::cout << "observable basis: " << std::endl
+    << incrementalEstimator.getObsBasis() << std::endl;
+  std::cout << "observable covariance: " << std::endl
+    << incrementalEstimator.getSigma2ThetaObs() << std::endl;
   std::cout << "memory usage [MB]: " << incrementalEstimator.getMemoryUsage() /
     1024.0 / 1024.0 << std::endl;
   std::cout << "peak memory usage [MB]: "

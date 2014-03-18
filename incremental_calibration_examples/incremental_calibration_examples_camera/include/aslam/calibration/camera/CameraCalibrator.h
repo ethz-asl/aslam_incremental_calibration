@@ -114,8 +114,8 @@ namespace aslam {
         Options() :
             rows(6),
             cols(7),
-            rowSpacingMeters(0.03),
-            colSpacingMeters(0.03),
+            rowSpacingMeters(0.06),
+            colSpacingMeters(0.06),
             detectorType("checkerboard"),
             useAdaptiveThreshold(true),
             normalizeImage(false),
@@ -226,8 +226,8 @@ namespace aslam {
       double getInitialCost() const;
       /// Returns the current final cost for the estimator
       double getFinalCost() const;
-      /// Returns the current nullspace
-      Eigen::MatrixXd getNullSpace(bool scaled = false) const;
+      /// Returns the current unobservable basis
+      Eigen::MatrixXd getNobsBasis(bool scaled = false) const;
       /// Returns the statistics for the reprojection error
       void getStatistics(Eigen::VectorXd&
         mean, Eigen::VectorXd& variance, Eigen::VectorXd& standardDeviation,

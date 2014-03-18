@@ -48,18 +48,18 @@ void evaluateSVDSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   Eigen::VectorXd x_est;
   aslam::calibration::LinearSolver linearSolver;
   for (std::ptrdiff_t i = 1; i < A.cols(); ++i) {
-    double before = aslam::calibration::Timestamp::now();
+//    double before = aslam::calibration::Timestamp::now();
     linearSolver.solve(A_CS, &b_CD, i, x_est);
-    double after = aslam::calibration::Timestamp::now();
+//    double after = aslam::calibration::Timestamp::now();
     double error = (b - A * x_est).norm();
 //    std::cout << std::fixed << std::setprecision(18) << "noscale: " << "error: "
 //      << error << " est_diff: " << (x - x_est).norm() << " time: "
 //      << after - before << std::endl;
     ASSERT_NEAR(error, 0, tol);
     linearSolver.getOptions().columnScaling = true;
-    before = aslam::calibration::Timestamp::now();
+//    before = aslam::calibration::Timestamp::now();
     linearSolver.solve(A_CS, &b_CD, i, x_est);
-    after = aslam::calibration::Timestamp::now();
+//    after = aslam::calibration::Timestamp::now();
     error = (b - A * x_est).norm();
 //    std::cout << std::fixed << std::setprecision(18) << "onscale: " << "error: "
 //      << error << " est_diff: " << (x - x_est).norm() << " time: "
@@ -80,12 +80,12 @@ void evaluateSVDSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
 
 void evaluateSVDSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
     const Eigen::VectorXd& x) {
-  const double before = aslam::calibration::Timestamp::now();
+//  const double before = aslam::calibration::Timestamp::now();
   const Eigen::JacobiSVD<Eigen::MatrixXd> svd(A,
     Eigen::ComputeThinU | Eigen::ComputeThinV);
   Eigen::VectorXd x_est = svd.solve(b);
-  const double after = aslam::calibration::Timestamp::now();
-  const double error = (b - A * x_est).norm();
+//  const double after = aslam::calibration::Timestamp::now();
+//  const double error = (b - A * x_est).norm();
 //  std::cout << std::fixed << std::setprecision(18) << "error: " << error
 //    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
 //    << std::endl;
@@ -103,7 +103,7 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   cholmod_dense b_CD;
   aslam::calibration::eigenDenseToCholmodDenseView(b, &b_CD);
   Eigen::VectorXd x_est;
-  const double before = aslam::calibration::Timestamp::now();
+//  const double before = aslam::calibration::Timestamp::now();
   SuiteSparseQR_factorization<double>* factor = SuiteSparseQR_factorize<double>(
     SPQR_ORDERING_BEST, SPQR_DEFAULT_TOL, A_CS, &cholmod);
   cholmod_dense* Qtb = SuiteSparseQR_qmult<double>(SPQR_QTX, factor, &b_CD,
@@ -117,8 +117,8 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
 //  std::cout << "estimated rank deficiency: " << A.cols() - factor->rank
 //    << std::endl;
   SuiteSparseQR_free(&factor, &cholmod);
-  const double after = aslam::calibration::Timestamp::now();
-  const double error = (b - A * x_est).norm();
+//  const double after = aslam::calibration::Timestamp::now();
+//  const double error = (b - A * x_est).norm();
 //  std::cout << std::fixed << std::setprecision(18) << "error: " << error
 //    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
 //    << std::endl;

@@ -35,11 +35,11 @@
     </x0>
   </problem>
   <estimator>
-    <batchSize>200</batchSize>
+    <checkValidity>true</checkValidity>
+    <infoGainDelta>0.2</infoGainDelta>
     <groupId>2</groupId>
-    <miTol>0.5</miTol>
     <verbose>true</verbose>
-<!--    commenting tags leave them to their default value-->
+    <batchSize>200</batchSize>
     <optimizer>
       <convergenceDeltaJ>1e-3</convergenceDeltaJ>
       <convergenceDeltaX>1e-3</convergenceDeltaX>
@@ -49,12 +49,12 @@
       <verbose>true</verbose>
       <linearSolver>
         <columnScaling>true</columnScaling>
-<!--        <epsNorm>1e-16</epsNorm>-->
+        <epsNorm>1e-16</epsNorm>
         <epsSVD>1e-3</epsSVD>
-<!--        <epsQR>1e-16</epsQR>-->
-<!--        <svdTol>-1</svdTol>-->
-<!--        <qrTol>-1</qrTol>-->
-        <verbose>true</verbose>
+        <epsQR>1e-16</epsQR>
+        <svdTol>-1</svdTol>
+        <qrTol>-1</qrTol>
+        <verbose>false</verbose>
       </linearSolver>
     </optimizer>
   </estimator>

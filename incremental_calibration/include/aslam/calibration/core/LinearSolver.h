@@ -118,8 +118,8 @@ namespace aslam {
       /** 
        * This function analyzes the marginalized matrix at index j. The goal
        * is to estimate the numerical null and column space, the covariance, the
-       * covariance of the column space projected system. All the results are
-       * cached in the solver.
+       * covariance on the column space. All the results are cached in the
+       * solver.
        * \brief Marginalization analyzer
        * 
        * \return void
@@ -172,16 +172,18 @@ namespace aslam {
       double getSVDTolerance() const;
       /// Returns the current singular values
       const Eigen::VectorXd& getSingularValues() const;
-      /// Returns the current U matrix of SVD
+      /// Returns the current left-singular vectors
       const Eigen::MatrixXd& getMatrixU() const;
+      /// Returns the current right-singular vectors
+      const Eigen::MatrixXd& getMatrixV() const;
       /// Returns the current null space for SVD
       Eigen::MatrixXd getNullSpace() const;
-      /// Returns the current column space for SVD
-      Eigen::MatrixXd getColumnSpace() const;
+      /// Returns the current row space for SVD
+      Eigen::MatrixXd getRowSpace() const;
       /// Returns the current covariance matrix for SVD
       Eigen::MatrixXd getCovariance() const;
-      /// Returns the current projected covariance matrix for SVD
-      Eigen::MatrixXd getProjectedCovariance() const;
+      /// Returns the current covariance matrix on the row space for SVD
+      Eigen::MatrixXd getRowSpaceCovariance() const;
       /// Returns the current log2 sum of the singular values
       double getSingularValuesLog2Sum() const;
       /// Returns the peak memory usage in bytes
@@ -238,8 +240,10 @@ namespace aslam {
       double _svdTolerance;
       /// Caching current singular values
       Eigen::VectorXd _singularValues;
-      /// Caching current U matrix of SVD
+      /// Caching left-singular vectors
       Eigen::MatrixXd _matrixU;
+      /// Caching right-singular vectors
+      Eigen::MatrixXd _matrixV;
       /// Linear solver time
       double _linearSolverTime;
       /// Marginal analysis time
