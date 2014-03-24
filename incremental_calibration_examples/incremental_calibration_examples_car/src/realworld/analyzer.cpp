@@ -243,45 +243,86 @@ int main(int argc, char** argv) {
   }
 
   if (calibrator.unprocessedMeasurements())
-    calibrator.addMeasurements();
+    calibrator.predict();
 
-  std::ofstream devFile("deviations.txt");
-  devFile << std::fixed << std::setprecision(18);
-  Eigen::VectorXd variances = calibrator.getOdometryVariablesVariance();
-  devFile << "e_r: " << std::sqrt(variances(0)) << std::endl;
-  devFile << "e_f: " << std::sqrt(variances(1)) << std::endl;
-  devFile << "L: " << std::sqrt(variances(2)) << std::endl;
-  devFile << "a0: " << std::sqrt(variances(3)) << std::endl;
-  devFile << "a1: " << std::sqrt(variances(4)) << std::endl;
-  devFile << "a2: " << std::sqrt(variances(5)) << std::endl;
-  devFile << "a3: " << std::sqrt(variances(6)) << std::endl;
-  devFile << "k_rl: " << std::sqrt(variances(7)) << std::endl;
-  devFile << "k_rr: " << std::sqrt(variances(8)) << std::endl;
-  devFile << "k_fl: " << std::sqrt(variances(9)) << std::endl;
-  devFile << "k_fr: " << std::sqrt(variances(10)) << std::endl;
-  devFile << "k_dmi: " << std::sqrt(variances(11)) << std::endl;
-  devFile << "v_r_vr_1: " << std::sqrt(variances(12)) << std::endl;
-  devFile << "v_r_vr_2: " << std::sqrt(variances(13)) << std::endl;
-  devFile << "v_r_vr_3: " << std::sqrt(variances(14)) << std::endl;
-  devFile << "v_R_r_1: " << std::sqrt(variances(15)) << std::endl;
-  devFile << "v_R_r_2: " << std::sqrt(variances(16)) << std::endl;
-  devFile << "v_R_r_3: " << std::sqrt(variances(17)) << std::endl;
-
-  std::ofstream m_T_v_estFile("m_T_v_est.txt");
+  std::ofstream m_T_v_estFile("m_T_v.txt");
   m_T_v_estFile << std::fixed << std::setprecision(18);
   writeSplines(calibrator.getEstimator(), 0.01, m_T_v_estFile);
 
-  std::ofstream infoGainHistFile("infoGainHist.txt");
-  auto infoGainHist = calibrator.getInformationGainHistory();
-  infoGainHistFile << std::fixed << std::setprecision(18);
-  std::for_each(infoGainHist.cbegin(), infoGainHist.cend(), [&](decltype(
-    *infoGainHist.cbegin()) x) {infoGainHistFile << x << std::endl;});
-
-  std::ofstream calibHistFile("calibHist.txt");
-  auto calibHist = calibrator.getOdometryVariablesHistory();
-  calibHistFile << std::fixed << std::setprecision(18);
-  std::for_each(calibHist.cbegin(), calibHist.cend(), [&](decltype(
-    *calibHist.cbegin()) x) {calibHistFile << x.transpose() << std::endl;});
+  std::ofstream rwDataPredFile("rwDataPred.txt");
+  rwDataPredFile << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getRearWheelsPredictions().cbegin(),
+    calibrator.getRearWheelsPredictions().cend(), [&](decltype(
+    *calibrator.getRearWheelsPredictions().cbegin()) x) {rwDataPredFile
+    << x.first << " " << x.second.left << " " << x.second.right <<std::endl;});
+  std::ofstream rwPredError("rwPredError.txt");
+  rwPredError << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getRearWheelsPredictionErrors().cbegin(),
+    calibrator.getRearWheelsPredictionErrors().cend(), [&](decltype(
+    *calibrator.getRearWheelsPredictionErrors().cbegin()) x) {rwPredError
+    << x.transpose() << std::endl;});
+  std::ofstream fwDataPredFile("fwDataPred.txt");
+  fwDataPredFile << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getFrontWheelsPredictions().cbegin(),
+    calibrator.getFrontWheelsPredictions().cend(), [&](decltype(
+    *calibrator.getFrontWheelsPredictions().cbegin()) x) {fwDataPredFile
+    << x.first << " " << x.second.left << " " << x.second.right <<std::endl;});
+  std::ofstream fwPredError("fwPredError.txt");
+  fwPredError << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getFrontWheelsPredictionErrors().cbegin(),
+    calibrator.getFrontWheelsPredictionErrors().cend(), [&](decltype(
+    *calibrator.getFrontWheelsPredictionErrors().cbegin()) x) {fwPredError
+    << x.transpose() << std::endl;});
+  std::ofstream stDataPredFile("stDataPred.txt");
+  stDataPredFile << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getSteeringPredictions().cbegin(),
+    calibrator.getSteeringPredictions().cend(), [&](decltype(
+    *calibrator.getSteeringPredictions().cbegin()) x) {stDataPredFile
+    << x.first << " " << x.second.value <<std::endl;});
+  std::ofstream stPredError("stPredError.txt");
+  stPredError << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getSteeringPredictionErrors().cbegin(),
+    calibrator.getSteeringPredictionErrors().cend(), [&](decltype(
+    *calibrator.getSteeringPredictionErrors().cbegin()) x) {stPredError
+    << x.transpose() << std::endl;});
+  std::ofstream dmiDataPredFile("dmiDataPred.txt");
+  dmiDataPredFile << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getDMIPredictions().cbegin(),
+    calibrator.getDMIPredictions().cend(), [&](decltype(
+    *calibrator.getDMIPredictions().cbegin()) x) {dmiDataPredFile
+    << x.first << " " << x.second.wheelSpeed << std::endl;});
+  std::ofstream dmiPredError("dmiPredError.txt");
+  dmiPredError << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getDMIPredictionErrors().cbegin(),
+    calibrator.getDMIPredictionErrors().cend(), [&](decltype(
+    *calibrator.getDMIPredictionErrors().cbegin()) x) {dmiPredError
+    << x.transpose() << std::endl;});
+  std::ofstream poseDataPredFile("poseDataPred.txt");
+  poseDataPredFile << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getPosePredictions().cbegin(),
+    calibrator.getPosePredictions().cend(), [&](decltype(
+    *calibrator.getPosePredictions().cbegin()) x) {poseDataPredFile
+    << x.first << " " << x.second.m_r_mr.transpose() << " "
+    << x.second.m_R_r.transpose() << std::endl;});
+  std::ofstream posePredError("posePredError.txt");
+  posePredError << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getPosePredictionErrors().cbegin(),
+    calibrator.getPosePredictionErrors().cend(), [&](decltype(
+    *calibrator.getPosePredictionErrors().cbegin()) x) {posePredError
+    << x.transpose() << std::endl;});
+  std::ofstream velDataPredFile("velDataPred.txt");
+  velDataPredFile << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getVelocitiesPredictions().cbegin(),
+    calibrator.getVelocitiesPredictions().cend(), [&](decltype(
+    *calibrator.getVelocitiesPredictions().cbegin()) x) {velDataPredFile
+    << x.first << " " << x.second.r_v_mr.transpose() << " "
+    << x.second.r_om_mr.transpose() << std::endl;});
+  std::ofstream velPredError("velPredError.txt");
+  velPredError << std::fixed << std::setprecision(18);
+  std::for_each(calibrator.getVelocitiesPredictionErrors().cbegin(),
+    calibrator.getVelocitiesPredictionErrors().cend(), [&](decltype(
+    *calibrator.getVelocitiesPredictionErrors().cbegin()) x) {velPredError
+    << x.transpose() << std::endl;});
 
   return 0;
 }
