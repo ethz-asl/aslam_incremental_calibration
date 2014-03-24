@@ -24,8 +24,6 @@
 #include <Eigen/Core>
 
 #include "aslam/calibration/functions/Function.h"
-#include "aslam/calibration/utils/SizeTSupport.h"
-#include "aslam/calibration/utils/SsizeTSupport.h"
 
 namespace aslam {
   namespace calibration {
