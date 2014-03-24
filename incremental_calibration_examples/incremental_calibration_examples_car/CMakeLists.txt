@@ -51,3 +51,6 @@ target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 
 rosbuild_add_executable(calibrator src/realworld/calibrator.cpp)
 target_link_libraries(calibrator ${PROJECT_NAME})
+
+rosbuild_add_executable(analyzer src/realworld/analyzer.cpp)
+target_link_libraries(analyzer ${PROJECT_NAME})
