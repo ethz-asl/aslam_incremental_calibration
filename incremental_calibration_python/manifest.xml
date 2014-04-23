@@ -11,6 +11,7 @@
 
   <depend package="numpy_eigen"/>
   <depend package="sm_python"/>
+  <depend package="aslam_backend"/>
   <depend package="incremental_calibration"/>
 <!--  <depend package="incremental_calibration_vision"/>-->
 

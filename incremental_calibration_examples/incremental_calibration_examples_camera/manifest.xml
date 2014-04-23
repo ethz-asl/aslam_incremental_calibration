@@ -9,7 +9,8 @@
   <review status="unreviewed" notes=""/>
   <url>https://github.com/ethz-asl/aslam_incremental_calibration</url>
 
-  <depend package="incremental_calibration"/>
+  <depend package="opencv2"/>
+  <depend package="roscpp"/>
   <depend package="sm_property_tree"/>
   <depend package="sm_timing"/>
   <depend package="sm_boost"/>
@@ -22,6 +23,7 @@
   <depend package="sensor_msgs"/>
   <depend package="std_msgs"/>
   <depend package="cv_bridge"/>
+  <depend package="incremental_calibration"/>
 
   <export>
     <cpp cflags="-I${prefix}/include"
