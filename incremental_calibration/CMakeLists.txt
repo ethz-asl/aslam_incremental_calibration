@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(incremental_calibration)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/../cmake/)
+
 find_package(catkin_simple REQUIRED)
 catkin_simple()
 
 
 
 if(APPLE)
-  set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-unused-local-typedefs")
+  set(CMAKE_CXX_FLAGS "-std=c++11")
 else()
   set(CMAKE_CXX_FLAGS "-std=c++0x")
 endif()
@@ -39,6 +41,10 @@ cs_add_library(${PROJECT_NAME}
   src/algorithms/marginalize.cpp
   src/algorithms/linalg.cpp
 )
+
+find_package(Boost REQUIRED COMPONENTS system thread)
+target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} ${TBB_LIBRARIES})
+
 # Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
 add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
 
