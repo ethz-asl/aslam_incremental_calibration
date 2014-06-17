@@ -30,6 +30,7 @@
 
 #include <aslam/calibration/core/LinearSolverOptions.h>
 #include <aslam/calibration/core/IncrementalEstimator.h>
+#include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 
 using namespace boost::python;
 using namespace aslam::backend;
@@ -197,5 +198,6 @@ void exportIncrementalEstimator() {
     .def("getSigma2ThetaObsScaled", &getSigma2ThetaObsScaled)
     .def("getSingularValues", &getSingularValues)
     .def("getScaledSingularValues", &getScaledSingularValues)
+    .def("getProblem", &IncrementalEstimator::getProblem, boost::python::return_internal_reference<>())
     ;
 }
