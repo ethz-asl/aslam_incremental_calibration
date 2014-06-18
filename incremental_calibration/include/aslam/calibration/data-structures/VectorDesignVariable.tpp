@@ -59,7 +59,7 @@ namespace aslam {
 /******************************************************************************/
 
     template <int M>
-    void VectorDesignVariable<M>::read(std::istream& stream) {
+    void VectorDesignVariable<M>::read(std::istream& /*stream*/) {
     }
 
     template <int M>
@@ -68,7 +68,7 @@ namespace aslam {
     }
 
     template <int M>
-    void VectorDesignVariable<M>::read(std::ifstream& stream) {
+    void VectorDesignVariable<M>::read(std::ifstream& /*stream*/) {
     }
 
     template <int M>
