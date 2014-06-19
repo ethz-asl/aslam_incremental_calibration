@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <name>incremental_calibration_examples_camera</name>
+  <version>0.0.1</version>
+  <description>
+    A C++-based application for testing the incremental calibration algorithm
+    on a checkerboard-based camera intrinsic calibration problem.
+  </description>
+  <maintainer email="jerome.maye@mavt.ethz.ch">Jerome Maye</maintainer>
+  <license>LGPLv3</license>
+  <url type="website">https://github.com/ethz-asl/aslam_incremental_calibration</url>
+  <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <build_depend>incremental_calibration</build_depend>
+  <build_depend>sm_kinematics</build_depend>
+  <build_depend>sm_property_tree</build_depend>
+  <build_depend>sm_timing</build_depend>
+  <build_depend>sm_boost</build_depend>
+  <build_depend>sm_opencv</build_depend>
+  <build_depend>aslam_cameras</build_depend>
+  <build_depend>aslam_backend_expressions</build_depend>
+  <build_depend>aslam_time</build_depend>
+  <build_depend>aslam_cv_backend</build_depend>
+  <build_depend>rosbag</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>cv_bridge</build_depend>
+
+  <run_depend>incremental_calibration</run_depend>
+  <run_depend>sm_kinematics</run_depend>
+  <run_depend>sm_property_tree</run_depend>
+  <run_depend>sm_timing</run_depend>
+  <run_depend>sm_boost</run_depend>
+  <run_depend>sm_opencv</run_depend>
+  <run_depend>aslam_cameras</run_depend>
+  <run_depend>aslam_backend_expressions</run_depend>
+  <run_depend>aslam_time</run_depend>
+  <run_depend>aslam_cv_backend</run_depend>
+  <run_depend>rosbag</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>cv_bridge</run_depend>
+</package>

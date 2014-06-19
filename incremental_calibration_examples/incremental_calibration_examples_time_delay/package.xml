@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package>
+  <name>incremental_calibration_examples_time_delay</name>
+  <version>0.0.1</version>
+  <description>
+    A C++-based application for testing the incremental calibration algorithm
+    with time delay estimation.
+  </description>
+  <maintainer email="jerome.maye@mavt.ethz.ch">Jerome Maye</maintainer>
+  <license>LGPLv3</license>
+  <url type="website">https://github.com/ethz-asl/aslam_incremental_calibration</url>
+  <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <build_depend>aslam_backend_expressions</build_depend>
+  <build_depend>aslam_splines</build_depend>
+  <build_depend>bsplines</build_depend>
+  <build_depend>incremental_calibration</build_depend>
+  <build_depend>sm_kinematics</build_depend>
+  <build_depend>sm_property_tree</build_depend>
+  <build_depend>sm_timing</build_depend>
+
+  <run_depend>aslam_backend_expressions</run_depend>
+  <run_depend>aslam_splines</run_depend>
+  <run_depend>bsplines</run_depend>
+  <run_depend>incremental_calibration</run_depend>
+  <run_depend>sm_kinematics</run_depend>
+  <run_depend>sm_property_tree</run_depend>
+  <run_depend>sm_timing</run_depend>
+</package>

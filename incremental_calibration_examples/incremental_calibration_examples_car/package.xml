@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <name>incremental_calibration_examples_car</name>
+  <version>0.0.1</version>
+  <description>
+    A C++-based application for testing the incremental calibration algorithm
+    on a car application.
+  </description>
+  <maintainer email="jerome.maye@mavt.ethz.ch">Jerome Maye</maintainer>
+  <license>LGPLv3</license>
+  <url type="website">https://github.com/ethz-asl/aslam_incremental_calibration</url>
+  <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <build_depend>incremental_calibration</build_depend>
+  <build_depend>sm_kinematics</build_depend>
+  <build_depend>sm_property_tree</build_depend>
+  <build_depend>sm_timing</build_depend>
+  <build_depend>sm_eigen</build_depend>
+  <build_depend>aslam_backend_expressions</build_depend>
+  <build_depend>aslam_splines</build_depend>
+  <build_depend>bsplines</build_depend>
+  <build_depend>rosbag</build_depend>
+  <build_depend>poslv</build_depend>
+  <build_depend>can_prius</build_depend>
+
+  <run_depend>incremental_calibration</run_depend>
+  <run_depend>sm_kinematics</run_depend>
+  <run_depend>sm_property_tree</run_depend>
+  <run_depend>sm_timing</run_depend>
+  <run_depend>sm_eigen</run_depend>
+  <run_depend>aslam_backend_expressions</run_depend>
+  <run_depend>aslam_splines</run_depend>
+  <run_depend>bsplines</run_depend>
+  <run_depend>rosbag</run_depend>
+  <run_depend>poslv</run_depend>
+  <run_depend>can_prius</run_depend>
+</package>

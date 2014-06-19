@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package>
-  <name>incremental_calibration_python</name>
+  <name>incremental_calibration_examples_2dlrf</name>
   <version>0.0.1</version>
   <description>
-    A C++-based library for providing python interface to the incremental
-    calibration package.
+    A C++-based application for testing the incremental calibration algorithm
+    on a 2D laser range finder mounted on a differential-drive robot.
   </description>
   <maintainer email="jerome.maye@mavt.ethz.ch">Jerome Maye</maintainer>
   <license>LGPLv3</license>
@@ -15,6 +15,10 @@
   <buildtool_depend>catkin_simple</buildtool_depend>
 
   <build_depend>incremental_calibration</build_depend>
-  <build_depend>numpy_eigen</build_depend>
-  <build_depend>python_module</build_depend>
+  <build_depend>sm_kinematics</build_depend>
+  <build_depend>sm_property_tree</build_depend>
+
+  <run_depend>incremental_calibration</run_depend>
+  <run_depend>sm_kinematics</run_depend>
+  <run_depend>sm_property_tree</run_depend>
 </package>
