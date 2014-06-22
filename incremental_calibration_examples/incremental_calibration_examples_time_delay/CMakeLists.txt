@@ -21,6 +21,10 @@ cs_add_library(${PROJECT_NAME}
   src/error-terms/ErrorTermPose.cpp
   src/error-terms/ErrorTermWheel.cpp
   src/design-variables/OdometryDesignVariables.cpp
+  src/algo/bestQuat.cpp
+  src/algo/OptimizationProblemSpline.cpp
+  src/algo/CalibratorOptions.cpp
+  src/algo/Calibrator.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS system filesystem)
