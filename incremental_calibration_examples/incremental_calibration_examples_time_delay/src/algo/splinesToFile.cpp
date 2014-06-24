@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/car/algo/splinesToFile.h"
+#include "aslam/calibration/time-delay/algo/splinesToFile.h"
 
 #include <algorithm>
 
@@ -28,7 +28,7 @@
 
 #include <bsplines/NsecTimePolicy.hpp>
 
-#include "aslam/calibration/car/algo/OptimizationProblemSpline.h"
+#include "aslam/calibration/time-delay/algo/OptimizationProblemSpline.h"
 
 using namespace sm::timing;
 using namespace sm::kinematics;

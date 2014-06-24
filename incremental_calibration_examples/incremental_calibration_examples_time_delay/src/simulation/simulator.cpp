@@ -30,6 +30,8 @@
 #include "aslam/calibration/time-delay/simulation/SimulationParams.h"
 #include "aslam/calibration/time-delay/simulation/SimulationData.h"
 #include "aslam/calibration/time-delay/simulation/simulationEngine.h"
+#include "aslam/calibration/time-delay/algo/Calibrator.h"
+#include "aslam/calibration/time-delay/algo/splinesToFile.h"
 
 using namespace aslam::calibration;
 using namespace sm;
@@ -47,6 +49,8 @@ int main(int argc, char** argv) {
 
   // load simulation parameters
   SimulationParams params(PropertyTree(config, "time-delay/simulation/params"));
+
+  std::cout << "Simulating..." << std::endl;
 
   // simulate
   SimulationData data;
@@ -78,6 +82,46 @@ int main(int argc, char** argv) {
   data.lwData_nWrite(lwData_nFile);
   std::ofstream poseData_nFile("poseData_n.txt");
   data.poseData_nWrite(poseData_nFile);
+
+  std::cout << "Optimizing..." << std::endl;
+  Calibrator calibrator(PropertyTree(config, "time-delay/calibrator"));
+//  for (auto it = data.rwData_n.cbegin(); it != data.rwData_n.cend(); ++it) {
+//    auto rw = data.rwData_n.at(std::distance(data.rwData_n.cbegin(), it));
+//    calibrator.addRightWheelMeasurement(rw.second, rw.first);
+//    auto lw = data.lwData_n.at(std::distance(data.rwData_n.cbegin(), it));
+//    calibrator.addLeftWheelMeasurement(lw.second, lw.first);
+//    auto pose = data.poseData_n.at(std::distance(data.rwData_n.cbegin(), it));
+//    calibrator.addPoseMeasurement(pose.second, pose.first);
+//  }
+  for (auto it = data.rwData.cbegin(); it != data.rwData.cend(); ++it) {
+    auto rw = data.rwData.at(std::distance(data.rwData.cbegin(), it));
+    calibrator.addRightWheelMeasurement(rw.second, rw.first);
+    auto lw = data.lwData.at(std::distance(data.rwData.cbegin(), it));
+    calibrator.addLeftWheelMeasurement(lw.second, lw.first);
+    auto pose = data.poseData.at(std::distance(data.rwData.cbegin(), it));
+    calibrator.addPoseMeasurement(pose.second, pose.first);
+  }
+
+  if (calibrator.unprocessedMeasurements())
+    calibrator.addMeasurements();
+
+  std::cout << "Output results to file..." << std::endl;
+
+  std::ofstream w_T_v_estFile("w_T_v_est.txt");
+  w_T_v_estFile << std::fixed << std::setprecision(18);
+  writeSplines(calibrator.getEstimator(), params.dt, w_T_v_estFile);
+
+  std::ofstream infoGainHistFile("infoGainHist.txt");
+  auto infoGainHist = calibrator.getInformationGainHistory();
+  infoGainHistFile << std::fixed << std::setprecision(18);
+  std::for_each(infoGainHist.cbegin(), infoGainHist.cend(), [&](decltype(
+    *infoGainHist.cbegin()) x) {infoGainHistFile << x << std::endl;});
+
+  std::ofstream calibHistFile("calibHist.txt");
+  auto calibHist = calibrator.getOdometryVariablesHistory();
+  calibHistFile << std::fixed << std::setprecision(18);
+  std::for_each(calibHist.cbegin(), calibHist.cend(), [&](decltype(
+    *calibHist.cbegin()) x) {calibHistFile << x.transpose() << std::endl;});
 
   return 0;
 }

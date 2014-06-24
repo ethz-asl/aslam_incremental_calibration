@@ -34,13 +34,13 @@
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/Scalar.hpp>
+#include <aslam/backend/GenericScalar.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/ScalarExpression.hpp>
 #include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
 
 #include <aslam/calibration/core/IncrementalEstimator.h>
-#include <aslam/calibration/data-structures/VectorDesignVariable.h>
 
 #include "aslam/calibration/time-delay/error-terms/ErrorTermPose.h"
 #include "aslam/calibration/time-delay/error-terms/ErrorTermWheel.h"
@@ -286,18 +286,20 @@ namespace aslam {
         std::cout << "observability: " << std::endl;
         std::cout << "b: " << ret.obsBasisScaled.row(0).norm() << std::endl;
         std::cout << "k_l: " << ret.obsBasisScaled.row(1).norm() << std::endl;
-        std::cout << "k_r: " << ret.obsBasisScaled.row(2).norm() << std::endl;
-        std::cout << "v_r_vp_1: " << ret.obsBasisScaled.row(3).norm()
+        std::cout << "t_l: " << ret.obsBasisScaled.row(2).norm() << std::endl;
+        std::cout << "k_r: " << ret.obsBasisScaled.row(3).norm() << std::endl;
+        std::cout << "t_r: " << ret.obsBasisScaled.row(4).norm() << std::endl;
+        std::cout << "v_r_vp_1: " << ret.obsBasisScaled.row(5).norm()
           << std::endl;
-        std::cout << "v_r_vp_2: " << ret.obsBasisScaled.row(4).norm()
+        std::cout << "v_r_vp_2: " << ret.obsBasisScaled.row(6).norm()
           << std::endl;
-        std::cout << "v_r_vp_3: " << ret.obsBasisScaled.row(5).norm()
+        std::cout << "v_r_vp_3: " << ret.obsBasisScaled.row(7).norm()
           << std::endl;
-        std::cout << "v_R_p_1: " << ret.obsBasisScaled.row(6).norm()
+        std::cout << "v_R_p_1: " << ret.obsBasisScaled.row(8).norm()
           << std::endl;
-        std::cout << "v_R_p_2: " << ret.obsBasisScaled.row(7).norm()
+        std::cout << "v_R_p_2: " << ret.obsBasisScaled.row(9).norm()
           << std::endl;
-        std::cout << "v_R_p_3: " << ret.obsBasisScaled.row(8).norm()
+        std::cout << "v_R_p_3: " << ret.obsBasisScaled.row(10).norm()
           << std::endl;
       }
       _infoGainHistory.push_back(ret.informationGain);
@@ -316,22 +318,22 @@ namespace aslam {
       const EulerAnglesYawPitchRoll ypr;
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        const Eigen::Matrix3d m_R_r =
-          ypr.parametersToRotationMatrix(it->second.m_R_r);
-        const Eigen::Vector4d& v_q_r =
-          _odometryDesignVariables->v_R_r->getQuaternion();
-        const Eigen::Matrix3d v_R_r = quat2r(v_q_r);
-        const Eigen::Matrix3d m_R_v = m_R_r * v_R_r.transpose();
-        Eigen::Vector4d m_q_v = r2quat(m_R_v);
+        const Eigen::Matrix3d w_R_p =
+          ypr.parametersToRotationMatrix(it->second.w_R_p);
+        const Eigen::Vector4d& v_q_p =
+          _odometryDesignVariables->v_R_p->getQuaternion();
+        const Eigen::Matrix3d v_R_p = quat2r(v_q_p);
+        const Eigen::Matrix3d w_R_v = w_R_p * v_R_p.transpose();
+        Eigen::Vector4d w_q_v = r2quat(w_R_v);
         if (!rotPoses.empty()) {
           const Eigen::Vector4d lastRotPose = rotPoses.back();
-          m_q_v = bestQuat(lastRotPose, m_q_v);
+          w_q_v = bestQuat(lastRotPose, w_q_v);
         }
         timestamps.push_back(timestamp);
-        rotPoses.push_back(m_q_v);
-        Eigen::MatrixXd v_r_vr;
-        _odometryDesignVariables->v_r_vr->getParameters(v_r_vr);
-        transPoses.push_back(it->second.m_r_mr - m_R_v * v_r_vr);
+        rotPoses.push_back(w_q_v);
+        Eigen::MatrixXd v_r_vp;
+        _odometryDesignVariables->v_r_vp->getParameters(v_r_vp);
+        transPoses.push_back(it->second.w_r_wp - w_R_v * v_r_vp);
       }
       const double elapsedTime = (timestamps.back() - timestamps.front()) /
         (double)NsecTimePolicy::getOne();
@@ -359,293 +361,301 @@ namespace aslam {
 
     void Calibrator::addPoseErrorTerms(const PoseMeasurements& measurements,
         const OptimizationProblemSplineSP& batch) {
-//      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-//        auto timestamp = it->first;
-//        ErrorTermPose::Input m_T_r;
-//        m_T_r.head<3>() = it->second.m_r_mr;
-//        m_T_r.tail<3>() = it->second.m_R_r;
-//        ErrorTermPose::Covariance Q = ErrorTermPose::Covariance::Zero();
-//        Q.topLeftCorner<3, 3>() = it->second.sigma2_m_r_mr;
-//        Q.bottomRightCorner<3, 3>() = it->second.sigma2_m_R_r;
-//        auto translationExpressionFactory =
-//          _translationSpline->getExpressionFactoryAt<0>(timestamp);
-//        auto rotationExpressionFactory =
-//          _rotationSpline->getExpressionFactoryAt<0>(timestamp);
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        auto timestamp = it->first;
+        ErrorTermPose::Input w_T_p;
+        w_T_p.head<3>() = it->second.w_r_wp;
+        w_T_p.tail<3>() = it->second.w_R_p;
+        ErrorTermPose::Covariance Q = ErrorTermPose::Covariance::Zero();
+        Q.topLeftCorner<3, 3>() = it->second.sigma2_w_r_wp;
+        Q.bottomRightCorner<3, 3>() = it->second.sigma2_w_R_p;
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<0>(timestamp);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<0>(timestamp);
 
-//        auto v_r_vr = EuclideanExpression(_odometryDesignVariables->v_r_vr);
-//        auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-//          rotationExpressionFactory.getValueExpression());
-//        auto m_r_vr = m_R_v * v_r_vr;
-//        auto m_r_mv = EuclideanExpression(
-//          translationExpressionFactory.getValueExpression());
-//        auto m_r_mr = m_r_mv + m_r_vr;
-//        auto v_R_r = RotationExpression(_odometryDesignVariables->v_R_r);
-//        auto m_R_r = m_R_v * v_R_r;
-//        auto e_pose = boost::make_shared<ErrorTermPose>(
-//          TransformationExpression(m_R_r, m_r_mr), m_T_r, Q);
-//        batch->addErrorTerm(e_pose);
-//      }
+        auto v_r_vp = EuclideanExpression(_odometryDesignVariables->v_r_vp);
+        auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto w_r_vp = w_R_v * v_r_vp;
+        auto w_r_wv = EuclideanExpression(
+          translationExpressionFactory.getValueExpression());
+        auto w_r_wp = w_r_wv + w_r_vp;
+        auto v_R_p = RotationExpression(_odometryDesignVariables->v_R_p);
+        auto w_R_p = w_R_v * v_R_p;
+        auto e_pose = boost::make_shared<ErrorTermPose>(
+          TransformationExpression(w_R_p, w_r_wp), w_T_p, Q);
+        batch->addErrorTerm(e_pose);
+      }
     }
 
     void Calibrator::predictPoses(const PoseMeasurements& measurements) {
-//      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-//        auto timestamp = it->first;
-//        ErrorTermPose::Input m_T_r;
-//        m_T_r.head<3>() = it->second.m_r_mr;
-//        m_T_r.tail<3>() = it->second.m_R_r;
-//        ErrorTermPose::Covariance Q = ErrorTermPose::Covariance::Zero();
-//        Q.topLeftCorner<3, 3>() = it->second.sigma2_m_r_mr;
-//        Q.bottomRightCorner<3, 3>() = it->second.sigma2_m_R_r;
-//        auto translationExpressionFactory =
-//          _translationSpline->getExpressionFactoryAt<0>(timestamp);
-//        auto rotationExpressionFactory =
-//          _rotationSpline->getExpressionFactoryAt<0>(timestamp);
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        auto timestamp = it->first;
+        ErrorTermPose::Input w_T_p;
+        w_T_p.head<3>() = it->second.w_r_wp;
+        w_T_p.tail<3>() = it->second.w_R_p;
+        ErrorTermPose::Covariance Q = ErrorTermPose::Covariance::Zero();
+        Q.topLeftCorner<3, 3>() = it->second.sigma2_w_r_wp;
+        Q.bottomRightCorner<3, 3>() = it->second.sigma2_w_R_p;
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<0>(timestamp);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<0>(timestamp);
 
-//        auto v_r_vr = EuclideanExpression(_odometryDesignVariables->v_r_vr);
-//        auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-//          rotationExpressionFactory.getValueExpression());
-//        auto m_r_vr = m_R_v * v_r_vr;
-//        auto m_r_mv = EuclideanExpression(
-//          translationExpressionFactory.getValueExpression());
-//        auto m_r_mr = m_r_mv + m_r_vr;
-//        auto v_R_r = RotationExpression(_odometryDesignVariables->v_R_r);
-//        auto m_R_r = m_R_v * v_R_r;
-//        auto e_pose = boost::make_shared<ErrorTermPose>(
-//          TransformationExpression(m_R_r, m_r_mr), m_T_r, Q);
-//        auto sr = e_pose->evaluateError();
-//        auto error = e_pose->error();
-//        PoseMeasurement pose;
-//        pose.m_r_mr = m_r_mr.toValue();
-//        const EulerAnglesYawPitchRoll ypr;
-//        pose.m_R_r = ypr.rotationMatrixToParameters(m_R_r.toRotationMatrix());
-//        _poseMeasurementsPred.push_back(std::make_pair(timestamp, pose));
-//        _poseMeasurementsPredErrors.push_back(error);
-//        _poseMeasurementsPredErrors2.push_back(sr);
-//      }
+        auto v_r_vp = EuclideanExpression(_odometryDesignVariables->v_r_vp);
+        auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto w_r_vp = w_R_v * v_r_vp;
+        auto w_r_wv = EuclideanExpression(
+          translationExpressionFactory.getValueExpression());
+        auto w_r_wp = w_r_wv + w_r_vp;
+        auto v_R_p = RotationExpression(_odometryDesignVariables->v_R_p);
+        auto w_R_p = w_R_v * v_R_p;
+        auto e_pose = boost::make_shared<ErrorTermPose>(
+          TransformationExpression(w_R_p, w_r_wp), w_T_p, Q);
+        auto sr = e_pose->evaluateError();
+        auto error = e_pose->error();
+        PoseMeasurement pose;
+        pose.w_r_wp = w_r_wp.toValue();
+        const EulerAnglesYawPitchRoll ypr;
+        pose.w_R_p = ypr.rotationMatrixToParameters(w_R_p.toRotationMatrix());
+        _poseMeasurementsPred.push_back(std::make_pair(timestamp, pose));
+        _poseMeasurementsPredErrors.push_back(error);
+        _poseMeasurementsPredErrors2.push_back(sr);
+      }
     }
 
     void Calibrator::addLeftWheelErrorTerms(const WheelSpeedMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
-//      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-//        auto timestamp = it->first;
-//        if (_translationSpline->getMinTime() > timestamp ||
-//            _translationSpline->getMaxTime() < timestamp ||
-//            it->second.left < _options.wheelSpeedSensorCutoff ||
-//            it->second.right < _options.wheelSpeedSensorCutoff)
-//          continue;
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp + 100000000 ||
+            _translationSpline->getMaxTime() < timestamp - 100000000)
+          continue;
 
-//        auto translationExpressionFactory =
-//          _translationSpline->getExpressionFactoryAt<1>(timestamp);
-//        auto rotationExpressionFactory =
-//          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+        if (_options.useTimeDelay) {
+          auto translationExpressionFactory =
+            _translationSpline->getExpressionFactoryAt<1>(
+            TranslationSpline::TimeExpression(timestamp) +
+            _odometryDesignVariables->t_l->toExpression(), timestamp - 100000000,
+            timestamp + 100000000);
+          auto rotationExpressionFactory =
+            _rotationSpline->getExpressionFactoryAt<1>(
+            TranslationSpline::TimeExpression(timestamp) +
+            _odometryDesignVariables->t_l->toExpression(), timestamp - 100000000,
+            timestamp + 100000000);
 
-//        auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-//          rotationExpressionFactory.getValueExpression());
-//        auto m_v_mv = EuclideanExpression(
-//          translationExpressionFactory.getValueExpression(1));
-//        auto v_v_mv = m_R_v.inverse() * m_v_mv;
-//        if (v_v_mv.toValue()(0) < 0)
-//          continue;
-//        auto m_om_mv = -EuclideanExpression(
-//          rotationExpressionFactory.getAngularVelocityExpression());
-//        auto v_om_mv = m_R_v.inverse() * m_om_mv;
-//        auto e_f = ScalarExpression(_odometryDesignVariables->e_f);
-//        auto L = ScalarExpression(_odometryDesignVariables->L);
-//        auto v_r_wl =
-//          EuclideanExpression(Eigen::Vector3d(1.0, 0.0, 0.0)) * L +
-//          EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_f;
-//        auto v_v_mw_l = v_v_mv + v_om_mv.cross(v_r_wl);
-//        auto v_r_wr =
-//          EuclideanExpression(Eigen::Vector3d(1.0, 0.0, 0.0)) * L -
-//          EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_f;
-//        auto v_v_mw_r = v_v_mv + v_om_mv.cross(v_r_wr);
+          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression());
+          auto w_v_wv = EuclideanExpression(
+            translationExpressionFactory.getValueExpression(1));
+          auto v_v_wv = w_R_v.inverse() * w_v_wv;
+          auto w_om_wv = -EuclideanExpression(
+            rotationExpressionFactory.getAngularVelocityExpression());
+          auto v_om_wv = w_R_v.inverse() * w_om_wv;
+          auto b = ScalarExpression(_odometryDesignVariables->b);
+          auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+          auto v_v_wl = v_v_wv + v_om_wv.cross(v_r_wl);
 
-//        auto e_flw = boost::make_shared<ErrorTermWheel>(v_v_mw_l,
-//          ScalarExpression(_odometryDesignVariables->k_fl),
-//          it->second.left, Eigen::Vector3d(_options.flwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal(), true);
-//        batch->addErrorTerm(e_flw);
-//          _odometryDesignVariables->k_fr->toScalar();
-//        auto e_frw = boost::make_shared<ErrorTermWheel>(v_v_mw_r,
-//          ScalarExpression(_odometryDesignVariables->k_fr),
-//          it->second.right, Eigen::Vector3d(_options.frwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal(), true);
-//        batch->addErrorTerm(e_frw);
-//      }
+          auto e_lw = boost::make_shared<ErrorTermWheel>(v_v_wl,
+            ScalarExpression(_odometryDesignVariables->k_l),
+            it->second.value, Eigen::Vector3d(_options.lwVariance,
+            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+          batch->addErrorTerm(e_lw);
+        }
+        else {
+          auto translationExpressionFactory =
+            _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          auto rotationExpressionFactory =
+            _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+
+          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression());
+          auto w_v_wv = EuclideanExpression(
+            translationExpressionFactory.getValueExpression(1));
+          auto v_v_wv = w_R_v.inverse() * w_v_wv;
+          auto w_om_wv = -EuclideanExpression(
+            rotationExpressionFactory.getAngularVelocityExpression());
+          auto v_om_wv = w_R_v.inverse() * w_om_wv;
+          auto b = ScalarExpression(_odometryDesignVariables->b);
+          auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+          auto v_v_wl = v_v_wv + v_om_wv.cross(v_r_wl);
+
+          auto e_lw = boost::make_shared<ErrorTermWheel>(v_v_wl,
+            ScalarExpression(_odometryDesignVariables->k_l),
+            it->second.value, Eigen::Vector3d(_options.lwVariance,
+            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+          batch->addErrorTerm(e_lw);
+        }
+      }
     }
 
-    void Calibrator::predictLeftWheels(const WheelSpeedMeasurements&
+    void Calibrator::predictLeftWheel(const WheelSpeedMeasurements&
         measurements) {
-//      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-//        auto timestamp = it->first;
-//        if (_translationSpline->getMinTime() > timestamp ||
-//            _translationSpline->getMaxTime() < timestamp ||
-//            it->second.left < _options.wheelSpeedSensorCutoff ||
-//            it->second.right < _options.wheelSpeedSensorCutoff)
-//          continue;
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp ||
+            _translationSpline->getMaxTime() < timestamp)
+          continue;
 
-//        auto translationExpressionFactory =
-//          _translationSpline->getExpressionFactoryAt<1>(timestamp);
-//        auto rotationExpressionFactory =
-//          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<1>(
+          TranslationSpline::TimeExpression(timestamp) +
+          _odometryDesignVariables->t_l->toExpression(), timestamp - 1,
+          timestamp + 1);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<1>(
+          TranslationSpline::TimeExpression(timestamp) +
+          _odometryDesignVariables->t_l->toExpression(), timestamp - 1,
+          timestamp + 1);
 
-//        auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-//          rotationExpressionFactory.getValueExpression());
-//        auto m_v_mv = EuclideanExpression(
-//          translationExpressionFactory.getValueExpression(1));
-//        auto v_v_mv = m_R_v.inverse() * m_v_mv;
-//        if (v_v_mv.toValue()(0) < 0)
-//          continue;
-//        auto m_om_mv = -EuclideanExpression(
-//          rotationExpressionFactory.getAngularVelocityExpression());
-//        auto v_om_mv = m_R_v.inverse() * m_om_mv;
-//        auto e_f = ScalarExpression(_odometryDesignVariables->e_f);
-//        auto L = ScalarExpression(_odometryDesignVariables->L);
-//        auto v_r_wl =
-//          EuclideanExpression(Eigen::Vector3d(1.0, 0.0, 0.0)) * L +
-//          EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_f;
-//        auto v_v_mw_l = v_v_mv + v_om_mv.cross(v_r_wl);
-//        auto v_r_wr =
-//          EuclideanExpression(Eigen::Vector3d(1.0, 0.0, 0.0)) * L -
-//          EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_f;
-//        auto v_v_mw_r = v_v_mv + v_om_mv.cross(v_r_wr);
+        auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto w_v_wv = EuclideanExpression(
+          translationExpressionFactory.getValueExpression(1));
+        auto v_v_wv = w_R_v.inverse() * w_v_wv;
+        auto w_om_wv = -EuclideanExpression(
+          rotationExpressionFactory.getAngularVelocityExpression());
+        auto v_om_wv = w_R_v.inverse() * w_om_wv;
+        auto b = ScalarExpression(_odometryDesignVariables->b);
+        auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+        auto v_v_wl = v_v_wv + v_om_wv.cross(v_r_wl);
 
-//        auto e_flw = boost::make_shared<ErrorTermWheel>(v_v_mw_l,
-//          ScalarExpression(_odometryDesignVariables->k_fl),
-//          it->second.left, Eigen::Vector3d(_options.flwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal(), true);
-//          _odometryDesignVariables->k_fr->toScalar();
-//        auto e_frw = boost::make_shared<ErrorTermWheel>(v_v_mw_r,
-//          ScalarExpression(_odometryDesignVariables->k_fr),
-//          it->second.right, Eigen::Vector3d(_options.frwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal(), true);
-//        auto sr_l = e_flw->evaluateError();
-//        auto error_l = e_flw->error();
-//        auto sr_r = e_frw->evaluateError();
-//        auto error_r = e_frw->error();
-//        double v0 = v_v_mw_l.toValue()(0);
-//        double v1 = v_v_mw_l.toValue()(1);
-//        double k = _odometryDesignVariables->k_fl->toScalar();
-//        double temp = std::sqrt(v1 * v1 / (v0 * v0) + 1);
-//        WheelSpeedsMeasurement data;
-//        data.left = k * (v0 / temp + v1 * v1 / (v0 * temp));
-//        v0 = v_v_mw_r.toValue()(0);
-//        v1 = v_v_mw_r.toValue()(1);
-//        k = _odometryDesignVariables->k_fr->toScalar();
-//        temp = std::sqrt(v1 * v1 / (v0 * v0) + 1);
-//        data.right = k * (v0 / temp + v1 * v1 / (v0 * temp));
-//        _frontWheelsSpeedMeasurementsPred.push_back(std::make_pair(timestamp,
-//          data));
-//        Eigen::Matrix<double, 6, 1> error;
-//        error.head<3>() = error_l;
-//        error.tail<3>() = error_r;
-//        _frontWheelsSpeedMeasurementsPredErrors.push_back(error);
-//        _frontWheelsSpeedMeasurementsPredErrors2.push_back(sr_l + sr_r);
-//      }
+        auto e_lw = boost::make_shared<ErrorTermWheel>(v_v_wl,
+          ScalarExpression(_odometryDesignVariables->k_l),
+          it->second.value, Eigen::Vector3d(_options.lwVariance,
+          _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+        auto sr_l = e_lw->evaluateError();
+        auto error_l = e_lw->error();
+        double v0 = v_v_wl.toValue()(0);
+        double v1 = v_v_wl.toValue()(1);
+        double k = _odometryDesignVariables->k_l->toScalar();
+        double temp = std::sqrt(v1 * v1 / (v0 * v0) + 1);
+        WheelSpeedMeasurement data;
+        data.value = k * (v0 / temp + v1 * v1 / (v0 * temp));
+        _leftWheelSpeedMeasurementsPred.push_back(std::make_pair(timestamp,
+          data));
+        _leftWheelSpeedMeasurementsPredErrors.push_back(error_l);
+        _leftWheelSpeedMeasurementsPredErrors2.push_back(sr_l);
+      }
     }
 
     void Calibrator::addRightWheelErrorTerms(const WheelSpeedMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
-//      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-//        auto timestamp = it->first;
-//        if (_translationSpline->getMinTime() > timestamp ||
-//            _translationSpline->getMaxTime() < timestamp ||
-//            it->second.left < _options.wheelSpeedSensorCutoff ||
-//            it->second.right < _options.wheelSpeedSensorCutoff)
-//          continue;
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp + 100000000 ||
+            _translationSpline->getMaxTime() < timestamp - 100000000)
+          continue;
 
-//        auto translationExpressionFactory =
-//          _translationSpline->getExpressionFactoryAt<1>(timestamp);
-//        auto rotationExpressionFactory =
-//          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+        if (_options.useTimeDelay) {
+          auto translationExpressionFactory =
+            _translationSpline->getExpressionFactoryAt<1>(
+            TranslationSpline::TimeExpression(timestamp) +
+            _odometryDesignVariables->t_r->toExpression(), timestamp - 100000000,
+            timestamp + 100000000);
+          auto rotationExpressionFactory =
+            _rotationSpline->getExpressionFactoryAt<1>(
+            TranslationSpline::TimeExpression(timestamp) +
+            _odometryDesignVariables->t_r->toExpression(), timestamp - 100000000,
+            timestamp + 100000000);
 
-//        auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-//          rotationExpressionFactory.getValueExpression());
-//        auto m_v_mv = EuclideanExpression(
-//          translationExpressionFactory.getValueExpression(1));
-//        auto v_v_mv = m_R_v.inverse() * m_v_mv;
-//        if (v_v_mv.toValue()(0) < 0)
-//          continue;
-//        auto m_om_mv = -EuclideanExpression(
-//          rotationExpressionFactory.getAngularVelocityExpression());
-//        auto v_om_mv = m_R_v.inverse() * m_om_mv;
-//        auto e_r = ScalarExpression(_odometryDesignVariables->e_r);
-//        auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_r;
-//        auto w_v_mw_l = v_v_mv + v_om_mv.cross(v_r_wl);
-//        auto v_r_wr =
-//          -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_r;
-//        auto w_v_mw_r = v_v_mv + v_om_mv.cross(v_r_wr);
+          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression());
+          auto w_v_wv = EuclideanExpression(
+            translationExpressionFactory.getValueExpression(1));
+          auto v_v_wv = w_R_v.inverse() * w_v_wv;
+          auto w_om_wv = -EuclideanExpression(
+            rotationExpressionFactory.getAngularVelocityExpression());
+          auto v_om_wv = w_R_v.inverse() * w_om_wv;
+          auto b = ScalarExpression(_odometryDesignVariables->b);
+          auto v_r_wr =
+            -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+          auto v_v_wr = v_v_wv + v_om_wv.cross(v_r_wr);
 
-//        auto e_rlw = boost::make_shared<ErrorTermWheel>(w_v_mw_l,
-//          ScalarExpression(_odometryDesignVariables->k_rl),
-//          it->second.left, Eigen::Vector3d(_options.flwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal());
-//        batch->addErrorTerm(e_rlw);
-//        auto e_rrw = boost::make_shared<ErrorTermWheel>(w_v_mw_r,
-//          ScalarExpression(_odometryDesignVariables->k_rr),
-//          it->second.right, Eigen::Vector3d(_options.frwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal());
-//        batch->addErrorTerm(e_rrw);
-//      }
+          auto e_rw = boost::make_shared<ErrorTermWheel>(v_v_wr,
+            ScalarExpression(_odometryDesignVariables->k_r),
+            it->second.value, Eigen::Vector3d(_options.rwVariance,
+            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+          batch->addErrorTerm(e_rw);
+        }
+        else {
+          auto translationExpressionFactory =
+            _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          auto rotationExpressionFactory =
+            _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+
+          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression());
+          auto w_v_wv = EuclideanExpression(
+            translationExpressionFactory.getValueExpression(1));
+          auto v_v_wv = w_R_v.inverse() * w_v_wv;
+          auto w_om_wv = -EuclideanExpression(
+            rotationExpressionFactory.getAngularVelocityExpression());
+          auto v_om_wv = w_R_v.inverse() * w_om_wv;
+          auto b = ScalarExpression(_odometryDesignVariables->b);
+          auto v_r_wr =
+            -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+          auto v_v_wr = v_v_wv + v_om_wv.cross(v_r_wr);
+
+          auto e_rw = boost::make_shared<ErrorTermWheel>(v_v_wr,
+            ScalarExpression(_odometryDesignVariables->k_r),
+            it->second.value, Eigen::Vector3d(_options.rwVariance,
+            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+          batch->addErrorTerm(e_rw);
+        }
+      }
     }
 
     void Calibrator::predictRightWheel(const WheelSpeedMeasurements&
         measurements) {
-//      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-//        auto timestamp = it->first;
-//        if (_translationSpline->getMinTime() > timestamp ||
-//            _translationSpline->getMaxTime() < timestamp ||
-//            it->second.left < _options.wheelSpeedSensorCutoff ||
-//            it->second.right < _options.wheelSpeedSensorCutoff)
-//          continue;
+      for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
+        auto timestamp = it->first;
+        if (_translationSpline->getMinTime() > timestamp ||
+            _translationSpline->getMaxTime() < timestamp)
+          continue;
 
-//        auto translationExpressionFactory =
-//          _translationSpline->getExpressionFactoryAt<1>(timestamp);
-//        auto rotationExpressionFactory =
-//          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<1>(
+          TranslationSpline::TimeExpression(timestamp) +
+          _odometryDesignVariables->t_r->toExpression(), timestamp - 1,
+          timestamp + 1);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<1>(
+          TranslationSpline::TimeExpression(timestamp) +
+          _odometryDesignVariables->t_r->toExpression(), timestamp - 1,
+          timestamp + 1);
 
-//        auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-//          rotationExpressionFactory.getValueExpression());
-//        auto m_v_mv = EuclideanExpression(
-//          translationExpressionFactory.getValueExpression(1));
-//        auto v_v_mv = m_R_v.inverse() * m_v_mv;
-//        if (v_v_mv.toValue()(0) < 0)
-//          continue;
-//        auto m_om_mv = -EuclideanExpression(
-//          rotationExpressionFactory.getAngularVelocityExpression());
-//        auto v_om_mv = m_R_v.inverse() * m_om_mv;
-//        auto e_r = ScalarExpression(_odometryDesignVariables->e_r);
-//        auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_r;
-//        auto w_v_mw_l = v_v_mv + v_om_mv.cross(v_r_wl);
-//        auto v_r_wr =
-//          -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * e_r;
-//        auto w_v_mw_r = v_v_mv + v_om_mv.cross(v_r_wr);
+        auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto w_v_wv = EuclideanExpression(
+          translationExpressionFactory.getValueExpression(1));
+        auto v_v_wv = w_R_v.inverse() * w_v_wv;
+        auto w_om_wv = -EuclideanExpression(
+          rotationExpressionFactory.getAngularVelocityExpression());
+        auto v_om_wv = w_R_v.inverse() * w_om_wv;
+        auto b = ScalarExpression(_odometryDesignVariables->b);
+        auto v_r_wr = -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+        auto v_v_wr = v_v_wv + v_om_wv.cross(v_r_wr);
 
-//        auto e_rlw = boost::make_shared<ErrorTermWheel>(w_v_mw_l,
-//          ScalarExpression(_odometryDesignVariables->k_rl),
-//          it->second.left, Eigen::Vector3d(_options.flwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal());
-//        auto e_rrw = boost::make_shared<ErrorTermWheel>(w_v_mw_r,
-//          ScalarExpression(_odometryDesignVariables->k_rr),
-//          it->second.right, Eigen::Vector3d(_options.frwVariance,
-//          _options.vyVariance, _options.vzVariance).asDiagonal());
-//        auto sr_l = e_rlw->evaluateError();
-//        auto error_l = e_rlw->error();
-//        auto sr_r = e_rrw->evaluateError();
-//        auto error_r = e_rrw->error();
-//        WheelSpeedsMeasurement data;
-//        data.left = _odometryDesignVariables->k_rl->toScalar() *
-//          w_v_mw_l.toValue()(0);
-//        data.right = _odometryDesignVariables->k_rr->toScalar() *
-//          w_v_mw_r.toValue()(0);
-//        _rearWheelsSpeedMeasurementsPred.push_back(std::make_pair(timestamp,
-//          data));
-//        Eigen::Matrix<double, 6, 1> error;
-//        error.head<3>() = error_l;
-//        error.tail<3>() = error_r;
-//        _rearWheelsSpeedMeasurementsPredErrors.push_back(error);
-//        _rearWheelsSpeedMeasurementsPredErrors2.push_back(sr_l + sr_r);
-//      }
+        auto e_rw = boost::make_shared<ErrorTermWheel>(v_v_wr,
+          ScalarExpression(_odometryDesignVariables->k_r),
+          it->second.value, Eigen::Vector3d(_options.rwVariance,
+          _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+        auto sr_r = e_rw->evaluateError();
+        auto error_r = e_rw->error();
+        double v0 = v_v_wr.toValue()(0);
+        double v1 = v_v_wr.toValue()(1);
+        double k = _odometryDesignVariables->k_r->toScalar();
+        double temp = std::sqrt(v1 * v1 / (v0 * v0) + 1);
+        WheelSpeedMeasurement data;
+        data.value = k * (v0 / temp + v1 * v1 / (v0 * temp));
+        _rightWheelSpeedMeasurementsPred.push_back(std::make_pair(timestamp,
+          data));
+        _rightWheelSpeedMeasurementsPredErrors.push_back(error_r);
+        _rightWheelSpeedMeasurementsPredErrors2.push_back(sr_r);
+      }
     }
 
     void Calibrator::clearMeasurements() {

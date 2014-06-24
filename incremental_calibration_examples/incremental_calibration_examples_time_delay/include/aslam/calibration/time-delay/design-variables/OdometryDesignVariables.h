@@ -28,6 +28,12 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <bsplines/NsecTimePolicy.hpp>
+
+#include <aslam/splines/OPTBSpline.hpp>
+
+#include <bsplines/EuclideanBSpline.hpp>
+
 #include <aslam/calibration/base/Serializable.h>
 
 namespace sm {
@@ -41,6 +47,7 @@ namespace aslam {
     class EuclideanPoint;
     class RotationQuaternion;
     class Scalar;
+    template <typename S> class GenericScalar;
 
   }
   namespace calibration {
@@ -56,6 +63,15 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
+      /// Spline type
+      typedef typename aslam::splines::OPTBSpline<typename
+        bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
+        bsplines::NsecTimePolicy>::CONF>::BSpline Spline;
+      /// Time design variable
+      typedef aslam::backend::GenericScalar<
+        typename Spline::TimeExpression::Scalar> TimeDesignVariable;
+      /// Shared pointer to Time design variable
+      typedef boost::shared_ptr<TimeDesignVariable> TimeDesignVariableSP;
       /// Shared pointer to Euclidean point
       typedef boost::shared_ptr<aslam::backend::EuclideanPoint>
         EuclideanPointSP;
@@ -72,8 +88,6 @@ namespace aslam {
       /** \name Constructors/destructor
         @{
         */
-      /// Default constructor
-      OdometryDesignVariables();
       /// Constructs design variables from property tree
       OdometryDesignVariables(const sm::PropertyTree& config);
       /** @}
@@ -102,6 +116,10 @@ namespace aslam {
       ScalarSP k_l;
       /// Right wheel scale factor
       ScalarSP k_r;
+      /// Time delay for left wheel
+      TimeDesignVariableSP t_l;
+      /// Time delay for right wheel
+      TimeDesignVariableSP t_r;
       /** @}
         */
 

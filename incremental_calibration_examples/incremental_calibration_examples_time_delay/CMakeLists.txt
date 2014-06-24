@@ -25,6 +25,7 @@ cs_add_library(${PROJECT_NAME}
   src/algo/OptimizationProblemSpline.cpp
   src/algo/CalibratorOptions.cpp
   src/algo/Calibrator.cpp
+  src/algo/splinesToFile.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS system filesystem)

@@ -5,23 +5,23 @@
         <A>20.0</A>
         <f>0.05</f>
       </trajectory>
-      <T>1000.0</T>
+      <T>5000.0</T>
       <dt>0.1</dt>
       <calibration>
         <odometry>
           <wss>
             <b>0.4</b>
             <k_l>360.0</k_l>
-            <t_l>0.1</t_l>
+            <t_l>0.0</t_l>
             <k_r>360.0</k_r>
-            <t_r>0.1</t_r>
+            <t_r>0.0</t_r>
           </wss>
         </odometry>
         <v_T_p>
           <v_r_vp>
             <e1>0.0</e1>
             <e2>0.0</e2>
-            <e3>0.8</e3>
+            <e3>0.0</e3>
           </v_r_vp>
           <v_R_p>
             <e1>0.0</e1>
@@ -53,109 +53,76 @@
     </params>
   </simulation>
 
-<!--  <calibrator>-->
-<!--    <windowDuration>20</windowDuration>-->
-<!--    <verbose>true</verbose>-->
-<!--    <usePose>true</usePose>-->
-<!--    <useVelocities>false</useVelocities>-->
-<!--    <splines>-->
-<!--      <transSplineLambda>1e-3</transSplineLambda>-->
-<!--      <rotSplineLambda>1e-3</rotSplineLambda>-->
-<!--      <splineKnotsPerSecond>5</splineKnotsPerSecond>-->
-<!--      <transSplineOrder>4</transSplineOrder>-->
-<!--      <rotSplineOrder>4</rotSplineOrder>-->
-<!--    </splines>-->
-<!--    <odometry>-->
-<!--      <sensors>-->
-<!--        <wheelSpeedSensorCutoff>0</wheelSpeedSensorCutoff>-->
-<!--        <linearVelocityTolerance>0.0</linearVelocityTolerance>-->
-<!--        <fws>-->
-<!--          <active>true</active>-->
-<!--          <noise>-->
-<!--            <flwPercentError>0.2</flwPercentError>-->
-<!--            <frwPercentError>0.2</frwPercentError>-->
-<!--            <flwVariance>0.1</flwVariance>-->
-<!--            <frwVariance>0.1</frwVariance>-->
-<!--          </noise>-->
-<!--        </fws>-->
-<!--        <rws>-->
-<!--          <active>true</active>-->
-<!--          <noise>-->
-<!--            <rlwPercentError>0.2</rlwPercentError>-->
-<!--            <rrwPercentError>0.2</rrwPercentError>-->
-<!--            <rlwVariance>0.1</rlwVariance>-->
-<!--            <rrwVariance>0.1</rrwVariance>-->
-<!--          </noise>-->
-<!--        </rws>-->
-<!--        <st>-->
-<!--          <active>true</active>-->
-<!--          <noise>-->
-<!--            <steeringVariance>1e-4</steeringVariance>-->
-<!--          </noise>-->
-<!--        </st>-->
-<!--        <dmi>-->
-<!--          <active>true</active>-->
-<!--          <noise>-->
-<!--            <dmiPercentError>0.1</dmiPercentError>-->
-<!--            <dmiVariance>1e-4</dmiVariance>-->
-<!--          </noise>-->
-<!--        </dmi>-->
-<!--      </sensors>-->
-<!--      <intrinsics>-->
-<!--        <wheelBase>2.71</wheelBase>-->
-<!--        <halfRearTrack>0.76</halfRearTrack>-->
-<!--        <halfFrontTrack>0.76</halfFrontTrack>-->
-<!--        <steeringCoefficient0>0</steeringCoefficient0>-->
-<!--        <steeringCoefficient1>0.001746</steeringCoefficient1>-->
-<!--        <steeringCoefficient2>0</steeringCoefficient2>-->
-<!--        <steeringCoefficient3>0</steeringCoefficient3>-->
-<!--        <rlwCoefficient>361.0</rlwCoefficient>-->
-<!--        <rrwCoefficient>361.0</rrwCoefficient>-->
-<!--        <flwCoefficient>359.0</flwCoefficient>-->
-<!--        <frwCoefficient>359.0</frwCoefficient>-->
-<!--        <dmiCoefficient>1.01</dmiCoefficient>-->
-<!--      </intrinsics>-->
-<!--      <extrinsics>-->
-<!--        <translation>-->
-<!--          <x>0.001</x>-->
-<!--          <y>0.002</y>-->
-<!--          <z>0.81</z>-->
-<!--        </translation>-->
-<!--        <rotation>-->
-<!--          <yaw>0.001</yaw>-->
-<!--          <pitch>0.002</pitch>-->
-<!--          <roll>0.001</roll>-->
-<!--        </rotation>-->
-<!--      </extrinsics>-->
-<!--      <constraints>-->
-<!--        <active>true</active>-->
-<!--          <noise>-->
-<!--            <vyVariance>1e-3</vyVariance>-->
-<!--            <vzVariance>1e-3</vzVariance>-->
-<!--          </noise>-->
-<!--      </constraints>-->
-<!--    </odometry>-->
-<!--    <estimator>-->
-<!--      <infoGainDelta>0.5</infoGainDelta>-->
-<!--      <groupId>1</groupId>-->
-<!--      <verbose>true</verbose>-->
-<!--      <optimizer>-->
-<!--        <convergenceDeltaJ>1e-3</convergenceDeltaJ>-->
-<!--        <convergenceDeltaX>1e-3</convergenceDeltaX>-->
-<!--        <maxIterations>20</maxIterations>-->
-<!--        <linearSolverMaximumFails>0</linearSolverMaximumFails>-->
-<!--        <nThreads>16</nThreads>-->
-<!--        <verbose>true</verbose>-->
-<!--        <linearSolver>-->
-<!--          <columnScaling>true</columnScaling>-->
-<!--          <epsNorm>1e-16</epsNorm>-->
-<!--          <epsSVD>1e-9</epsSVD>-->
-<!--          <epsQR>1e-16</epsQR>-->
-<!--          <svdTol>-1</svdTol>-->
-<!--          <qrTol>-1</qrTol>-->
-<!--          <verbose>true</verbose>-->
-<!--        </linearSolver>-->
-<!--      </optimizer>-->
-<!--    </estimator>-->
-<!--  </calibrator>-->
+  <calibrator>
+    <windowDuration>1e18</windowDuration>
+    <verbose>true</verbose>
+    <useTimeDelay>true</useTimeDelay>
+    <splines>
+      <transSplineLambda>1e-3</transSplineLambda>
+      <rotSplineLambda>1e-3</rotSplineLambda>
+      <splineKnotsPerSecond>5</splineKnotsPerSecond>
+      <transSplineOrder>4</transSplineOrder>
+      <rotSplineOrder>4</rotSplineOrder>
+    </splines>
+    <odometry>
+      <sensors>
+        <wss>
+          <noise>
+            <lwVariance>130</lwVariance>
+            <rwVariance>130</rwVariance>
+          </noise>
+        </wss>
+      </sensors>
+      <intrinsics>
+        <halfWheelBase>0.4</halfWheelBase>
+        <lwCoefficient>360.0</lwCoefficient>
+        <rwCoefficient>360.0</rwCoefficient>
+        <lwTimeDelay>0.0</lwTimeDelay>
+        <rwTimeDelay>0.0</rwTimeDelay>
+        <timeDelaysActive>true</timeDelaysActive>
+      </intrinsics>
+      <extrinsics>
+        <translation>
+          <active>false</active>
+          <x>0.0</x>
+          <y>0.0</y>
+          <z>0.0</z>
+        </translation>
+        <rotation>
+          <active>false</active>
+          <yaw>0.0</yaw>
+          <pitch>0.0</pitch>
+          <roll>0.0</roll>
+        </rotation>
+      </extrinsics>
+      <constraints>
+          <noise>
+            <vyVariance>1e-3</vyVariance>
+            <vzVariance>1e-3</vzVariance>
+          </noise>
+      </constraints>
+    </odometry>
+    <estimator>
+      <infoGainDelta>0.5</infoGainDelta>
+      <groupId>1</groupId>
+      <verbose>true</verbose>
+      <optimizer>
+        <convergenceDeltaJ>1e-3</convergenceDeltaJ>
+        <convergenceDeltaX>1e-3</convergenceDeltaX>
+        <maxIterations>20</maxIterations>
+        <linearSolverMaximumFails>0</linearSolverMaximumFails>
+        <nThreads>16</nThreads>
+        <verbose>true</verbose>
+        <linearSolver>
+          <columnScaling>true</columnScaling>
+          <epsNorm>1e-16</epsNorm>
+          <epsSVD>1e-3</epsSVD>
+          <epsQR>1e-16</epsQR>
+          <svdTol>-1</svdTol>
+          <qrTol>-1</qrTol>
+          <verbose>true</verbose>
+        </linearSolver>
+      </optimizer>
+    </estimator>
+  </calibrator>
 </time-delay>

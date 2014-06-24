@@ -73,6 +73,8 @@ namespace aslam {
       double vzVariance;
       /// Verbose option
       bool verbose;
+      /// Use time delay
+      bool useTimeDelay;
       /** @}
         */
 
