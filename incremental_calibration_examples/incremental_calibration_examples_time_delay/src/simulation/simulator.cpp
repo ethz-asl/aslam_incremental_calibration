@@ -85,20 +85,12 @@ int main(int argc, char** argv) {
 
   std::cout << "Optimizing..." << std::endl;
   Calibrator calibrator(PropertyTree(config, "time-delay/calibrator"));
-//  for (auto it = data.rwData_n.cbegin(); it != data.rwData_n.cend(); ++it) {
-//    auto rw = data.rwData_n.at(std::distance(data.rwData_n.cbegin(), it));
-//    calibrator.addRightWheelMeasurement(rw.second, rw.first);
-//    auto lw = data.lwData_n.at(std::distance(data.rwData_n.cbegin(), it));
-//    calibrator.addLeftWheelMeasurement(lw.second, lw.first);
-//    auto pose = data.poseData_n.at(std::distance(data.rwData_n.cbegin(), it));
-//    calibrator.addPoseMeasurement(pose.second, pose.first);
-//  }
-  for (auto it = data.rwData.cbegin(); it != data.rwData.cend(); ++it) {
-    auto rw = data.rwData.at(std::distance(data.rwData.cbegin(), it));
+  for (auto it = data.rwData_n.cbegin(); it != data.rwData_n.cend(); ++it) {
+    auto rw = data.rwData_n.at(std::distance(data.rwData_n.cbegin(), it));
     calibrator.addRightWheelMeasurement(rw.second, rw.first);
-    auto lw = data.lwData.at(std::distance(data.rwData.cbegin(), it));
+    auto lw = data.lwData_n.at(std::distance(data.rwData_n.cbegin(), it));
     calibrator.addLeftWheelMeasurement(lw.second, lw.first);
-    auto pose = data.poseData.at(std::distance(data.rwData.cbegin(), it));
+    auto pose = data.poseData_n.at(std::distance(data.rwData_n.cbegin(), it));
     calibrator.addPoseMeasurement(pose.second, pose.first);
   }
 

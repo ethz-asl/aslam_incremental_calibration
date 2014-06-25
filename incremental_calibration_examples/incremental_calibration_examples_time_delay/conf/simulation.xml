@@ -5,16 +5,18 @@
         <A>20.0</A>
         <f>0.05</f>
       </trajectory>
-      <T>5000.0</T>
+      <T>3000.0</T>
       <dt>0.1</dt>
       <calibration>
         <odometry>
           <wss>
             <b>0.4</b>
             <k_l>360.0</k_l>
-            <t_l>0.0</t_l>
+<!--time delay in seconds-->
+            <t_l>0.1</t_l>
             <k_r>360.0</k_r>
-            <t_r>0.0</t_r>
+<!--time delay in seconds-->
+            <t_r>0.2</t_r>
           </wss>
         </odometry>
         <v_T_p>
@@ -56,7 +58,8 @@
   <calibrator>
     <windowDuration>1e18</windowDuration>
     <verbose>true</verbose>
-    <useTimeDelay>true</useTimeDelay>
+<!--time delay bound in nanoseconds-->
+    <delayBound>500000000</delayBound>
     <splines>
       <transSplineLambda>1e-3</transSplineLambda>
       <rotSplineLambda>1e-3</rotSplineLambda>
@@ -77,19 +80,20 @@
         <halfWheelBase>0.4</halfWheelBase>
         <lwCoefficient>360.0</lwCoefficient>
         <rwCoefficient>360.0</rwCoefficient>
-        <lwTimeDelay>0.0</lwTimeDelay>
-        <rwTimeDelay>0.0</rwTimeDelay>
+<!--time delay in nanoseconds-->
+        <lwTimeDelay>0</lwTimeDelay>
+        <rwTimeDelay>0</rwTimeDelay>
         <timeDelaysActive>true</timeDelaysActive>
       </intrinsics>
       <extrinsics>
         <translation>
-          <active>false</active>
+          <active>true</active>
           <x>0.0</x>
           <y>0.0</y>
           <z>0.0</z>
         </translation>
         <rotation>
-          <active>false</active>
+          <active>true</active>
           <yaw>0.0</yaw>
           <pitch>0.0</pitch>
           <roll>0.0</roll>
@@ -116,7 +120,7 @@
         <linearSolver>
           <columnScaling>true</columnScaling>
           <epsNorm>1e-16</epsNorm>
-          <epsSVD>1e-3</epsSVD>
+          <epsSVD>1e-4</epsSVD>
           <epsQR>1e-16</epsQR>
           <svdTol>-1</svdTol>
           <qrTol>-1</qrTol>

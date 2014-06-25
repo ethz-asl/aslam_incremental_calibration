@@ -25,6 +25,7 @@
 #define ASLAM_CALIBRATION_TIME_DELAY_CALIBRATOR_H
 
 #include <vector>
+#include <cstdint>
 
 #include <Eigen/Core>
 
@@ -76,13 +77,13 @@ namespace aslam {
       typedef boost::shared_ptr<OdometryDesignVariables>
         OdometryDesignVariablesSP;
       /// Rotation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
         bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
       /// Rotation spline shared pointer
       typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
       /// Translation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
         bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
       /// Euclidean spline shared pointer

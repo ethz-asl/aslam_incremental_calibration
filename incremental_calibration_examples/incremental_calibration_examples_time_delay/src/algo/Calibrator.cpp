@@ -35,6 +35,7 @@
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/Scalar.hpp>
 #include <aslam/backend/GenericScalar.hpp>
+#include <aslam/backend/GenericScalarExpression.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/ScalarExpression.hpp>
@@ -430,64 +431,43 @@ namespace aslam {
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp + 100000000 ||
-            _translationSpline->getMaxTime() < timestamp - 100000000)
+        auto timeDelay = _odometryDesignVariables->t_l->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
-        if (_options.useTimeDelay) {
-          auto translationExpressionFactory =
-            _translationSpline->getExpressionFactoryAt<1>(
-            TranslationSpline::TimeExpression(timestamp) +
-            _odometryDesignVariables->t_l->toExpression(), timestamp - 100000000,
-            timestamp + 100000000);
-          auto rotationExpressionFactory =
-            _rotationSpline->getExpressionFactoryAt<1>(
-            TranslationSpline::TimeExpression(timestamp) +
-            _odometryDesignVariables->t_l->toExpression(), timestamp - 100000000,
-            timestamp + 100000000);
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
-          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-            rotationExpressionFactory.getValueExpression());
-          auto w_v_wv = EuclideanExpression(
-            translationExpressionFactory.getValueExpression(1));
-          auto v_v_wv = w_R_v.inverse() * w_v_wv;
-          auto w_om_wv = -EuclideanExpression(
-            rotationExpressionFactory.getAngularVelocityExpression());
-          auto v_om_wv = w_R_v.inverse() * w_om_wv;
-          auto b = ScalarExpression(_odometryDesignVariables->b);
-          auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
-          auto v_v_wl = v_v_wv + v_om_wv.cross(v_r_wl);
+        auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto w_v_wv = EuclideanExpression(
+          translationExpressionFactory.getValueExpression(1));
+        auto v_v_wv = w_R_v.inverse() * w_v_wv;
+        auto w_om_wv = -EuclideanExpression(
+          rotationExpressionFactory.getAngularVelocityExpression());
+        auto v_om_wv = w_R_v.inverse() * w_om_wv;
+        auto b = ScalarExpression(_odometryDesignVariables->b);
+        auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+        auto v_v_wl = v_v_wv + v_om_wv.cross(v_r_wl);
 
-          auto e_lw = boost::make_shared<ErrorTermWheel>(v_v_wl,
-            ScalarExpression(_odometryDesignVariables->k_l),
-            it->second.value, Eigen::Vector3d(_options.lwVariance,
-            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
-          batch->addErrorTerm(e_lw);
-        }
-        else {
-          auto translationExpressionFactory =
-            _translationSpline->getExpressionFactoryAt<1>(timestamp);
-          auto rotationExpressionFactory =
-            _rotationSpline->getExpressionFactoryAt<1>(timestamp);
-
-          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-            rotationExpressionFactory.getValueExpression());
-          auto w_v_wv = EuclideanExpression(
-            translationExpressionFactory.getValueExpression(1));
-          auto v_v_wv = w_R_v.inverse() * w_v_wv;
-          auto w_om_wv = -EuclideanExpression(
-            rotationExpressionFactory.getAngularVelocityExpression());
-          auto v_om_wv = w_R_v.inverse() * w_om_wv;
-          auto b = ScalarExpression(_odometryDesignVariables->b);
-          auto v_r_wl = EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
-          auto v_v_wl = v_v_wv + v_om_wv.cross(v_r_wl);
-
-          auto e_lw = boost::make_shared<ErrorTermWheel>(v_v_wl,
-            ScalarExpression(_odometryDesignVariables->k_l),
-            it->second.value, Eigen::Vector3d(_options.lwVariance,
-            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
-          batch->addErrorTerm(e_lw);
-        }
+        auto e_lw = boost::make_shared<ErrorTermWheel>(v_v_wl,
+          ScalarExpression(_odometryDesignVariables->k_l),
+          it->second.value, Eigen::Vector3d(_options.lwVariance,
+          _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+        batch->addErrorTerm(e_lw);
       }
     }
 
@@ -495,20 +475,25 @@ namespace aslam {
         measurements) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp)
+        auto timeDelay = _odometryDesignVariables->t_l->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(
-          TranslationSpline::TimeExpression(timestamp) +
-          _odometryDesignVariables->t_l->toExpression(), timestamp - 1,
-          timestamp + 1);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(
-          TranslationSpline::TimeExpression(timestamp) +
-          _odometryDesignVariables->t_l->toExpression(), timestamp - 1,
-          timestamp + 1);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -545,66 +530,44 @@ namespace aslam {
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp + 100000000 ||
-            _translationSpline->getMaxTime() < timestamp - 100000000)
+        auto timeDelay = _odometryDesignVariables->t_r->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
-        if (_options.useTimeDelay) {
-          auto translationExpressionFactory =
-            _translationSpline->getExpressionFactoryAt<1>(
-            TranslationSpline::TimeExpression(timestamp) +
-            _odometryDesignVariables->t_r->toExpression(), timestamp - 100000000,
-            timestamp + 100000000);
-          auto rotationExpressionFactory =
-            _rotationSpline->getExpressionFactoryAt<1>(
-            TranslationSpline::TimeExpression(timestamp) +
-            _odometryDesignVariables->t_r->toExpression(), timestamp - 100000000,
-            timestamp + 100000000);
+        auto translationExpressionFactory =
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
+        auto rotationExpressionFactory =
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
-          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-            rotationExpressionFactory.getValueExpression());
-          auto w_v_wv = EuclideanExpression(
-            translationExpressionFactory.getValueExpression(1));
-          auto v_v_wv = w_R_v.inverse() * w_v_wv;
-          auto w_om_wv = -EuclideanExpression(
-            rotationExpressionFactory.getAngularVelocityExpression());
-          auto v_om_wv = w_R_v.inverse() * w_om_wv;
-          auto b = ScalarExpression(_odometryDesignVariables->b);
-          auto v_r_wr =
-            -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
-          auto v_v_wr = v_v_wv + v_om_wv.cross(v_r_wr);
+        auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
+          rotationExpressionFactory.getValueExpression());
+        auto w_v_wv = EuclideanExpression(
+          translationExpressionFactory.getValueExpression(1));
+        auto v_v_wv = w_R_v.inverse() * w_v_wv;
+        auto w_om_wv = -EuclideanExpression(
+          rotationExpressionFactory.getAngularVelocityExpression());
+        auto v_om_wv = w_R_v.inverse() * w_om_wv;
+        auto b = ScalarExpression(_odometryDesignVariables->b);
+        auto v_r_wr =
+          -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
+        auto v_v_wr = v_v_wv + v_om_wv.cross(v_r_wr);
 
-          auto e_rw = boost::make_shared<ErrorTermWheel>(v_v_wr,
-            ScalarExpression(_odometryDesignVariables->k_r),
-            it->second.value, Eigen::Vector3d(_options.rwVariance,
-            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
-          batch->addErrorTerm(e_rw);
-        }
-        else {
-          auto translationExpressionFactory =
-            _translationSpline->getExpressionFactoryAt<1>(timestamp);
-          auto rotationExpressionFactory =
-            _rotationSpline->getExpressionFactoryAt<1>(timestamp);
-
-          auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-            rotationExpressionFactory.getValueExpression());
-          auto w_v_wv = EuclideanExpression(
-            translationExpressionFactory.getValueExpression(1));
-          auto v_v_wv = w_R_v.inverse() * w_v_wv;
-          auto w_om_wv = -EuclideanExpression(
-            rotationExpressionFactory.getAngularVelocityExpression());
-          auto v_om_wv = w_R_v.inverse() * w_om_wv;
-          auto b = ScalarExpression(_odometryDesignVariables->b);
-          auto v_r_wr =
-            -EuclideanExpression(Eigen::Vector3d(0.0, 1.0, 0.0)) * b;
-          auto v_v_wr = v_v_wv + v_om_wv.cross(v_r_wr);
-
-          auto e_rw = boost::make_shared<ErrorTermWheel>(v_v_wr,
-            ScalarExpression(_odometryDesignVariables->k_r),
-            it->second.value, Eigen::Vector3d(_options.rwVariance,
-            _options.vyVariance, _options.vzVariance).asDiagonal(), false);
-          batch->addErrorTerm(e_rw);
-        }
+        auto e_rw = boost::make_shared<ErrorTermWheel>(v_v_wr,
+          ScalarExpression(_odometryDesignVariables->k_r),
+          it->second.value, Eigen::Vector3d(_options.rwVariance,
+          _options.vyVariance, _options.vzVariance).asDiagonal(), false);
+        batch->addErrorTerm(e_rw);
       }
     }
 
@@ -612,20 +575,25 @@ namespace aslam {
         measurements) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp)
+        auto timeDelay = _odometryDesignVariables->t_r->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(
-          TranslationSpline::TimeExpression(timestamp) +
-          _odometryDesignVariables->t_r->toExpression(), timestamp - 1,
-          timestamp + 1);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(
-          TranslationSpline::TimeExpression(timestamp) +
-          _odometryDesignVariables->t_r->toExpression(), timestamp - 1,
-          timestamp + 1);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());

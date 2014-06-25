@@ -23,8 +23,6 @@
 #ifndef ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_PARAMS_H
 #define ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_PARAMS_H
 
-#include <string>
-
 #include <sm/kinematics/Transformation.hpp>
 
 namespace sm {

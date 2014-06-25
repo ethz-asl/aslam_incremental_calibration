@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -23,7 +23,7 @@
 #ifndef ASLAM_CALIBRATION_TIME_DELAY_CALIBRATOR_OPTIONS_H
 #define ASLAM_CALIBRATION_TIME_DELAY_CALIBRATOR_OPTIONS_H
 
-#include <cstdint>
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 namespace sm {
 
@@ -73,8 +73,8 @@ namespace aslam {
       double vzVariance;
       /// Verbose option
       bool verbose;
-      /// Use time delay
-      bool useTimeDelay;
+      /// Bound for time delay
+      sm::timing::NsecTime delayBound;
       /** @}
         */
 

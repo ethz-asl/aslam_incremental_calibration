@@ -41,13 +41,13 @@ namespace aslam {
         vyVariance(1e-1),
         vzVariance(1e-1),
         verbose(true),
-        useTimeDelay(true) {
+        delayBound(50000000) {
     }
 
     CalibratorOptions::CalibratorOptions(const PropertyTree& config) {
       windowDuration = config.getDouble("windowDuration");
       verbose = config.getBool("verbose");
-      useTimeDelay = config.getBool("useTimeDelay");
+      delayBound = config.getInt("delayBound");
 
       transSplineLambda = config.getDouble("splines/transSplineLambda");
       rotSplineLambda = config.getDouble("splines/rotSplineLambda");

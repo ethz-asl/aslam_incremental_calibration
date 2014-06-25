@@ -49,13 +49,13 @@ namespace aslam {
     /// Shared pointer to incremental estimator
     typedef boost::shared_ptr<IncrementalEstimator> IncrementalEstimatorSP;
     /// Rotation spline
-    typedef typename aslam::splines::OPTBSpline<typename
+    typedef aslam::splines::OPTBSpline<
       bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
       bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
     /// Rotation spline shared pointer
     typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
     /// Translation spline
-    typedef typename aslam::splines::OPTBSpline<typename
+    typedef aslam::splines::OPTBSpline<
       bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
       bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
     /// Euclidean spline shared pointer

@@ -24,15 +24,13 @@
 #ifndef ASLAM_CALIBRATION_TIME_DELAY_ODOMETRY_DESIGN_VARIABLES_H
 #define ASLAM_CALIBRATION_TIME_DELAY_ODOMETRY_DESIGN_VARIABLES_H
 
+#include <cstdint>
+
 #include <Eigen/Core>
 
 #include <boost/shared_ptr.hpp>
 
-#include <bsplines/NsecTimePolicy.hpp>
-
-#include <aslam/splines/OPTBSpline.hpp>
-
-#include <bsplines/EuclideanBSpline.hpp>
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 #include <aslam/calibration/base/Serializable.h>
 
@@ -48,6 +46,7 @@ namespace aslam {
     class RotationQuaternion;
     class Scalar;
     template <typename S> class GenericScalar;
+    template <typename I, std::uintmax_t D> class FixedPointNumber;
 
   }
   namespace calibration {
@@ -63,15 +62,6 @@ namespace aslam {
       /** \name Types definitions
         @{
         */
-      /// Spline type
-      typedef typename aslam::splines::OPTBSpline<typename
-        bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
-        bsplines::NsecTimePolicy>::CONF>::BSpline Spline;
-      /// Time design variable
-      typedef aslam::backend::GenericScalar<
-        typename Spline::TimeExpression::Scalar> TimeDesignVariable;
-      /// Shared pointer to Time design variable
-      typedef boost::shared_ptr<TimeDesignVariable> TimeDesignVariableSP;
       /// Shared pointer to Euclidean point
       typedef boost::shared_ptr<aslam::backend::EuclideanPoint>
         EuclideanPointSP;
@@ -82,6 +72,13 @@ namespace aslam {
       typedef boost::shared_ptr<aslam::backend::Scalar> ScalarSP;
       /// Batch shared pointer
       typedef boost::shared_ptr<OptimizationProblem> BatchSP;
+      /// Time type
+      typedef aslam::backend::FixedPointNumber<sm::timing::NsecTime, (long)1e9>
+        Time;
+      /// Time design variable
+      typedef aslam::backend::GenericScalar<Time> TimeDesignVariable;
+      /// Shared pointer to TimeDesignVariable
+      typedef boost::shared_ptr<TimeDesignVariable> TimeDesignVariableSP;
       /** @}
         */
 

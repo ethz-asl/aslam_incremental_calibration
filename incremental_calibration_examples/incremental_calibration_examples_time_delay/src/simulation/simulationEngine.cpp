@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -102,7 +102,8 @@ namespace aslam {
         pose.w_R_p = ypr.rotationMatrixToParameters(
           data.trajectory.w_T_v.back().C() * params.v_T_p.C());
         pose.sigma2_w_R_p = params.sigma2_w_R_p;
-        data.poseData.push_back(std::make_pair(timestamp, pose));
+        data.poseData.push_back(std::make_pair(timestamp + secToNsec(dt * 0.5),
+          pose));
 
         const NormalDistribution<3> w_r_wpDist(Eigen::Vector3d::Zero(),
           pose.sigma2_w_r_wp);
@@ -110,7 +111,8 @@ namespace aslam {
         const NormalDistribution<3>
           w_R_pDist(Eigen::Vector3d::Zero(), pose.sigma2_w_R_p);
         pose.w_R_p = pose.w_R_p + w_R_pDist.getSample();
-        data.poseData_n.push_back(std::make_pair(timestamp, pose));
+        data.poseData_n.push_back(std::make_pair(timestamp +
+          secToNsec(dt * 0.5), pose));
 
         timestamp += secToNsec(dt);
       }

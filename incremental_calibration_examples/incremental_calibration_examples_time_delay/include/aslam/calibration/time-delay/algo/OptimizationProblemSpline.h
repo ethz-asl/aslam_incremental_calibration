@@ -21,8 +21,8 @@
            a specialization of OptimizationProblem for handling splines.
   */
 
-#ifndef ASLAM_CALIBRATION_CAR_OPTIMIZATION_PROBLEM_SPLINE_H
-#define ASLAM_CALIBRATION_CAR_OPTIMIZATION_PROBLEM_SPLINE_H
+#ifndef ASLAM_CALIBRATION_TIME_DELAY_OPTIMIZATION_PROBLEM_SPLINE_H
+#define ASLAM_CALIBRATION_TIME_DELAY_OPTIMIZATION_PROBLEM_SPLINE_H
 
 #include <vector>
 
@@ -55,7 +55,7 @@ namespace aslam {
         @{
         */
       /// Rotation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
         bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
       /// Rotation spline shared pointer
@@ -63,7 +63,7 @@ namespace aslam {
       /// Rotation splines container
       typedef std::vector<RotationSplineSP> RotationSplinesSP;
       /// Translation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
         bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
       /// Euclidean spline shared pointer
@@ -141,4 +141,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_CAR_OPTIMIZATION_PROBLEM_SPLINE_H
+#endif // ASLAM_CALIBRATION_TIME_DELAY_OPTIMIZATION_PROBLEM_SPLINE_H

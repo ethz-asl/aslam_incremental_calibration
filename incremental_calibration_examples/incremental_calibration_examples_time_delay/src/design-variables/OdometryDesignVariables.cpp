@@ -29,6 +29,7 @@
 #include <aslam/backend/RotationQuaternion.hpp>
 #include <aslam/backend/Scalar.hpp>
 #include <aslam/backend/GenericScalar.hpp>
+#include <aslam/backend/FixedPointNumber.hpp>
 
 #include <aslam/calibration/core/OptimizationProblem.h>
 
@@ -76,9 +77,9 @@ namespace aslam {
         v_R_p->setActive(false);
 
       t_l = boost::make_shared<TimeDesignVariable>(
-        config.getDouble("intrinsics/lwTimeDelay"));
+        config.getInt("intrinsics/lwTimeDelay"));
       t_r = boost::make_shared<TimeDesignVariable>(
-        config.getDouble("intrinsics/rwTimeDelay"));
+        config.getInt("intrinsics/rwTimeDelay"));
       if (config.getBool("intrinsics/timeDelaysActive")) {
         t_l->setActive(true);
         t_r->setActive(true);
@@ -98,11 +99,11 @@ namespace aslam {
         groupId) {
       batch->addDesignVariable(b, groupId);
       batch->addDesignVariable(k_l, groupId);
+      batch->addDesignVariable(t_l, groupId);
       batch->addDesignVariable(k_r, groupId);
+      batch->addDesignVariable(t_r, groupId);
       batch->addDesignVariable(v_r_vp, groupId);
       batch->addDesignVariable(v_R_p, groupId);
-      batch->addDesignVariable(t_l, groupId);
-      batch->addDesignVariable(t_r, groupId);
     }
 
     Eigen::VectorXd OdometryDesignVariables::getParameters() const {
