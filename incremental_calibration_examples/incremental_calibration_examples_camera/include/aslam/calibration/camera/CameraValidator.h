@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -52,7 +52,7 @@ namespace aslam {
   namespace cameras {
 
     class GridDetector;
-    class GridCalibrationTarget;
+    class GridCalibrationTargetCheckerboard;
     class GridCalibrationTargetObservation;
     class CameraGeometryBase;
 
@@ -68,7 +68,8 @@ namespace aslam {
         @{
         */
       /// Calibration target type
-      typedef aslam::cameras::GridCalibrationTarget CalibrationTarget;
+      typedef aslam::cameras::GridCalibrationTargetCheckerboard
+        CalibrationTarget;
       /// Calibration target shared pointer type
       typedef boost::shared_ptr<CalibrationTarget> CalibrationTargetPtr;
       /// Detector type
@@ -85,19 +86,25 @@ namespace aslam {
       typedef boost::shared_ptr<Observation> ObservationPtr;
       /// Self type
       typedef CameraValidator Self;
-      /// Options for the camera calibrator
+      /// Options for the camera validator
       struct Options {
         /// Default constructor
         Options() :
             rows(6),
             cols(7),
-            rowSpacingMeters(0.03),
-            colSpacingMeters(0.03),
-            detectorType("checkerboard"),
+            rowSpacingMeters(0.06),
+            colSpacingMeters(0.06),
             useAdaptiveThreshold(true),
-            normalizeImage(false),
+            normalizeImage(true),
             filterQuads(false),
             doSubpixelRefinement(true),
+            showExtractionVideo(false),
+            plotCornerReprojection(false),
+            imageStepping(false),
+            filterCornerOutliers(false),
+            filterCornerSigmaThreshold(2.0),
+            filterCornerMinReprojError(0.2),
+            cameraProjectionType("pinhole"),
             sigma2(1.0),
             verbose(false) {}
         /// Number of rows in the checkerboard
@@ -108,8 +115,6 @@ namespace aslam {
         double rowSpacingMeters;
         /// Spacing between two consecutive columns in meters
         double colSpacingMeters;
-        /// Detector type
-        std::string detectorType;
         /// Use adaptive threshold for OpenCV detector
         bool useAdaptiveThreshold;
         /// Use normalizeImage for OpenCV detector
@@ -118,6 +123,20 @@ namespace aslam {
         bool filterQuads;
         /// Use doSubpixelRefinement for OpenCV detector
         bool doSubpixelRefinement;
+        /// Show extracted corners
+        bool showExtractionVideo;
+        /// Plot the reprojection of the extracted corners during extraction
+        bool plotCornerReprojection;
+        /// Pause after each image for inspection
+        bool imageStepping;
+        /// Filter corner outliers that have a rep. error above a certain thr.
+        bool filterCornerOutliers;
+        /// Thresholding for corners
+        float filterCornerSigmaThreshold;
+        /// Thresholding for corners
+        float filterCornerMinReprojError;
+        /// Camera projection type
+        std::string cameraProjectionType;
         /// Variance of the measurements (assume isotropic Gaussian)
         double sigma2;
         /// Verbose mode

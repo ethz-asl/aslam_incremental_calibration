@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -62,8 +62,6 @@ int main(int argc, char** argv) {
   BoostPropertyTree config;
   config.loadXml(argv[2]);
 
-  if (config.getBool("camera/visualization"))
-    cv::namedWindow("Checkerboard Image", CV_WINDOW_AUTOSIZE);
 
   // create the camera calibrator
   CameraCalibrator calibrator(PropertyTree(config, "camera/calibrator"));
@@ -98,14 +96,6 @@ int main(int argc, char** argv) {
       const size_t numObservations =
         calibrator.getEstimatorObservations().size();
       calibrator.addImage(cvImage->image, image->header.stamp.toNSec());
-      if (config.getBool("camera/visualization")) {
-        cv::Mat checkerboardImage;
-        calibrator.getLastCheckerboardImage(checkerboardImage);
-        if (checkerboardImage.data != NULL) {
-          cv::imshow("Checkerboard Image", checkerboardImage);
-          cv::waitKey(config.getInt("camera/imageTime"));
-        }
-      }
       if (config.getBool("camera/calibrator/saveEstimatorImages")) {
         if (calibrator.getEstimatorObservations().size() != numObservations) {
           cv::Mat checkerboardImage;

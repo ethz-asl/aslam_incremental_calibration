@@ -2,7 +2,6 @@
 <!--  <rosTopic>/mv_37/camera/image_raw</rosTopic>-->
   <rosTopic>/mv_cameras_manager/GX002537/image_raw</rosTopic>
   <cameraId>GX002537</cameraId>
-  <visualization>true</visualization>
   <imageTime>1</imageTime>
   <calibrator>
     <saveEstimatorImages>true</saveEstimatorImages>
@@ -11,7 +10,21 @@
     <cols>7</cols>
     <rowSpacingMeters>0.06</rowSpacingMeters>
     <colSpacingMeters>0.06</colSpacingMeters>
+    <useAdaptiveThreshold>true</useAdaptiveThreshold>
+    <normalizeImage>true</normalizeImage>
+    <filterQuads>false</filterQuads>
+    <doSubpixelRefinement>true</doSubpixelRefinement>
+    <showExtractionVideo>false</showExtractionVideo>
+    <plotCornerReprojection>false</plotCornerReprojection>
+    <imageStepping>false</imageStepping>
+    <filterCornerOutliers>true</filterCornerOutliers>
+    <filterCornerSigmaThreshold>2.0</filterCornerSigmaThreshold>
+    <filterCornerMinReprojError>0.2</filterCornerMinReprojError>
     <cameraProjectionType>omni</cameraProjectionType>
+    <estimateLandmarks>false</estimateLandmarks>
+    <landmarksGroupId>2</landmarksGroupId>
+    <calibrationGroupId>0</calibrationGroupId>
+    <transformationsGroupId>1</transformationsGroupId>
     <batchNumImages>1</batchNumImages>
     <useMEstimator>false</useMEstimator>
     <sigma2>1.0</sigma2>
@@ -41,9 +54,8 @@
     </estimator>
   </calibrator>
   <validator>
+    <visualization>true</visualization>
     <saveImages>false</saveImages>
     <outputErrors>true</outputErrors>
-    <sigma2>1.0</sigma2>
-    <verbose>true</verbose>
   </validator>
 </camera>

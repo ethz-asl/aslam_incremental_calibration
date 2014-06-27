@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -25,6 +25,7 @@
 #include <algorithm>
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp> 
 
 #include <boost/make_shared.hpp>
 #include <boost/math/distributions/chi_squared.hpp>
@@ -38,7 +39,7 @@
 
 #include <aslam/cameras.hpp>
 
-#include <aslam/cameras/GridCalibrationTarget.hpp>
+#include <aslam/cameras/GridCalibrationTargetCheckerboard.hpp>
 #include <aslam/cameras/GridDetector.hpp>
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 
@@ -71,8 +72,6 @@ namespace aslam {
         _options.rowSpacingMeters);
       _options.colSpacingMeters = config.getDouble("colSpacingMeters",
         _options.colSpacingMeters);
-      _options.detectorType = config.getString("detectorType",
-        _options.detectorType);
       _options.useAdaptiveThreshold = config.getBool("useAdaptiveThreshold",
         _options.useAdaptiveThreshold);
       _options.normalizeImage = config.getBool("normalizeImage",
@@ -81,6 +80,18 @@ namespace aslam {
         _options.filterQuads);
       _options.doSubpixelRefinement = config.getBool("doSubpixelRefinement",
         _options.doSubpixelRefinement);
+      _options.showExtractionVideo = config.getBool("showExtractionVideo",
+        _options.showExtractionVideo);
+      _options.plotCornerReprojection =
+        config.getBool("plotCornerReprojection");
+      _options.imageStepping = config.getBool("imageStepping");
+      _options.filterCornerOutliers = config.getBool("filterCornerOutliers");
+      _options.filterCornerSigmaThreshold =
+        config.getDouble("filterCornerSigmaThreshold");
+      _options.filterCornerMinReprojError =
+        config.getDouble("filterCornerMinReprojError");
+      _options.cameraProjectionType = config.getString("cameraProjectionType",
+        _options.cameraProjectionType);
       _options.sigma2 = config.getDouble("sigma2", _options.sigma2);
       _options.verbose = config.getBool("verbose", _options.verbose);
 
@@ -246,20 +257,15 @@ namespace aslam {
     void CameraValidator::initVisionFramework(const sm::PropertyTree&
         intrinsics) {
       // create calibration target
-      CalibrationTarget::DetectorType detectorType;
-      if (_options.detectorType == "checkerboard")
-        detectorType = CalibrationTarget::DetectorType::Checkerboard;
-      else if (_options.detectorType == "circleGrid")
-        detectorType = CalibrationTarget::DetectorType::CircleGrid;
-      else if (_options.detectorType == "aprilGrid")
-        detectorType = CalibrationTarget::DetectorType::AprilGrid;
-      else
-        throw BadArgumentException<std::string>(_options.detectorType,
-          "unkown calibration target type", __FILE__,__LINE__,
-          __PRETTY_FUNCTION__);
+      CalibrationTarget::CheckerboardOptions targetOptions;
+      targetOptions.useAdaptiveThreshold = _options.useAdaptiveThreshold;
+      targetOptions.normalizeImage = _options.normalizeImage;
+      targetOptions.filterQuads = _options.filterQuads;
+      targetOptions.doSubpixelRefinement = _options.doSubpixelRefinement;
+      targetOptions.showExtractionVideo = _options.showExtractionVideo;
       _calibrationTarget = boost::make_shared<CalibrationTarget>(_options.rows,
         _options.cols, _options.rowSpacingMeters, _options.colSpacingMeters,
-        detectorType);
+        targetOptions);
 
       // create camera geometry
       if (intrinsics.getString("projection/type") == "omni")
@@ -277,9 +283,16 @@ namespace aslam {
           __PRETTY_FUNCTION__);
 
       // create detector
+      Detector::GridDetectorOptions detectorOptions;
+      detectorOptions.plotCornerReprojection = _options.plotCornerReprojection;
+      detectorOptions.imageStepping = _options.imageStepping;
+      detectorOptions.filterCornerOutliers = _options.filterCornerOutliers;
+      detectorOptions.filterCornerSigmaThreshold =
+        _options.filterCornerSigmaThreshold;
+      detectorOptions.filterCornerMinReprojError =
+        _options.filterCornerMinReprojError;
       _detector = boost::make_shared<Detector>(_geometry, _calibrationTarget,
-        _options.useAdaptiveThreshold, _options.normalizeImage,
-        _options.filterQuads, _options.doSubpixelRefinement);
+        detectorOptions);
     }
 
     bool CameraValidator::addImage(const cv::Mat& image, sm::timing::NsecTime

@@ -17,8 +17,8 @@ cs_add_library(${PROJECT_NAME}
   src/camera/CameraValidator.cpp
 )
 
-#find_package(Boost REQUIRED COMPONENTS system filesystem)
-#target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+find_package(Boost REQUIRED COMPONENTS system filesystem)
+target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
 
 # Avoid clash with tr1::tuple:
 # https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257

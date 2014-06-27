@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
   BoostPropertyTree config;
   config.loadXml(argv[2]);
 
-  if (config.getBool("camera/visualization"))
+  if (config.getBool("camera/validator/visualization"))
     cv::namedWindow("Image Results", CV_WINDOW_AUTOSIZE);
 
   // loading intrinsics
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
 
   // create the camera validator
   CameraValidator validator(PropertyTree(intrinsics, "intrinsics"),
-    PropertyTree(config, "camera/validator"));
+    PropertyTree(config, "camera/calibrator"));
 
   // load ros bag file
   rosbag::Bag bag(argv[1]);
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
       sensor_msgs::ImagePtr image(it->instantiate<sensor_msgs::Image>());
       auto cvImage = cv_bridge::toCvCopy(image);
       validator.addImage(cvImage->image, image->header.stamp.toNSec());
-      if (config.getBool("camera/visualization")) {
+      if (config.getBool("camera/validator/visualization")) {
         cv::Mat resultImage;
         validator.getLastImage(resultImage);
         if (resultImage.data != NULL) {
