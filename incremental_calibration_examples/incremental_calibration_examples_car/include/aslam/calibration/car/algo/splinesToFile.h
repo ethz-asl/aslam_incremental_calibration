@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,8 +20,8 @@
     \brief This file contains a utility to write spline data to file.
   */
 
-#ifndef ASLAM_CALIBRATION_SPLINES_TO_FILE_H
-#define ASLAM_CALIBRATION_SPLINES_TO_FILE_H
+#ifndef ASLAM_CALIBRATION_CAR_SPLINES_TO_FILE_H
+#define ASLAM_CALIBRATION_CAR_SPLINES_TO_FILE_H
 
 #include <fstream>
 
@@ -49,13 +49,13 @@ namespace aslam {
     /// Shared pointer to incremental estimator
     typedef boost::shared_ptr<IncrementalEstimator> IncrementalEstimatorSP;
     /// Rotation spline
-    typedef typename aslam::splines::OPTBSpline<typename
+    typedef aslam::splines::OPTBSpline<
       bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
       bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
     /// Rotation spline shared pointer
     typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
     /// Translation spline
-    typedef typename aslam::splines::OPTBSpline<typename
+    typedef aslam::splines::OPTBSpline<
       bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
       bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
     /// Euclidean spline shared pointer
@@ -78,4 +78,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_SPLINES_TO_FILE_H
+#endif // ASLAM_CALIBRATION_CAR_SPLINES_TO_FILE_H

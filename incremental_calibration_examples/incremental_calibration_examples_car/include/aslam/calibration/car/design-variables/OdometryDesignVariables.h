@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -21,12 +21,16 @@
            holds the design variables used during odometry calibration.
   */
 
-#ifndef ASLAM_CALIBRATION_ODOMETRY_DESIGN_VARIABLES_H
-#define ASLAM_CALIBRATION_ODOMETRY_DESIGN_VARIABLES_H
+#ifndef ASLAM_CALIBRATION_CAR_ODOMETRY_DESIGN_VARIABLES_H
+#define ASLAM_CALIBRATION_CAR_ODOMETRY_DESIGN_VARIABLES_H
+
+#include <cstdint>
 
 #include <Eigen/Core>
 
 #include <boost/shared_ptr.hpp>
+
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 #include <aslam/calibration/base/Serializable.h>
 
@@ -41,6 +45,8 @@ namespace aslam {
     class EuclideanPoint;
     class RotationQuaternion;
     class Scalar;
+    template <typename S> class GenericScalar;
+    template <typename I, std::uintmax_t D> class FixedPointNumber;
 
   }
   namespace calibration {
@@ -70,14 +76,19 @@ namespace aslam {
       typedef boost::shared_ptr<aslam::backend::Scalar> ScalarSP;
       /// Batch shared pointer
       typedef boost::shared_ptr<OptimizationProblem> BatchSP;
+      /// Time type
+      typedef aslam::backend::FixedPointNumber<sm::timing::NsecTime, (long)1e9>
+        Time;
+      /// Time design variable
+      typedef aslam::backend::GenericScalar<Time> TimeDesignVariable;
+      /// Shared pointer to TimeDesignVariable
+      typedef boost::shared_ptr<TimeDesignVariable> TimeDesignVariableSP;
       /** @}
         */
 
       /** \name Constructors/destructor
         @{
         */
-      /// Default constructor
-      OdometryDesignVariables();
       /// Constructs design variables from property tree
       OdometryDesignVariables(const sm::PropertyTree& config);
       /** @}
@@ -118,6 +129,14 @@ namespace aslam {
       ScalarSP k_fr;
       /// DMI scale factor
       ScalarSP k_dmi;
+      /// Time delay for rear wheels
+      TimeDesignVariableSP t_r;
+      /// Time delay for front wheels
+      TimeDesignVariableSP t_f;
+      /// Time delay for steering
+      TimeDesignVariableSP t_s;
+      /// Time delay for DMI
+      TimeDesignVariableSP t_dmi;
       /** @}
         */
 
@@ -140,4 +159,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_ODOMETRY_DESIGN_VARIABLES_H
+#endif // ASLAM_CALIBRATION_CAR_ODOMETRY_DESIGN_VARIABLES_H

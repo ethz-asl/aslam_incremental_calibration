@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -53,7 +53,8 @@ namespace aslam {
         vzVariance(1e-1),
         verbose(true),
         usePose(true),
-        useVelocities(false) {
+        useVelocities(false),
+        delayBound(50000000) {
     }
 
     CarCalibratorOptions::CarCalibratorOptions(const PropertyTree& config) {
@@ -61,6 +62,7 @@ namespace aslam {
       verbose = config.getBool("verbose");
       usePose = config.getBool("usePose");
       useVelocities = config.getBool("useVelocities");
+      delayBound = config.getInt("odometry/timeDelays/delayBound");
 
       transSplineLambda = config.getDouble("splines/transSplineLambda");
       rotSplineLambda = config.getDouble("splines/rotSplineLambda");

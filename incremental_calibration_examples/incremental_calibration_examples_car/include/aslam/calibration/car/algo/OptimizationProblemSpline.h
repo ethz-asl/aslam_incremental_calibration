@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -55,7 +55,7 @@ namespace aslam {
         @{
         */
       /// Rotation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
         bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
       /// Rotation spline shared pointer
@@ -63,7 +63,7 @@ namespace aslam {
       /// Rotation splines container
       typedef std::vector<RotationSplineSP> RotationSplinesSP;
       /// Translation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
         bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
       /// Euclidean spline shared pointer

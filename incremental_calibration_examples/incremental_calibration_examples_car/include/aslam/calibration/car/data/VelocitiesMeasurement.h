@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -21,8 +21,8 @@
            represents a velocities measurement from a pose sensor.
   */
 
-#ifndef ASLAM_CALIBRATION_VELOCITIES_MEASUREMENT_H
-#define ASLAM_CALIBRATION_VELOCITIES_MEASUREMENT_H
+#ifndef ASLAM_CALIBRATION_CAR_VELOCITIES_MEASUREMENT_H
+#define ASLAM_CALIBRATION_CAR_VELOCITIES_MEASUREMENT_H
 
 #include <Eigen/Core>
 
@@ -34,6 +34,11 @@ namespace aslam {
         \brief Velocities measurement
       */
     struct VelocitiesMeasurement {
+      /// \cond
+      // Required by Eigen for fixed-size matrices members
+      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+      /// \endcond
+
       /** \name Public members
         @{
         */
@@ -53,4 +58,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_VELOCITIES_MEASUREMENT_H
+#endif // ASLAM_CALIBRATION_CAR_VELOCITIES_MEASUREMENT_H

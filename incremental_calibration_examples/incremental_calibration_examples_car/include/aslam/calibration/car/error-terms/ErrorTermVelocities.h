@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -24,6 +24,8 @@
 #ifndef ASLAM_CALIBRATION_CAR_ERROR_TERM_VELOCITIES_H
 #define ASLAM_CALIBRATION_CAR_ERROR_TERM_VELOCITIES_H
 
+#include <Eigen/Core>
+
 #include <aslam/backend/ErrorTerm.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 
@@ -37,8 +39,10 @@ namespace aslam {
     class ErrorTermVelocities :
       public aslam::backend::ErrorTermFs<6> {
     public:
+      /// \cond
       // Required by Eigen for fixed-size matrices members
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+      /// \endcond
 
       /** \name Types definitions
         @{

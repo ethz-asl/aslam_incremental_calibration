@@ -38,8 +38,6 @@ namespace aslam {
     class ErrorTermSteering :
       public aslam::backend::ErrorTermFs<1> {
     public:
-      // Required by Eigen for fixed-size matrices members
-      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
       /** \name Constructors/destructor
         @{

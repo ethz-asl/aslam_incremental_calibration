@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -38,6 +38,8 @@
 #include <aslam/backend/RotationExpression.hpp>
 #include <aslam/backend/ScalarExpression.hpp>
 #include <aslam/backend/Vector2RotationQuaternionExpressionAdapter.hpp>
+#include <aslam/backend/GenericScalar.hpp>
+#include <aslam/backend/GenericScalarExpression.hpp>
 
 #include <aslam/calibration/core/IncrementalEstimator.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
@@ -125,8 +127,8 @@ namespace aslam {
     bool CarCalibrator::unprocessedMeasurements() const {
       return !_poseMeasurements.empty() || !_velocitiesMeasurements.empty() ||
         !_dmiMeasurements.empty() ||
-        !_frontWheelsSpeedMeasurements.empty() ||
-        !_rearWheelsSpeedMeasurements.empty() ||
+        !_frontWheelSpeedsMeasurements.empty() ||
+        !_rearWheelSpeedsMeasurements.empty() ||
         !_steeringMeasurements.empty();
     }
 
@@ -211,44 +213,44 @@ namespace aslam {
       return _dmiMeasurementsPredErrors2;
     }
 
-    const CarCalibrator::WheelsSpeedMeasurements&
+    const CarCalibrator::WheelSpeedsMeasurements&
         CarCalibrator::getRearWheelsMeasurements() const {
-      return _rearWheelsSpeedMeasurements;
+      return _rearWheelSpeedsMeasurements;
     }
 
-    const CarCalibrator::WheelsSpeedMeasurements&
+    const CarCalibrator::WheelSpeedsMeasurements&
         CarCalibrator::getRearWheelsPredictions() const {
-      return _rearWheelsSpeedMeasurementsPred;
+      return _rearWheelSpeedsMeasurementsPred;
     }
 
     const std::vector<Eigen::VectorXd>&
         CarCalibrator::getRearWheelsPredictionErrors() const {
-      return _rearWheelsSpeedMeasurementsPredErrors;
+      return _rearWheelSpeedsMeasurementsPredErrors;
     }
 
     const std::vector<double>& CarCalibrator::getRearWheelsPredictionErrors2()
         const {
-      return _rearWheelsSpeedMeasurementsPredErrors2;
+      return _rearWheelSpeedsMeasurementsPredErrors2;
     }
 
-    const CarCalibrator::WheelsSpeedMeasurements&
+    const CarCalibrator::WheelSpeedsMeasurements&
         CarCalibrator::getFrontWheelsMeasurements() const {
-      return _frontWheelsSpeedMeasurements;
+      return _frontWheelSpeedsMeasurements;
     }
 
-    const CarCalibrator::WheelsSpeedMeasurements&
+    const CarCalibrator::WheelSpeedsMeasurements&
         CarCalibrator::getFrontWheelsPredictions() const {
-      return _frontWheelsSpeedMeasurementsPred;
+      return _frontWheelSpeedsMeasurementsPred;
     }
 
     const std::vector<Eigen::VectorXd>&
         CarCalibrator::getFrontWheelsPredictionErrors() const {
-      return _frontWheelsSpeedMeasurementsPredErrors;
+      return _frontWheelSpeedsMeasurementsPredErrors;
     }
 
     const std::vector<double>& CarCalibrator::getFrontWheelsPredictionErrors2()
         const {
-      return _frontWheelsSpeedMeasurementsPredErrors2;
+      return _frontWheelSpeedsMeasurementsPredErrors2;
     }
 
     const CarCalibrator::SteeringMeasurements&
@@ -285,33 +287,36 @@ namespace aslam {
       _dmiMeasurementsPred.clear();
       _dmiMeasurementsPredErrors.clear();
       _dmiMeasurementsPredErrors2.clear();
-      _frontWheelsSpeedMeasurementsPred.clear();
-      _frontWheelsSpeedMeasurementsPredErrors.clear();
-      _frontWheelsSpeedMeasurementsPredErrors2.clear();
-      _rearWheelsSpeedMeasurementsPred.clear();
-      _rearWheelsSpeedMeasurementsPredErrors.clear();
-      _rearWheelsSpeedMeasurementsPredErrors2.clear();
+      _frontWheelSpeedsMeasurementsPred.clear();
+      _frontWheelSpeedsMeasurementsPredErrors.clear();
+      _frontWheelSpeedsMeasurementsPredErrors2.clear();
+      _rearWheelSpeedsMeasurementsPred.clear();
+      _rearWheelSpeedsMeasurementsPredErrors.clear();
+      _rearWheelSpeedsMeasurementsPredErrors2.clear();
       _steeringMeasurementsPred.clear();
       _steeringMeasurementsPredErrors.clear();
       _steeringMeasurementsPredErrors2.clear();
     }
 
     void CarCalibrator::predict() {
-      auto batch = boost::make_shared<OptimizationProblemSpline>();
-      _odometryDesignVariables->addToBatch(batch, 1);
       initSplines(_poseMeasurements);
       predictPoses(_poseMeasurements);
       predictVelocities(_velocitiesMeasurements);
       predictDMI(_dmiMeasurements);
-      predictFrontWheels(_frontWheelsSpeedMeasurements);
-      predictRearWheels(_rearWheelsSpeedMeasurements);
+      predictFrontWheels(_frontWheelSpeedsMeasurements);
+      predictRearWheels(_rearWheelSpeedsMeasurements);
       predictSteering(_steeringMeasurements);
     }
 
-    void CarCalibrator::addPoseMeasurement(const PoseMeasurement& pose, const
-        VelocitiesMeasurement& vel, NsecTime timestamp) {
+    void CarCalibrator::addPoseMeasurement(const PoseMeasurement& pose, NsecTime
+        timestamp) {
       addMeasurement(timestamp);
       _poseMeasurements.push_back(std::make_pair(timestamp, pose));
+    }
+
+    void CarCalibrator::addVelocitiesMeasurement(const VelocitiesMeasurement&
+        vel, NsecTime timestamp) {
+      addMeasurement(timestamp);
       _velocitiesMeasurements.push_back(std::make_pair(timestamp, vel));
     }
 
@@ -324,13 +329,13 @@ namespace aslam {
     void CarCalibrator::addFrontWheelsMeasurement(const WheelSpeedsMeasurement&
         data, NsecTime timestamp) {
       addMeasurement(timestamp);
-      _frontWheelsSpeedMeasurements.push_back(std::make_pair(timestamp, data));
+      _frontWheelSpeedsMeasurements.push_back(std::make_pair(timestamp, data));
     }
 
     void CarCalibrator::addRearWheelsMeasurement(const WheelSpeedsMeasurement&
         data, NsecTime timestamp) {
       addMeasurement(timestamp);
-      _rearWheelsSpeedMeasurements.push_back(std::make_pair(timestamp, data));
+      _rearWheelSpeedsMeasurements.push_back(std::make_pair(timestamp, data));
     }
 
     void CarCalibrator::addSteeringMeasurement(const SteeringMeasurement& data,
@@ -362,8 +367,8 @@ namespace aslam {
       if (_options.usePose)
         addPoseErrorTerms(_poseMeasurements, batch);
       addDMIErrorTerms(_dmiMeasurements, batch);
-      addFrontWheelsErrorTerms(_frontWheelsSpeedMeasurements, batch);
-      addRearWheelsErrorTerms(_rearWheelsSpeedMeasurements, batch);
+      addFrontWheelsErrorTerms(_frontWheelSpeedsMeasurements, batch);
+      addRearWheelsErrorTerms(_rearWheelSpeedsMeasurements, batch);
       addSteeringErrorTerms(_steeringMeasurements, batch);
       clearMeasurements();
       _currentBatchStartTimestamp = _lastTimestamp;
@@ -406,6 +411,11 @@ namespace aslam {
         std::cout << "v_R_r_2: " << ret.obsBasisScaled.row(16).norm()
           << std::endl;
         std::cout << "v_R_r_3: " << ret.obsBasisScaled.row(17).norm()
+          << std::endl;
+        std::cout << "t_r: " << ret.obsBasisScaled.row(18).norm() << std::endl;
+        std::cout << "t_f: " << ret.obsBasisScaled.row(19).norm() << std::endl;
+        std::cout << "t_s: " << ret.obsBasisScaled.row(20).norm() << std::endl;
+        std::cout << "t_dmi: " << ret.obsBasisScaled.row(21).norm()
           << std::endl;
       }
       _infoGainHistory.push_back(ret.informationGain);
@@ -609,14 +619,25 @@ namespace aslam {
         const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp)
+        auto timeDelay = _odometryDesignVariables->t_dmi->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -641,14 +662,25 @@ namespace aslam {
     void CarCalibrator::predictDMI(const DMIMeasurements& measurements) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp)
+        auto timeDelay = _odometryDesignVariables->t_dmi->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -671,26 +703,40 @@ namespace aslam {
         DMIMeasurement dmi;
         dmi.wheelSpeed = _odometryDesignVariables->k_dmi->toScalar() *
           w_v_mw.toValue()(0);
-        _dmiMeasurementsPred.push_back(std::make_pair(timestamp, dmi));
+        _dmiMeasurementsPred.push_back(std::make_pair(
+          timestampDelay.toScalar().getNumerator(), dmi));
         _dmiMeasurementsPredErrors.push_back(error);
         _dmiMeasurementsPredErrors2.push_back(sr);
       }
     }
 
-    void CarCalibrator::addFrontWheelsErrorTerms(const WheelsSpeedMeasurements&
+    void CarCalibrator::addFrontWheelsErrorTerms(const WheelSpeedsMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp ||
-            it->second.left < _options.wheelSpeedSensorCutoff ||
+        if (it->second.left < _options.wheelSpeedSensorCutoff ||
             it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
 
+        auto timestamp = it->first;
+        auto timeDelay = _odometryDesignVariables->t_f->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
+          continue;
+
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -727,20 +773,33 @@ namespace aslam {
       }
     }
 
-    void CarCalibrator::predictFrontWheels(const WheelsSpeedMeasurements&
+    void CarCalibrator::predictFrontWheels(const WheelSpeedsMeasurements&
         measurements) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp ||
-            it->second.left < _options.wheelSpeedSensorCutoff ||
+        if (it->second.left < _options.wheelSpeedSensorCutoff ||
             it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
 
+        auto timestamp = it->first;
+        auto timeDelay = _odometryDesignVariables->t_f->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
+          continue;
+
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -787,30 +846,43 @@ namespace aslam {
         k = _odometryDesignVariables->k_fr->toScalar();
         temp = std::sqrt(v1 * v1 / (v0 * v0) + 1);
         data.right = k * (v0 / temp + v1 * v1 / (v0 * temp));
-        _frontWheelsSpeedMeasurementsPred.push_back(std::make_pair(timestamp,
-          data));
+        _frontWheelSpeedsMeasurementsPred.push_back(std::make_pair(
+          timestampDelay.toScalar().getNumerator(), data));
         Eigen::Matrix<double, 6, 1> error;
         error.head<3>() = error_l;
         error.tail<3>() = error_r;
-        _frontWheelsSpeedMeasurementsPredErrors.push_back(error);
-        _frontWheelsSpeedMeasurementsPredErrors2.push_back(sr_l + sr_r);
+        _frontWheelSpeedsMeasurementsPredErrors.push_back(error);
+        _frontWheelSpeedsMeasurementsPredErrors2.push_back(sr_l + sr_r);
       }
     }
 
-    void CarCalibrator::addRearWheelsErrorTerms(const WheelsSpeedMeasurements&
+    void CarCalibrator::addRearWheelsErrorTerms(const WheelSpeedsMeasurements&
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp ||
-            it->second.left < _options.wheelSpeedSensorCutoff ||
+        if (it->second.left < _options.wheelSpeedSensorCutoff ||
             it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
 
+        auto timestamp = it->first;
+        auto timeDelay = _odometryDesignVariables->t_r->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
+          continue;
+
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -842,20 +914,33 @@ namespace aslam {
       }
     }
 
-    void CarCalibrator::predictRearWheels(const WheelsSpeedMeasurements&
+    void CarCalibrator::predictRearWheels(const WheelSpeedsMeasurements&
         measurements) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
-        auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp ||
-            it->second.left < _options.wheelSpeedSensorCutoff ||
+        if (it->second.left < _options.wheelSpeedSensorCutoff ||
             it->second.right < _options.wheelSpeedSensorCutoff)
           continue;
 
+        auto timestamp = it->first;
+        auto timeDelay = _odometryDesignVariables->t_r->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
+          continue;
+
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -891,13 +976,13 @@ namespace aslam {
           w_v_mw_l.toValue()(0);
         data.right = _odometryDesignVariables->k_rr->toScalar() *
           w_v_mw_r.toValue()(0);
-        _rearWheelsSpeedMeasurementsPred.push_back(std::make_pair(timestamp,
-          data));
+        _rearWheelSpeedsMeasurementsPred.push_back(std::make_pair(
+          timestampDelay.toScalar().getNumerator(), data));
         Eigen::Matrix<double, 6, 1> error;
         error.head<3>() = error_l;
         error.tail<3>() = error_r;
-        _rearWheelsSpeedMeasurementsPredErrors.push_back(error);
-        _rearWheelsSpeedMeasurementsPredErrors2.push_back(sr_l + sr_r);
+        _rearWheelSpeedsMeasurementsPredErrors.push_back(error);
+        _rearWheelSpeedsMeasurementsPredErrors2.push_back(sr_l + sr_r);
       }
     }
 
@@ -905,14 +990,25 @@ namespace aslam {
         measurements, const OptimizationProblemSplineSP& batch) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp)
+        auto timeDelay = _odometryDesignVariables->t_s->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -940,14 +1036,25 @@ namespace aslam {
         measurements) {
       for (auto it = measurements.cbegin(); it != measurements.cend(); ++it) {
         auto timestamp = it->first;
-        if (_translationSpline->getMinTime() > timestamp ||
-            _translationSpline->getMaxTime() < timestamp)
+        auto timeDelay = _odometryDesignVariables->t_s->toExpression();
+        auto timestampDelay = timeDelay +
+          GenericScalarExpression<OdometryDesignVariables::Time>(timestamp);
+        auto Tmax = _translationSpline->getMaxTime();
+        auto Tmin = _translationSpline->getMinTime();
+        auto lBound = -_options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+        auto uBound = _options.delayBound +
+          timestampDelay.toScalar().getNumerator();
+
+        if(uBound > Tmax || lBound < Tmin)
           continue;
 
         auto translationExpressionFactory =
-          _translationSpline->getExpressionFactoryAt<1>(timestamp);
+          _translationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
         auto rotationExpressionFactory =
-          _rotationSpline->getExpressionFactoryAt<1>(timestamp);
+          _rotationSpline->getExpressionFactoryAt<1>(timestampDelay,
+          lBound, uBound);
 
         auto m_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
           rotationExpressionFactory.getValueExpression());
@@ -970,9 +1077,10 @@ namespace aslam {
         auto sr = e_st->evaluateError();
         auto error = e_st->error();
         SteeringMeasurement data;
-        const double phi = atan2(v_v_mw.toValue()(1), v_v_mw.toValue()(0));
+        const double phi = std::atan2(v_v_mw.toValue()(1), v_v_mw.toValue()(0));
         data.value = phi;
-        _steeringMeasurementsPred.push_back(std::make_pair(timestamp, data));
+        _steeringMeasurementsPred.push_back(std::make_pair(
+          timestampDelay.toScalar().getNumerator(), data));
         _steeringMeasurementsPredErrors.push_back(error);
         _steeringMeasurementsPredErrors2.push_back(sr);
       }
@@ -982,8 +1090,8 @@ namespace aslam {
       _poseMeasurements.clear();
       _velocitiesMeasurements.clear();
       _dmiMeasurements.clear();
-      _frontWheelsSpeedMeasurements.clear();
-      _rearWheelsSpeedMeasurements.clear();
+      _frontWheelSpeedsMeasurements.clear();
+      _rearWheelSpeedsMeasurements.clear();
       _steeringMeasurements.clear();
     }
 

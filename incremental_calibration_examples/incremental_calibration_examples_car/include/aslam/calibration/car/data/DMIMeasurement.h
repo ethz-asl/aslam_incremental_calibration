@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -21,8 +21,8 @@
            Applanix DMI measurement.
   */
 
-#ifndef ASLAM_CALIBRATION_DMI_MEASUREMENT_H
-#define ASLAM_CALIBRATION_DMI_MEASUREMENT_H
+#ifndef ASLAM_CALIBRATION_CAR_DMI_MEASUREMENT_H
+#define ASLAM_CALIBRATION_CAR_DMI_MEASUREMENT_H
 
 namespace aslam {
   namespace calibration {
@@ -45,4 +45,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_DMI_MEASUREMENT_H
+#endif // ASLAM_CALIBRATION_CAR_DMI_MEASUREMENT_H

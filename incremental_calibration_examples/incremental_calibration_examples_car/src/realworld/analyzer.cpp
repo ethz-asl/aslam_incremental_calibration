@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -116,8 +116,11 @@ int main(int argc, char** argv) {
   topics.push_back(config.getString(
     "car/calibrator/applanix/vnp/topic"));
   rosbag::View view(bag, rosbag::TopicQuery(topics));
-  TimestampCorrector<double> timestampCorrector1;
-  TimestampCorrector<double> timestampCorrector2;
+  TimestampCorrector<double> timestampCorrectorVns;
+  TimestampCorrector<double> timestampCorrectorDmi;
+  TimestampCorrector<double> timestampCorrectorFw;
+  TimestampCorrector<double> timestampCorrectorRw;
+  TimestampCorrector<double> timestampCorrectorSt;
   double lastDMITimestamp = -1;
   double lastDMIDistance = -1;
   bool firstVns = true;
@@ -188,9 +191,10 @@ int main(int argc, char** argv) {
         vel.r_v_mr.transpose() << " " << vel.r_om_mr.transpose() <<
         " " << vel.sigma2_r_v_mr.diagonal().transpose() << " " <<
         vel.sigma2_r_om_mr.diagonal().transpose() << std::endl;
-      calibrator.addPoseMeasurement(pose, vel,
-        round(timestampCorrector1.correctTimestamp(
-        secToNsec(vns->timeDistance.time1), vns->header.stamp.toNSec())));
+      auto timestamp = std::round(timestampCorrectorVns.correctTimestamp(
+        secToNsec(vns->timeDistance.time1), vns->header.stamp.toNSec()));
+      calibrator.addPoseMeasurement(pose, timestamp);
+      calibrator.addVelocitiesMeasurement(vel, timestamp);
     }
     if (it->getTopic() == config.getString(
         "car/calibrator/odometry/sensors/fws/topic") && useFw) {
@@ -199,7 +203,9 @@ int main(int argc, char** argv) {
       WheelSpeedsMeasurement data;
       data.left = fws->Left;
       data.right = fws->Right;
-      calibrator.addFrontWheelsMeasurement(data, fws->header.stamp.toNSec());
+      auto timestamp = std::round(timestampCorrectorFw.correctTimestamp(
+        fws->header.seq, fws->header.stamp.toNSec()));
+      calibrator.addFrontWheelsMeasurement(data, timestamp);
       fwDataFile << fws->header.stamp.toSec() << " " << data.left << " "
         << data.right << std::endl;
     }
@@ -210,7 +216,9 @@ int main(int argc, char** argv) {
       WheelSpeedsMeasurement data;
       data.left = rws->Left;
       data.right = rws->Right;
-      calibrator.addRearWheelsMeasurement(data, rws->header.stamp.toNSec());
+      auto timestamp = std::round(timestampCorrectorRw.correctTimestamp(
+        rws->header.seq, rws->header.stamp.toNSec()));
+      calibrator.addRearWheelsMeasurement(data, timestamp);
       rwDataFile << rws->header.stamp.toSec() << " " << data.left << " "
         << data.right << std::endl;
     }
@@ -220,7 +228,9 @@ int main(int argc, char** argv) {
         it->instantiate<can_prius::Steering1Msg>());
       SteeringMeasurement data;
       data.value = st->value;
-      calibrator.addSteeringMeasurement(data, st->header.stamp.toNSec());
+      auto timestamp = std::round(timestampCorrectorSt.correctTimestamp(
+        st->header.seq, st->header.stamp.toNSec()));
+      calibrator.addSteeringMeasurement(data, timestamp);
       stDataFile << st->header.stamp.toSec() << " " << data.value << std::endl;
     }
     if (it->getTopic() == config.getString(
@@ -232,7 +242,7 @@ int main(int argc, char** argv) {
         data.wheelSpeed = (dmi->signedDistanceTraveled - lastDMIDistance) /
           (dmi->timeDistance.time1 - lastDMITimestamp);
         calibrator.addDMIMeasurement(data,
-          round(timestampCorrector2.correctTimestamp(
+          std::round(timestampCorrectorDmi.correctTimestamp(
           secToNsec(dmi->timeDistance.time1), dmi->header.stamp.toNSec())));
         dmiDataFile << dmi->header.stamp.toSec() << " " << data.wheelSpeed
           << std::endl;
@@ -254,7 +264,8 @@ int main(int argc, char** argv) {
   std::for_each(calibrator.getRearWheelsPredictions().cbegin(),
     calibrator.getRearWheelsPredictions().cend(), [&](decltype(
     *calibrator.getRearWheelsPredictions().cbegin()) x) {rwDataPredFile
-    << x.first << " " << x.second.left << " " << x.second.right <<std::endl;});
+    << nsecToSec(x.first) << " " << x.second.left << " " << x.second.right <<
+    std::endl;});
   std::ofstream rwPredError("rwPredError.txt");
   rwPredError << std::fixed << std::setprecision(18);
   std::for_each(calibrator.getRearWheelsPredictionErrors().cbegin(),
@@ -266,7 +277,8 @@ int main(int argc, char** argv) {
   std::for_each(calibrator.getFrontWheelsPredictions().cbegin(),
     calibrator.getFrontWheelsPredictions().cend(), [&](decltype(
     *calibrator.getFrontWheelsPredictions().cbegin()) x) {fwDataPredFile
-    << x.first << " " << x.second.left << " " << x.second.right <<std::endl;});
+    << nsecToSec(x.first) << " " << x.second.left << " " << x.second.right <<
+    std::endl;});
   std::ofstream fwPredError("fwPredError.txt");
   fwPredError << std::fixed << std::setprecision(18);
   std::for_each(calibrator.getFrontWheelsPredictionErrors().cbegin(),
@@ -278,7 +290,7 @@ int main(int argc, char** argv) {
   std::for_each(calibrator.getSteeringPredictions().cbegin(),
     calibrator.getSteeringPredictions().cend(), [&](decltype(
     *calibrator.getSteeringPredictions().cbegin()) x) {stDataPredFile
-    << x.first << " " << x.second.value <<std::endl;});
+    << nsecToSec(x.first) << " " << x.second.value <<std::endl;});
   std::ofstream stPredError("stPredError.txt");
   stPredError << std::fixed << std::setprecision(18);
   std::for_each(calibrator.getSteeringPredictionErrors().cbegin(),
@@ -290,7 +302,7 @@ int main(int argc, char** argv) {
   std::for_each(calibrator.getDMIPredictions().cbegin(),
     calibrator.getDMIPredictions().cend(), [&](decltype(
     *calibrator.getDMIPredictions().cbegin()) x) {dmiDataPredFile
-    << x.first << " " << x.second.wheelSpeed << std::endl;});
+    << nsecToSec(x.first) << " " << x.second.wheelSpeed << std::endl;});
   std::ofstream dmiPredError("dmiPredError.txt");
   dmiPredError << std::fixed << std::setprecision(18);
   std::for_each(calibrator.getDMIPredictionErrors().cbegin(),
@@ -302,7 +314,7 @@ int main(int argc, char** argv) {
   std::for_each(calibrator.getPosePredictions().cbegin(),
     calibrator.getPosePredictions().cend(), [&](decltype(
     *calibrator.getPosePredictions().cbegin()) x) {poseDataPredFile
-    << x.first << " " << x.second.m_r_mr.transpose() << " "
+    << nsecToSec(x.first) << " " << x.second.m_r_mr.transpose() << " "
     << x.second.m_R_r.transpose() << std::endl;});
   std::ofstream posePredError("posePredError.txt");
   posePredError << std::fixed << std::setprecision(18);
@@ -315,7 +327,7 @@ int main(int argc, char** argv) {
   std::for_each(calibrator.getVelocitiesPredictions().cbegin(),
     calibrator.getVelocitiesPredictions().cend(), [&](decltype(
     *calibrator.getVelocitiesPredictions().cbegin()) x) {velDataPredFile
-    << x.first << " " << x.second.r_v_mr.transpose() << " "
+    << nsecToSec(x.first) << " " << x.second.r_v_mr.transpose() << " "
     << x.second.r_om_mr.transpose() << std::endl;});
   std::ofstream velPredError("velPredError.txt");
   velPredError << std::fixed << std::setprecision(18);

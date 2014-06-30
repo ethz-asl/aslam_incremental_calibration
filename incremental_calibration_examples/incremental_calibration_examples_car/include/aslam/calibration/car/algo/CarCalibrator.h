@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -79,13 +79,13 @@ namespace aslam {
       typedef boost::shared_ptr<OdometryDesignVariables>
         OdometryDesignVariablesSP;
       /// Rotation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
         bsplines::NsecTimePolicy>::CONF>::BSpline RotationSpline;
       /// Rotation spline shared pointer
       typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
       /// Translation spline
-      typedef typename aslam::splines::OPTBSpline<typename
+      typedef aslam::splines::OPTBSpline<
         bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
         bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
       /// Euclidean spline shared pointer
@@ -102,7 +102,7 @@ namespace aslam {
       typedef MeasurementsContainer<DMIMeasurement>::Type DMIMeasurements;
       /// Wheel speeds measurements
       typedef MeasurementsContainer<WheelSpeedsMeasurement>::Type
-        WheelsSpeedMeasurements;
+        WheelSpeedsMeasurements;
       /// Steering measurements
       typedef MeasurementsContainer<SteeringMeasurement>::Type
         SteeringMeasurements;
@@ -181,17 +181,17 @@ namespace aslam {
       /// Returns the DMI predictions squared errors
       const std::vector<double>& getDMIPredictionErrors2() const;
       /// Returns the rear wheels measurements
-      const WheelsSpeedMeasurements& getRearWheelsMeasurements() const;
+      const WheelSpeedsMeasurements& getRearWheelsMeasurements() const;
       /// Returns the rear wheels predictions
-      const WheelsSpeedMeasurements& getRearWheelsPredictions() const;
+      const WheelSpeedsMeasurements& getRearWheelsPredictions() const;
       /// Returns the rear wheels prediction errors
       const std::vector<Eigen::VectorXd>& getRearWheelsPredictionErrors() const;
       /// Returns the rear wheels prediction squared errors
       const std::vector<double>& getRearWheelsPredictionErrors2() const;
       /// Returns the front wheels measurements
-      const WheelsSpeedMeasurements& getFrontWheelsMeasurements() const;
+      const WheelSpeedsMeasurements& getFrontWheelsMeasurements() const;
       /// Returns the front wheels predictions
-      const WheelsSpeedMeasurements& getFrontWheelsPredictions() const;
+      const WheelSpeedsMeasurements& getFrontWheelsPredictions() const;
       /// Returns the front wheels prediction errors
       const std::vector<Eigen::VectorXd>& getFrontWheelsPredictionErrors()
         const;
@@ -211,9 +211,12 @@ namespace aslam {
       /** \name Methods
         @{
         */
-      /// Adds a pose and velocities measurement
-      void addPoseMeasurement(const PoseMeasurement& pose, const
-        VelocitiesMeasurement& vel, sm::timing::NsecTime timestamp);
+      /// Adds a pose measurement
+      void addPoseMeasurement(const PoseMeasurement& pose, sm::timing::NsecTime
+        timestamp);
+      /// Adds a velocities measurement
+      void addVelocitiesMeasurement(const VelocitiesMeasurement& vel,
+        sm::timing::NsecTime timestamp);
       /// Adds an Applanix POS LV encoder measurement
       void addDMIMeasurement(const DMIMeasurement& data, sm::timing::NsecTime
         timestamp);
@@ -259,15 +262,15 @@ namespace aslam {
       /// Predicts DMI measurements
       void predictDMI(const DMIMeasurements& measurements);
       /// Adds CAN front wheels speed error terms
-      void addFrontWheelsErrorTerms(const WheelsSpeedMeasurements& measurements,
+      void addFrontWheelsErrorTerms(const WheelSpeedsMeasurements& measurements,
         const OptimizationProblemSplineSP& batch);
       /// Predicts CAN data fw measurements
-      void predictFrontWheels(const WheelsSpeedMeasurements& measurements);
+      void predictFrontWheels(const WheelSpeedsMeasurements& measurements);
       /// Adds CAN rear wheels speed error terms
-      void addRearWheelsErrorTerms(const WheelsSpeedMeasurements& measurements,
+      void addRearWheelsErrorTerms(const WheelSpeedsMeasurements& measurements,
         const OptimizationProblemSplineSP& batch);
       /// Predicts CAN data rw measurements
-      void predictRearWheels(const WheelsSpeedMeasurements& measurements);
+      void predictRearWheels(const WheelSpeedsMeasurements& measurements);
       /// Adds CAN steering error terms
       void addSteeringErrorTerms(const SteeringMeasurements& measurements,
         const OptimizationProblemSplineSP& batch);
@@ -316,21 +319,21 @@ namespace aslam {
       /// DMI measurements squared errors
       std::vector<double> _dmiMeasurementsPredErrors2;
       /// Stored CAN front wheels speed measurements
-      WheelsSpeedMeasurements _frontWheelsSpeedMeasurements;
+      WheelSpeedsMeasurements _frontWheelSpeedsMeasurements;
       /// Predicted CAN front wheels speed measurements
-      WheelsSpeedMeasurements _frontWheelsSpeedMeasurementsPred;
+      WheelSpeedsMeasurements _frontWheelSpeedsMeasurementsPred;
       /// Front wheels measurements errors
-      std::vector<Eigen::VectorXd> _frontWheelsSpeedMeasurementsPredErrors;
+      std::vector<Eigen::VectorXd> _frontWheelSpeedsMeasurementsPredErrors;
       /// Front wheels measurements squared errors
-      std::vector<double> _frontWheelsSpeedMeasurementsPredErrors2;
+      std::vector<double> _frontWheelSpeedsMeasurementsPredErrors2;
       /// Stored CAN rear wheels speed measurements
-      WheelsSpeedMeasurements _rearWheelsSpeedMeasurements;
+      WheelSpeedsMeasurements _rearWheelSpeedsMeasurements;
       /// Predicted CAN rear wheels speed measurements
-      WheelsSpeedMeasurements _rearWheelsSpeedMeasurementsPred;
+      WheelSpeedsMeasurements _rearWheelSpeedsMeasurementsPred;
       /// Rear wheels measurements errors
-      std::vector<Eigen::VectorXd> _rearWheelsSpeedMeasurementsPredErrors;
+      std::vector<Eigen::VectorXd> _rearWheelSpeedsMeasurementsPredErrors;
       /// Rear wheels measurements squared errors
-      std::vector<double> _rearWheelsSpeedMeasurementsPredErrors2;
+      std::vector<double> _rearWheelSpeedsMeasurementsPredErrors2;
       /// Stored CAN steering measurements
       SteeringMeasurements _steeringMeasurements;
       /// Predicted CAN steering measurements

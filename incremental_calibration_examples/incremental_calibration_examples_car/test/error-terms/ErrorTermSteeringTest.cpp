@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,7 +20,7 @@
     \brief This file tests the ErrorTermWheel class.
   */
 
-#include <cmath>
+#include <Eigen/Core>
 
 #include <boost/make_shared.hpp>
 

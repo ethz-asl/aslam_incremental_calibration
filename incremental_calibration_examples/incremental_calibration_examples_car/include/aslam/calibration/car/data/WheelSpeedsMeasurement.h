@@ -21,8 +21,8 @@
            represents a wheel speeds measurement.
   */
 
-#ifndef ASLAM_CALIBRATION_WHEEL_SPEEDS_MEASUREMENT_H
-#define ASLAM_CALIBRATION_WHEEL_SPEEDS_MEASUREMENT_H
+#ifndef ASLAM_CALIBRATION_CAR_WHEEL_SPEEDS_MEASUREMENT_H
+#define ASLAM_CALIBRATION_CAR_WHEEL_SPEEDS_MEASUREMENT_H
 
 namespace aslam {
   namespace calibration {
@@ -47,4 +47,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_WHEEL_SPEEDS_MEASUREMENT_H
+#endif // ASLAM_CALIBRATION_CAR_WHEEL_SPEEDS_MEASUREMENT_H

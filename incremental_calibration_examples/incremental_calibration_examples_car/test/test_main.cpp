@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -17,7 +17,7 @@
  ******************************************************************************/
 
 /** \file test_main.cpp
-    \brief This file runs all the tests that were declared with TEST()
+    \brief This file runs all the tests that were declared with TEST().
   */
 
 #include <gtest/gtest.h>

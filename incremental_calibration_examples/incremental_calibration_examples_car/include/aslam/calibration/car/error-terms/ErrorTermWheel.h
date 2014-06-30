@@ -24,6 +24,8 @@
 #ifndef ASLAM_CALIBRATION_CAR_ERROR_TERM_WHEEL_H
 #define ASLAM_CALIBRATION_CAR_ERROR_TERM_WHEEL_H
 
+#include <Eigen/Core>
+
 #include <aslam/backend/ErrorTerm.hpp>
 #include <aslam/backend/EuclideanExpression.hpp>
 #include <aslam/backend/ScalarExpression.hpp>
@@ -37,8 +39,10 @@ namespace aslam {
     class ErrorTermWheel :
       public aslam::backend::ErrorTermFs<3> {
     public:
+      /// \cond
       // Required by Eigen for fixed-size matrices members
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+      /// \endcond
 
       /** \name Types definitions
         @{

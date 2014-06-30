@@ -104,7 +104,7 @@ namespace aslam {
       const double a3 = _params->getValue()(3);
       const double v0 = _v_v_mw.toValue()(0);
       const double v1 = _v_v_mw.toValue()(1);
-      const double phi = atan2(v1, v0);
+      const double phi = std::atan2(v1, v0);
       error(0) = a0 + a1 * _measurement + a2 * _measurement * _measurement +
         a3 * _measurement * _measurement * _measurement - phi;
       error(0) = sm::kinematics::angleMod(error(0));

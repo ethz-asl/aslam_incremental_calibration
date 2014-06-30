@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,8 +20,8 @@
     \brief This file defines a generic container for measurements.
   */
 
-#ifndef ASLAM_CALIBRATION_MEASUREMENTS_CONTAINER_H
-#define ASLAM_CALIBRATION_MEASUREMENTS_CONTAINER_H
+#ifndef ASLAM_CALIBRATION_CAR_MEASUREMENTS_CONTAINER_H
+#define ASLAM_CALIBRATION_CAR_MEASUREMENTS_CONTAINER_H
 
 #include <vector>
 #include <utility>
@@ -49,4 +49,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_MEASUREMENTS_CONTAINER_H
+#endif // ASLAM_CALIBRATION_CAR_MEASUREMENTS_CONTAINER_H

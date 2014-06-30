@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -17,6 +17,8 @@
  ******************************************************************************/
 
 #include "aslam/calibration/car/geo/geodetic.h"
+
+#include <Eigen/Core>
 
 #include <cmath>
 
@@ -39,10 +41,10 @@ namespace aslam {
     sm::kinematics::Transformation enu2ecef(double x, double y, double z, double
         latitude, double longitude) {
 
-      const double slat = sin(latitude);
-      const double clat = cos(latitude);
-      const double slong = sin(longitude);
-      const double clong = cos(longitude);
+      const double slat = std::sin(latitude);
+      const double clat = std::cos(latitude);
+      const double slong = std::sin(longitude);
+      const double clong = std::cos(longitude);
 
       Eigen::Matrix3d enu_R_ecef;
       enu_R_ecef << -slong, clong, 0,
@@ -61,10 +63,10 @@ namespace aslam {
     sm::kinematics::Transformation ned2ecef(double x, double y, double z, double
         latitude, double longitude) {
 
-      const double slat = sin(latitude);
-      const double clat = cos(latitude);
-      const double slong = sin(longitude);
-      const double clong = cos(longitude);
+      const double slat = std::sin(latitude);
+      const double clat = std::cos(latitude);
+      const double slong = std::sin(longitude);
+      const double clong = std::cos(longitude);
 
       Eigen::Matrix3d ned_R_ecef;
       ned_R_ecef << -slat * clong, -slat * slong, clat,
@@ -77,10 +79,10 @@ namespace aslam {
 
     void wgs84ToEcef(double latitude, double longitude, double altitude,
         double& x, double& y, double& z) {
-      const double slat = sin(latitude);
-      const double clat = cos(latitude);
-      const double slong = sin(longitude);
-      const double clong = cos(longitude);
+      const double slat = std::sin(latitude);
+      const double clat = std::cos(latitude);
+      const double slong = std::sin(longitude);
+      const double clong = std::cos(longitude);
       const double a = 6378137;
       const double e2 = 0.006694380004260827;
       const double R = a / std::sqrt(1 - e2 * slat * slat);

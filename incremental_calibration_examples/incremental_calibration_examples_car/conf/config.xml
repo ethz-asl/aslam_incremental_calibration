@@ -7,7 +7,7 @@
     <splines>
       <transSplineLambda>1e-1</transSplineLambda>
       <rotSplineLambda>1e-1</rotSplineLambda>
-      <splineKnotsPerSecond>3</splineKnotsPerSecond>
+      <splineKnotsPerSecond>5</splineKnotsPerSecond>
       <transSplineOrder>4</transSplineOrder>
       <rotSplineOrder>4</rotSplineOrder>
     </splines>
@@ -17,12 +17,12 @@
         <linearVelocityTolerance>1.0</linearVelocityTolerance>
         <fws>
           <topic>/can_prius/front_wheels_speed</topic>
-          <active>true</active>
+          <active>false</active>
           <noise>
             <flwPercentError>0.2</flwPercentError>
             <frwPercentError>0.2</frwPercentError>
-            <flwVariance>50</flwVariance>
-            <frwVariance>50</frwVariance>
+            <flwVariance>100</flwVariance>
+            <frwVariance>100</frwVariance>
           </noise>
         </fws>
         <rws>
@@ -31,26 +31,34 @@
           <noise>
             <rlwPercentError>0.2</rlwPercentError>
             <rrwPercentError>0.2</rrwPercentError>
-            <rlwVariance>50</rlwVariance>
-            <rrwVariance>50</rrwVariance>
+            <rlwVariance>1</rlwVariance>
+            <rrwVariance>1</rrwVariance>
           </noise>
         </rws>
         <st>
           <topic>/can_prius/steering1</topic>
-          <active>true</active>
+          <active>false</active>
           <noise>
             <steeringVariance>0.004</steeringVariance>
           </noise>
         </st>
         <dmi>
           <topic>/poslv/time_tagged_dmi_data</topic>
-          <active>true</active>
+          <active>false</active>
           <noise>
             <dmiPercentError>0.1</dmiPercentError>
-            <dmiVariance>0.0063</dmiVariance>
+            <dmiVariance>0.006</dmiVariance>
           </noise>
         </dmi>
       </sensors>
+      <timeDelays>
+        <rearWheels>0</rearWheels>
+        <frontWheels>0</frontWheels>
+        <steering>0</steering>
+        <dmi>0</dmi>
+        <delayBound>500000000</delayBound>
+        <active>true</active>
+      </timeDelays>
       <intrinsics>
         <wheelBase>2.70002</wheelBase>
         <halfRearTrack>0.74041</halfRearTrack>
@@ -78,11 +86,10 @@
         </rotation>
       </extrinsics>
       <constraints>
-        <active>true</active>
-          <noise>
-            <vyVariance>0.005</vyVariance>
-            <vzVariance>0.006</vzVariance>
-          </noise>
+        <noise>
+          <vyVariance>0.005</vyVariance>
+          <vzVariance>0.006</vzVariance>
+        </noise>
       </constraints>
     </odometry>
     <applanix>
@@ -108,7 +115,7 @@
         <linearSolver>
           <columnScaling>true</columnScaling>
           <epsNorm>1e-8</epsNorm>
-          <epsSVD>1e-5</epsSVD>
+          <epsSVD>1e-3</epsSVD>
           <epsQR>1e-16</epsQR>
           <svdTol>-1</svdTol>
           <qrTol>-1</qrTol>

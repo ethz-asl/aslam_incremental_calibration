@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2014 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -24,6 +24,8 @@
 #define ASLAM_CALIBRATION_CAR_CALIBRATOR_OPTIONS_H
 
 #include <cstdint>
+
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 namespace sm {
 
@@ -99,6 +101,8 @@ namespace aslam {
       bool usePose;
       /// Use velocities error terms
       bool useVelocities;
+      /// Bound for time delay
+      sm::timing::NsecTime delayBound;
       /** @}
         */
 
