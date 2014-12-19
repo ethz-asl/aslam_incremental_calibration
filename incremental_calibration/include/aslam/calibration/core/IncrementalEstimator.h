@@ -287,6 +287,9 @@ namespace aslam {
         return * _optimizer;
       }
 
+      /// True iff it is using a observability aware linear solver
+      bool isObservabilityAware() { return _isObservabilityAware; }
+
       /** @}
         */
 
@@ -365,6 +368,9 @@ namespace aslam {
       double _initialCost;
       /// Final cost
       double _finalCost;
+
+      /// True iff it is using a observability aware linear solver
+      bool _isObservabilityAware;
       /** @}
         */
 

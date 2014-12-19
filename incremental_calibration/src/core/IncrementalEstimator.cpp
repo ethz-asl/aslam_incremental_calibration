@@ -25,6 +25,7 @@
 
 #include <aslam-tsvd-solver/aslam-tsvd-solver.h>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
+#include <aslam/backend/LevenbergMarquardtTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 #include <boost/make_shared.hpp>
 #include <sm/PropertyTree.hpp>
@@ -60,7 +61,8 @@ namespace aslam {
         _memoryUsage(0),
         _numFlops(0.0),
         _initialCost(0.0),
-        _finalCost(0.0)
+        _finalCost(0.0),
+        _isObservabilityAware(true)
     {
       // create linear solver and trust region policy for the optimizer
       OptimizerOptions& optOptions = _optimizer->options();
@@ -88,10 +90,26 @@ namespace aslam {
         _numFlops(0.0),
         _initialCost(0.0),
         _finalCost(0.0)
-        {
+    {
+      sm::PropertyTree optimizerPT(config, "optimizer");
+
+      std::string method = optimizerPT.getString("method", "ObservabilityAware");
+
       // create the optimizer, linear solver, and trust region policy
-      boost::shared_ptr<LinearSolver> linearSolver = boost::make_shared<LinearSolver>(sm::PropertyTree(config, "optimizer/linearSolver"));
-      _optimizer = boost::make_shared<Optimizer>(sm::PropertyTree(config, "optimizer"), linearSolver, boost::make_shared<TrustRegionPolicy>());
+      if(method == "ObservabilityAware"){
+        boost::shared_ptr<LinearSolver> linearSolver = boost::make_shared<LinearSolver>(sm::PropertyTree(config, "optimizer/linearSolver"));
+        _optimizer = boost::make_shared<Optimizer>(optimizerPT, linearSolver, boost::make_shared<TrustRegionPolicy>());
+        _isObservabilityAware = true;
+      } else if(method == "LevenbergMarquard"){
+        _optimizer = boost::make_shared<Optimizer>(
+          optimizerPT,
+          nullptr,
+          boost::make_shared<backend::LevenbergMarquardtTrustRegionPolicy>(sm::PropertyTree(config, "optimizer/levenbergMarquardt"))
+          );
+        _isObservabilityAware = false;
+      } else {
+        throw Exception("Unknown estimation method " + method);
+      }
 
       // create the problem and attach it to the optimizer
       _problem = boost::make_shared<IncrementalOptimizationProblem>();
@@ -259,14 +277,15 @@ namespace aslam {
           it != _problem->getGroupsOrdering().cend(); ++it)
         JCols += _problem->getGroupDim(*it);
       const size_t dim = _problem->getGroupDim(_margGroupId);
-      auto linearSolver = _optimizer->getSolver<LinearSolver>();
-      linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
+      auto linearSolver = _optimizer->getSolver<LinearSolver>(false);
+      if(linearSolver)
+        linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
 
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
       // grep the scaled linear system informations
-      if (linearSolver->getOptions().columnScaling) {
+      if (linearSolver && linearSolver->getOptions().columnScaling) {
         _singularValuesScaled = linearSolver->getSingularValues();
         _nobsBasisScaled = linearSolver->getNullSpace();
         _obsBasisScaled = linearSolver->getRowSpace();
@@ -281,26 +300,28 @@ namespace aslam {
         _sigma2ThetaObsScaled.resize(0, 0);
       }
 
-      // analyze the unscaled marginal system
-      linearSolver->analyzeMarginal();
+      if(linearSolver){
+        // analyze the unscaled marginal system
+        linearSolver->analyzeMarginal();
 
-      // retrieve informations from the linear solver
-      _informationGain = 0.0;
-      _svLog2Sum = linearSolver->getSingularValuesLog2Sum();
-      _nobsBasis = linearSolver->getNullSpace();
-      _obsBasis = linearSolver->getRowSpace();
-      _sigma2Theta = linearSolver->getCovariance();
-      _sigma2ThetaObs = linearSolver->getRowSpaceCovariance();
-      _singularValues = linearSolver->getSingularValues();
-      _svdTolerance = linearSolver->getSVDTolerance();
-      _qrTolerance = linearSolver->getQRTolerance();
-      _rankTheta = linearSolver->getSVDRank();
-      _rankThetaDeficiency = linearSolver->getSVDRankDeficiency();
-      _rankPsi = linearSolver->getQRRank();
-      _rankPsiDeficiency = linearSolver->getQRRankDeficiency();
-      _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
-      _memoryUsage = linearSolver->getMemoryUsage();
-      _numFlops = linearSolver->getNumFlops();
+        // retrieve informations from the linear solver
+        _informationGain = 0.0;
+        _svLog2Sum = linearSolver->getSingularValuesLog2Sum();
+        _nobsBasis = linearSolver->getNullSpace();
+        _obsBasis = linearSolver->getRowSpace();
+        _sigma2Theta = linearSolver->getCovariance();
+        _sigma2ThetaObs = linearSolver->getRowSpaceCovariance();
+        _singularValues = linearSolver->getSingularValues();
+        _svdTolerance = linearSolver->getSVDTolerance();
+        _qrTolerance = linearSolver->getQRTolerance();
+        _rankTheta = linearSolver->getSVDRank();
+        _rankThetaDeficiency = linearSolver->getSVDRankDeficiency();
+        _rankPsi = linearSolver->getQRRank();
+        _rankPsiDeficiency = linearSolver->getQRRankDeficiency();
+        _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
+        _memoryUsage = linearSolver->getMemoryUsage();
+        _numFlops = linearSolver->getNumFlops();
+      }
       _initialCost = srv.JStart;
       _finalCost = srv.JFinal;
 
@@ -401,8 +422,9 @@ namespace aslam {
           it != _problem->getGroupsOrdering().cend(); ++it)
         JCols += _problem->getGroupDim(*it);
       const size_t dim = _problem->getGroupDim(_margGroupId);
-      auto linearSolver = _optimizer->getSolver<LinearSolver>();
-      linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
+      auto linearSolver = _optimizer->getSolver<LinearSolver>(false);
+      if(linearSolver)
+        linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
 
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
@@ -417,7 +439,7 @@ namespace aslam {
       ret.JFinal = srv.JFinal;
 
       // grab the scaled singular values if scaling enabled
-      if (linearSolver->getOptions().columnScaling) {
+      if (linearSolver && linearSolver->getOptions().columnScaling) {
         ret.singularValuesScaled = linearSolver->getSingularValues();
         ret.nobsBasisScaled = linearSolver->getNullSpace();
         ret.obsBasisScaled = linearSolver->getRowSpace();
@@ -432,21 +454,29 @@ namespace aslam {
         ret.sigma2ThetaObsScaled.resize(0, 0);
       }
 
-      // analyze marginal system (unscaled system)
-      linearSolver->analyzeMarginal();
+      if(linearSolver){
+        // analyze marginal system (unscaled system)
+        linearSolver->analyzeMarginal();
 
-      // fill statistics from the linear solver
-      ret.rankPsi = linearSolver->getQRRank();
-      ret.rankPsiDeficiency = linearSolver->getQRRankDeficiency();
-      ret.rankTheta = linearSolver->getSVDRank();
-      ret.rankThetaDeficiency = linearSolver->getSVDRankDeficiency();
-      ret.svdTolerance = linearSolver->getSVDTolerance();
-      ret.qrTolerance = linearSolver->getQRTolerance();
-      ret.nobsBasis = linearSolver->getNullSpace();
-      ret.obsBasis = linearSolver->getRowSpace();
-      ret.sigma2Theta = linearSolver->getCovariance();
-      ret.sigma2ThetaObs = linearSolver->getRowSpaceCovariance();
-      ret.singularValues = linearSolver->getSingularValues();
+        // fill statistics from the linear solver
+        ret.rankPsi = linearSolver->getQRRank();
+        ret.rankPsiDeficiency = linearSolver->getQRRankDeficiency();
+        ret.rankTheta = linearSolver->getSVDRank();
+        ret.rankThetaDeficiency = linearSolver->getSVDRankDeficiency();
+        ret.svdTolerance = linearSolver->getSVDTolerance();
+        ret.qrTolerance = linearSolver->getQRTolerance();
+        ret.nobsBasis = linearSolver->getNullSpace();
+        ret.obsBasis = linearSolver->getRowSpace();
+        ret.sigma2Theta = linearSolver->getCovariance();
+        ret.sigma2ThetaObs = linearSolver->getRowSpaceCovariance();
+        ret.singularValues = linearSolver->getSingularValues();
+        ret.peakMemoryUsage = linearSolver->getPeakMemoryUsage();
+        ret.memoryUsage = linearSolver->getMemoryUsage();
+        ret.numFlops = linearSolver->getNumFlops();
+      }
+      ret.peakMemoryUsage = linearSolver->getPeakMemoryUsage();
+      ret.memoryUsage = linearSolver->getMemoryUsage();
+      ret.numFlops = linearSolver->getNumFlops();
       ret.peakMemoryUsage = linearSolver->getPeakMemoryUsage();
       ret.memoryUsage = linearSolver->getMemoryUsage();
       ret.numFlops = linearSolver->getNumFlops();
@@ -455,8 +485,10 @@ namespace aslam {
       ret.solutionValid = srv.iterations < _optimizer->options().maxIterations && srv.JFinal < srv.JStart;
 
       // compute the information gain
-      ret.svLog2Sum = linearSolver->getSingularValuesLog2Sum();
-      ret.informationGain = 0.5 * (ret.svLog2Sum - _svLog2Sum);
+      if(linearSolver){
+        ret.svLog2Sum = linearSolver->getSingularValuesLog2Sum();
+        ret.informationGain = 0.5 * (ret.svLog2Sum - _svLog2Sum);
+      }
 
       // batch is kept? information gain improvement or rank goes up
       ret.isInformativeBatch = (ret.informationGain > _options.infoGainDelta ||
@@ -531,12 +563,11 @@ namespace aslam {
         dim += et->dimension();
         ets.push_back(et);
       }
-      auto linearSolver = _optimizer->getSolver<LinearSolver>();
-      linearSolver->initMatrixStructure(dvs, ets, false);
-
-      // build the system
-      linearSolver->buildSystem(_optimizer->options().numThreadsJacobian, true);
+      auto linearSolver = _optimizer->getSolver<LinearSolver>(false);
+      if(linearSolver){
+        linearSolver->initMatrixStructure(dvs, ets, false);
+        linearSolver->buildSystem(_optimizer->options().numThreadsJacobian, true);
+      }
     }
-
   }
 }
