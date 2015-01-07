@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,31 +16,38 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file MeasurementsContainer.h
-    \brief This file defines a generic container for measurements.
+/** \file MotionMeasurement.h
+    \brief This file defines the MotionMeasurement structure which represents
+           the measurement of an incremental motion sensor.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_MEASUREMENTS_CONTAINER_H
-#define ASLAM_CALIBRATION_TIME_DELAY_MEASUREMENTS_CONTAINER_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_MOTION_MEASUREMENT_H
+#define ASLAM_CALIBRATION_EGOMOTION_MOTION_MEASUREMENT_H
 
-#include <vector>
-#include <utility>
+#include <Eigen/Core>
 
-#include <sm/timing/NsecTimeUtilities.hpp>
+#include <sm/kinematics/Transformation.hpp>
 
 namespace aslam {
   namespace calibration {
 
-    /** The structure MeasurementsContainer represents a generic measurements
-        container.
-        \brief Measurements container
+    /** The structure MotionMeasurement represents a measurement returned by an
+        incremental motion sensor.
+        \brief Motion measurement
       */
-    template <typename C> struct MeasurementsContainer {
-      /** \name Types definitions
+    struct MotionMeasurement {
+      /// \cond
+      // Required by Eigen for fixed-size matrices members
+      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+      /// \endcond
+
+      /** \name Public members
         @{
         */
-      /// Container type
-      typedef std::vector<std::pair<sm::timing::NsecTime, C> > Type;
+      /// Incremental motion
+      sm::kinematics::Transformation motion;
+      /// Measurement covariance
+      Eigen::Matrix<double, 6, 6> sigma2;
       /** @}
         */
 
@@ -49,4 +56,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_MEASUREMENTS_CONTAINER_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_MOTION_MEASUREMENT_H

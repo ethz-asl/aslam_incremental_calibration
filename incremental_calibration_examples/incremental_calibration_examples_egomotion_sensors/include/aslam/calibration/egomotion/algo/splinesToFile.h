@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,8 +20,8 @@
     \brief This file contains a utility to write spline data to file.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_SPLINES_TO_FILE_H
-#define ASLAM_CALIBRATION_TIME_DELAY_SPLINES_TO_FILE_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_SPLINES_TO_FILE_H
+#define ASLAM_CALIBRATION_EGOMOTION_SPLINES_TO_FILE_H
 
 #include <fstream>
 
@@ -78,4 +78,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_SPLINES_TO_FILE_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_SPLINES_TO_FILE_H

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/time-delay/algo/splinesToFile.h"
+#include "aslam/calibration/egomotion/algo/splinesToFile.h"
 
 #include <algorithm>
 
@@ -28,7 +28,7 @@
 
 #include <bsplines/NsecTimePolicy.hpp>
 
-#include "aslam/calibration/time-delay/algo/OptimizationProblemSpline.h"
+#include "aslam/calibration/egomotion/algo/OptimizationProblemSpline.h"
 
 using namespace sm::timing;
 using namespace sm::kinematics;
@@ -43,11 +43,11 @@ namespace aslam {
     void writeSplines(const IncrementalEstimatorSP& estimator, double dt,
         std::ofstream& stream) {
       auto batches = estimator->getProblem()->getOptimizationProblems();
-      for (auto it = batches.cbegin(); it != batches.cend(); ++it) {
+      for (const auto& batch : batches) {
         auto transSplines = dynamic_cast<const OptimizationProblemSpline*>(
-          it->get())->getTranslationSplines();
+          batch.get())->getTranslationSplines();
         auto rotSplines = dynamic_cast<const OptimizationProblemSpline*>(
-          it->get())->getRotationSplines();
+          batch.get())->getRotationSplines();
         for (auto itSplines = transSplines.cbegin(); itSplines !=
             transSplines.cend(); ++itSplines) {
           writeSplines(*itSplines, rotSplines.at(std::distance(

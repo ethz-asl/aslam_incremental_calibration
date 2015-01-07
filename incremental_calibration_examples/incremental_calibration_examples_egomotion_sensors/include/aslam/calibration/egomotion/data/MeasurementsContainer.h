@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,40 +16,31 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file PoseMeasurement.h
-    \brief This file defines the PoseMeasurement structure which represents a
-           measurement of a pose sensor.
+/** \file MeasurementsContainer.h
+    \brief This file defines a generic container for measurements.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_POSE_MEASUREMENT_H
-#define ASLAM_CALIBRATION_TIME_DELAY_POSE_MEASUREMENT_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_MEASUREMENTS_CONTAINER_H
+#define ASLAM_CALIBRATION_EGOMOTION_MEASUREMENTS_CONTAINER_H
 
-#include <Eigen/Core>
+#include <vector>
+#include <utility>
+
+#include <sm/timing/NsecTimeUtilities.hpp>
 
 namespace aslam {
   namespace calibration {
 
-    /** The structure PoseMeasurement represents a measurement returned by a
-        pose sensor such as Applanix.
-        \brief Pose measurement
+    /** The structure MeasurementsContainer represents a generic measurements
+        container.
+        \brief Measurements container
       */
-    struct PoseMeasurement {
-      /// \cond
-      // Required by Eigen for fixed-size matrices members
-      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-      /// \endcond
-
-      /** \name Public members
+    template <typename C> struct MeasurementsContainer {
+      /** \name Types definitions
         @{
         */
-      /// Relative position of the reference frame w.r. to the world frame
-      Eigen::Vector3d w_r_wp;
-      /// Covariance matrix for w_r_wp
-      Eigen::Matrix3d sigma2_w_r_wp;
-      /// Relative orientation of the reference frame w.r. to the world frame
-      Eigen::Vector3d w_R_p; // [yaw, pitch, roll]
-      /// Covariance matrix for m_R_r
-      Eigen::Matrix3d sigma2_w_R_p;
+      /// Container type
+      typedef std::vector<std::pair<sm::timing::NsecTime, C> > Type;
       /** @}
         */
 
@@ -58,4 +49,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_POSE_MEASUREMENT_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_MEASUREMENTS_CONTAINER_H

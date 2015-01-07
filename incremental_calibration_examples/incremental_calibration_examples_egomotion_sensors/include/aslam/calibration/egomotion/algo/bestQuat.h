@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,33 +16,28 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file WheelSpeedsMeasurement.h
-    \brief This file defines the WheelSpeedsMeasurement structure which
-           represents a wheel speed measurement.
+/** \file bestQuat.h
+    \brief This file contains a utility to avoid jumps in quaternions.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_WHEEL_SPEED_MEASUREMENT_H
-#define ASLAM_CALIBRATION_TIME_DELAY_WHEEL_SPEED_MEASUREMENT_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_BESTQUAT_H
+#define ASLAM_CALIBRATION_EGOMOTION_BESTQUAT_H
+
+#include <Eigen/Core>
 
 namespace aslam {
   namespace calibration {
 
-    /** The structure WheelSpeedsMeasurement represents a wheel speeds
-        measurement.
-        \brief Wheel speed measurement.
+    /** \name Methods
+      @{
       */
-    struct WheelSpeedMeasurement {
-      /** \name Public members
-        @{
-        */
-      /// Measurement
-      double value;
-      /** @}
-        */
-
-    };
+    /// Finds the best quaternion avoiding jumps
+    Eigen::Vector4d bestQuat(const Eigen::Vector4d& pquat, const
+      Eigen::Vector4d& cquat);
+    /** @}
+      */
 
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_WHEEL_SPEED_MEASUREMENT_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_BESTQUAT_H

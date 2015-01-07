@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,8 +20,8 @@
     \brief This file defines the CalibratorOptions structure.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_CALIBRATOR_OPTIONS_H
-#define ASLAM_CALIBRATION_TIME_DELAY_CALIBRATOR_OPTIONS_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_CALIBRATOR_OPTIONS_H
+#define ASLAM_CALIBRATION_EGOMOTION_CALIBRATOR_OPTIONS_H
 
 #include <sm/timing/NsecTimeUtilities.hpp>
 
@@ -63,18 +63,12 @@ namespace aslam {
       int transSplineOrder;
       /// Rotation spline order
       int rotSplineOrder;
-      /// Variance for left wheel speed measurements
-      double lwVariance;
-      /// Variance for right wheel speed measurements
-      double rwVariance;
-      /// Variance for v_y constraint
-      double vyVariance;
-      /// Variance for v_z constraint
-      double vzVariance;
       /// Verbose option
       bool verbose;
-      /// Bound for time delay
+      /// Bound for time delay in nanoseconds
       sm::timing::NsecTime delayBound;
+      /// Reference sensor
+      size_t referenceSensor;
       /** @}
         */
 
@@ -83,4 +77,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_CALIBRATOR_OPTIONS_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_CALIBRATOR_OPTIONS_H

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/time-delay/algo/CalibratorOptions.h"
+#include "aslam/calibration/egomotion/algo/CalibratorOptions.h"
 
 #include <sm/PropertyTree.hpp>
 
@@ -36,18 +36,16 @@ namespace aslam {
         splineKnotsPerSecond(5),
         transSplineOrder(4),
         rotSplineOrder(4),
-        lwVariance(1e-3),
-        rwVariance(1e-3),
-        vyVariance(1e-1),
-        vzVariance(1e-1),
         verbose(true),
-        delayBound(50000000) {
+        delayBound(50000000),
+        referenceSensor(0) {
     }
 
     CalibratorOptions::CalibratorOptions(const PropertyTree& config) {
       windowDuration = config.getDouble("windowDuration");
       verbose = config.getBool("verbose");
       delayBound = config.getInt("delayBound");
+      referenceSensor = config.getInt("referenceSensor");
 
       transSplineLambda = config.getDouble("splines/transSplineLambda");
       rotSplineLambda = config.getDouble("splines/rotSplineLambda");
@@ -55,13 +53,6 @@ namespace aslam {
       transSplineOrder = config.getInt("splines/transSplineOrder",
         transSplineOrder);
       rotSplineOrder = config.getInt("splines/rotSplineOrder");
-
-      lwVariance = config.getDouble("odometry/sensors/wss/noise/lwVariance");
-      rwVariance = config.getDouble("odometry/sensors/wss/noise/rwVariance");
-      vyVariance = config.getDouble(
-        "odometry/constraints/noise/vyVariance");
-      vzVariance = config.getDouble(
-        "odometry/constraints/noise/vzVariance");
     }
 
   }

@@ -1,4 +1,4 @@
-<time-delay>
+<egomotion>
   <simulation>
     <params>
       <trajectory>
@@ -60,6 +60,7 @@
     <verbose>true</verbose>
 <!--time delay bound in nanoseconds-->
     <delayBound>500000000</delayBound>
+    <referenceSensor>0</referenceSensor>
     <splines>
       <transSplineLambda>1e-3</transSplineLambda>
       <rotSplineLambda>1e-3</rotSplineLambda>
@@ -129,4 +130,4 @@
       </optimizer>
     </estimator>
   </calibrator>
-</time-delay>
+</egomotion>
