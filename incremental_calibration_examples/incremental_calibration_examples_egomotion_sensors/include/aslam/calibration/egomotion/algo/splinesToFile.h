@@ -60,6 +60,17 @@ namespace aslam {
       bsplines::NsecTimePolicy>::CONF>::BSpline TranslationSpline;
     /// Euclidean spline shared pointer
     typedef boost::shared_ptr<TranslationSpline> TranslationSplineSP;
+    /// Rotation spline simple
+    typedef bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
+      bsplines::NsecTimePolicy>::TYPE RotationSplineS;
+    /// Rotation spline simple shared pointer
+    typedef boost::shared_ptr<RotationSplineS> RotationSplineSSP;
+    /// Translation spline simple
+    typedef bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
+      bsplines::NsecTimePolicy>::TYPE TranslationSplineS;
+    /// Euclidean spline simple shared pointer
+    typedef boost::shared_ptr<TranslationSplineS> TranslationSplineSSP;
+
     /** @}
       */
 
@@ -72,6 +83,9 @@ namespace aslam {
     /// Write spline data from spline structure
     void writeSplines(const TranslationSplineSP& transSpline, const
       RotationSplineSP& rotSpline, double dt, std::ofstream& stream);
+    /// Write spline data from simple spline structure
+    void writeSplines(const TranslationSplineSSP& transSpline, const
+      RotationSplineSSP& rotSpline, double dt, std::ofstream& stream);
     /** @}
       */
 

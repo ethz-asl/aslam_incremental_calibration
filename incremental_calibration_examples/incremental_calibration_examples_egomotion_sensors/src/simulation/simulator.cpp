@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -24,14 +24,16 @@
 #include <iomanip>
 #include <fstream>
 #include <algorithm>
+#include <sstream>
+#include <string>
 
 #include <sm/BoostPropertyTree.hpp>
 
-#include "aslam/calibration/time-delay/simulation/SimulationParams.h"
-#include "aslam/calibration/time-delay/simulation/SimulationData.h"
-#include "aslam/calibration/time-delay/simulation/simulationEngine.h"
-#include "aslam/calibration/time-delay/algo/Calibrator.h"
-#include "aslam/calibration/time-delay/algo/splinesToFile.h"
+#include "aslam/calibration/egomotion/simulation/SimulationParams.h"
+#include "aslam/calibration/egomotion/simulation/SimulationData.h"
+#include "aslam/calibration/egomotion/simulation/simulationEngine.h"
+#include "aslam/calibration/egomotion/algo/Calibrator.h"
+#include "aslam/calibration/egomotion/algo/splinesToFile.h"
 
 using namespace aslam::calibration;
 using namespace sm;
@@ -48,7 +50,7 @@ int main(int argc, char** argv) {
   config.loadXml(argv[1]);
 
   // load simulation parameters
-  SimulationParams params(PropertyTree(config, "time-delay/simulation/params"));
+  SimulationParams params(PropertyTree(config, "egomotion/simulation/params"));
 
   std::cout << "Simulating..." << std::endl;
 
@@ -59,39 +61,46 @@ int main(int argc, char** argv) {
   // write trajectory to file for visualization
   std::ofstream w_T_vFile("w_T_v.txt");
   w_T_vFile << std::fixed << std::setprecision(18);
-  data.trajectory.w_T_vWrite(w_T_vFile);
-
-  // write wheel velocities to file
-  std::ofstream w_v_wwlFile("w_v_wwl.txt");
-  data.w_v_wwlWrite(w_v_wwlFile);
-  std::ofstream w_v_wwrFile("w_v_wwr.txt");
-  data.w_v_wwrWrite(w_v_wwrFile);
+  writeSplines(data.trajectory.translationSpline,
+    data.trajectory.rotationSpline, params.dt, w_T_vFile);
 
   // write noise-free measurements to file
-  std::ofstream rwDataFile("rwData.txt");
-  data.rwDataWrite(rwDataFile);
-  std::ofstream lwDataFile("lwData.txt");
-  data.lwDataWrite(lwDataFile);
-  std::ofstream poseDataFile("poseData.txt");
-  data.poseDataWrite(poseDataFile);
+  for (const auto& motionData : data.motionData) {
+    std::stringstream filenameStream;
+    filenameStream << "motionData_" << motionData.first << ".txt";
+    std::ofstream motionDataFile(filenameStream.str());
+    motionDataFile << std::fixed << std::setprecision(18);
+    std::for_each(motionData.second.cbegin(), motionData.second.cend(),
+      [&](decltype(*motionData.second.cbegin()) x){
+      motionDataFile << x.second.motion.t().transpose() << " "
+      << x.second.motion.q().transpose() << std::endl;});
+  }
 
   // write noisy measurements to file
-  std::ofstream rwData_nFile("rwData_n.txt");
-  data.rwData_nWrite(rwData_nFile);
-  std::ofstream lwData_nFile("lwData_n.txt");
-  data.lwData_nWrite(lwData_nFile);
-  std::ofstream poseData_nFile("poseData_n.txt");
-  data.poseData_nWrite(poseData_nFile);
+  for (const auto& motionData : data.motionDataNoisy) {
+    std::stringstream filenameStream;
+    filenameStream << "motionDataNoisy_" << motionData.first << ".txt";
+    std::ofstream motionDataFile(filenameStream.str());
+    motionDataFile << std::fixed << std::setprecision(18);
+    std::for_each(motionData.second.cbegin(), motionData.second.cend(),
+      [&](decltype(*motionData.second.cbegin()) x){
+      motionDataFile << x.second.motion.t().transpose() << " "
+      << x.second.motion.q().transpose() << std::endl;});
+  }
 
   std::cout << "Optimizing..." << std::endl;
-  Calibrator calibrator(PropertyTree(config, "time-delay/calibrator"));
-  for (auto it = data.rwData_n.cbegin(); it != data.rwData_n.cend(); ++it) {
-    auto rw = data.rwData_n.at(std::distance(data.rwData_n.cbegin(), it));
-    calibrator.addRightWheelMeasurement(rw.second, rw.first);
-    auto lw = data.lwData_n.at(std::distance(data.rwData_n.cbegin(), it));
-    calibrator.addLeftWheelMeasurement(lw.second, lw.first);
-    auto pose = data.poseData_n.at(std::distance(data.rwData_n.cbegin(), it));
-    calibrator.addPoseMeasurement(pose.second, pose.first);
+  Calibrator calibrator(PropertyTree(config, "egomotion/calibrator"));
+
+  const auto referenceSensor =
+    config.getInt("egomotion/calibrator/referenceSensor");
+  for (auto it = data.motionData.at(referenceSensor).cbegin();
+      it != data.motionData.at(referenceSensor).cend(); ++it) {
+    for (const auto& motionData : data.motionData) {
+      auto motion = motionData.second.at(
+        std::distance(data.motionData.at(referenceSensor).cbegin(), it));
+      calibrator.addMotionMeasurement(motion.second, motion.first,
+        motionData.first);
+    }
   }
 
   if (calibrator.unprocessedMeasurements())
@@ -109,11 +118,15 @@ int main(int argc, char** argv) {
   std::for_each(infoGainHist.cbegin(), infoGainHist.cend(), [&](decltype(
     *infoGainHist.cbegin()) x) {infoGainHistFile << x << std::endl;});
 
-  std::ofstream calibHistFile("calibHist.txt");
-  auto calibHist = calibrator.getOdometryVariablesHistory();
-  calibHistFile << std::fixed << std::setprecision(18);
-  std::for_each(calibHist.cbegin(), calibHist.cend(), [&](decltype(
-    *calibHist.cbegin()) x) {calibHistFile << x.transpose() << std::endl;});
+  for (const auto& calib : calibrator.getDesignVariablesHistory()) {
+    std::stringstream filenameStream;
+    filenameStream << "calibHist_" << calib.first << ".txt";
+    std::ofstream calibHistFile(filenameStream.str());
+    calibHistFile << std::fixed << std::setprecision(18);
+    std::for_each(calib.second.cbegin(), calib.second.cend(), [&](decltype(
+      *calib.second.cbegin()) x) {calibHistFile << x.transpose()
+      << std::endl;});
+  }
 
   return 0;
 }

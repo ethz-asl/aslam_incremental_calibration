@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,15 +20,14 @@
     \brief This file represents a trajectory.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_H
-#define ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_H
+#define ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_H
 
-#include <vector>
-#include <fstream>
+#include <boost/shared_ptr.hpp>
 
-#include <Eigen/Core>
-
-#include <sm/kinematics/Transformation.hpp>
+#include <bsplines/EuclideanBSpline.hpp>
+#include <bsplines/UnitQuaternionBSpline.hpp>
+#include <bsplines/NsecTimePolicy.hpp>
 
 namespace aslam {
   namespace calibration {
@@ -37,32 +36,29 @@ namespace aslam {
         \brief Trajectory
       */
     struct Trajectory {
-      /// \cond
-      // Required by Eigen for fixed-size matrices members
-      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-      /// \endcond
+      /** \name Types definitions
+        @{
+        */
+      /// Rotation spline
+      typedef bsplines::UnitQuaternionBSpline<Eigen::Dynamic,
+        bsplines::NsecTimePolicy>::TYPE RotationSpline;
+      /// Rotation spline shared pointer
+      typedef boost::shared_ptr<RotationSpline> RotationSplineSP;
+      /// Translation spline
+      typedef bsplines::EuclideanBSpline<Eigen::Dynamic, 3,
+        bsplines::NsecTimePolicy>::TYPE TranslationSpline;
+      /// Euclidean spline shared pointer
+      typedef boost::shared_ptr<TranslationSpline> TranslationSplineSP;
+      /** @}
+        */
 
       /** \name Members
         @{
         */
-      /// Vector of transformations
-      std::vector<sm::kinematics::Transformation> w_T_v;
-      /// Vector of body linear velocities
-      std::vector<Eigen::Vector3d> v_v_wv;
-      /// Vector of body angular velocities
-      std::vector<Eigen::Vector3d> v_om_wv;
-      /** @}
-        */
-
-      /** \name Stream methods
-        @{
-        */
-      /// Output w_T_v
-      void w_T_vWrite(std::ofstream& stream) const;
-      /// Output v_v_wv
-      void v_v_wvWrite(std::ofstream& stream) const;
-      /// Output v_om_wv
-      void v_om_wvWrite(std::ofstream& stream) const;
+      /// Translation spline
+      TranslationSplineSP translationSpline;
+      /// Rotation spline
+      RotationSplineSP rotationSpline;
       /** @}
         */
 
@@ -71,4 +67,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_H

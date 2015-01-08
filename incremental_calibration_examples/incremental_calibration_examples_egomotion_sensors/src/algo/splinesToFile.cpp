@@ -75,5 +75,20 @@ namespace aslam {
       }
     }
 
+    void writeSplines(const TranslationSplineSSP& transSpline, const
+        RotationSplineSSP& rotSpline, double dt, std::ofstream& stream) {
+      auto t = transSpline->getMinTime();
+      auto T = transSpline->getMaxTime();
+      const EulerAnglesYawPitchRoll ypr;
+      while (t < T) {
+        auto translationEvaluator = transSpline->getEvaluatorAt<0>(t);
+        stream << translationEvaluator.eval().transpose() << " ";
+        auto rotationEvaluator = rotSpline->getEvaluatorAt<0>(t);
+        stream << ypr.rotationMatrixToParameters(quat2r(
+          rotationEvaluator.eval())).transpose() << std::endl;
+        t += secToNsec(dt);
+      }
+    }
+
   }
 }

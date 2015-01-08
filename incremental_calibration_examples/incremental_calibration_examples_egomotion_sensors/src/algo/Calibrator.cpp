@@ -44,6 +44,7 @@
 
 #include "aslam/calibration/egomotion/algo/OptimizationProblemSpline.h"
 #include "aslam/calibration/egomotion/algo/bestQuat.h"
+#include "aslam/calibration/egomotion/design-variables/DesignVariables.h"
 
 using namespace sm;
 using namespace sm::timing;
@@ -68,6 +69,15 @@ namespace aslam {
 
       // sets the options for the calibrator
       options_ = Options(config);
+
+      // create the design variables
+      designVariables_ = boost::make_shared<DesignVariables>(sm::PropertyTree(
+        config, "sensors"));
+
+      // save initial guess
+      for (const auto& designVariable : designVariables_->calibrationVariables_)
+        designVariablesHistory_[designVariable.first].push_back(
+          designVariables_->getParameters(designVariable.first));
     }
 
 /******************************************************************************/
@@ -107,6 +117,7 @@ namespace aslam {
       initSplines(options_.referenceSensor);
       batch->addSpline(translationSpline_, 0);
       batch->addSpline(rotationSpline_, 0);
+      designVariables_->addToBatch(batch, 1);
       for (const auto& measurements : motionMeasurements_)
         addMotionErrorTerms(batch, measurements.first);
       clearMeasurements();
@@ -114,6 +125,7 @@ namespace aslam {
       batch->setGroupsOrdering({0, 1});
       if (options_.verbose) {
         std::cout << "calibration before batch: " << std::endl;
+        std::cout << *designVariables_ << std::endl;
       }
       IncrementalEstimator::ReturnValue ret = estimator_->addBatch(batch);
       if (options_.verbose) {
@@ -121,28 +133,32 @@ namespace aslam {
         ret.batchAccepted ? std::cout << "ACCEPTED" : std::cout << "REJECTED";
         std::cout << std::endl;
         std::cout << "calibration after batch: " << std::endl;
-//        std::cout << *_odometryDesignVariables << std::endl;
+        std::cout << *designVariables_ << std::endl;
         std::cout << "singular values: " << std::endl
           << ret.singularValuesScaled << std::endl;
         std::cout << "observability: " << std::endl;
-        std::cout << "b: " << ret.obsBasisScaled.row(0).norm() << std::endl;
-        std::cout << "k_l: " << ret.obsBasisScaled.row(1).norm() << std::endl;
-        std::cout << "t_l: " << ret.obsBasisScaled.row(2).norm() << std::endl;
-        std::cout << "k_r: " << ret.obsBasisScaled.row(3).norm() << std::endl;
-        std::cout << "t_r: " << ret.obsBasisScaled.row(4).norm() << std::endl;
-        std::cout << "v_r_vp_1: " << ret.obsBasisScaled.row(5).norm()
-          << std::endl;
-        std::cout << "v_r_vp_2: " << ret.obsBasisScaled.row(6).norm()
-          << std::endl;
-        std::cout << "v_r_vp_3: " << ret.obsBasisScaled.row(7).norm()
-          << std::endl;
-        std::cout << "v_R_p_1: " << ret.obsBasisScaled.row(8).norm()
-          << std::endl;
-        std::cout << "v_R_p_2: " << ret.obsBasisScaled.row(9).norm()
-          << std::endl;
-        std::cout << "v_R_p_3: " << ret.obsBasisScaled.row(10).norm()
-          << std::endl;
+        size_t idx = 0;
+        for (const auto& designVariable :
+            designVariables_->calibrationVariables_) {
+          std::cout << "t_" << designVariable.first << ": "
+            << ret.obsBasisScaled.row(idx++).norm() << std::endl;
+          std::cout << "r_" << designVariable.first << "_1 : "
+            << ret.obsBasisScaled.row(idx++).norm() << std::endl;
+          std::cout << "r_" << designVariable.first << "_2 : "
+            << ret.obsBasisScaled.row(idx++).norm() << std::endl;
+          std::cout << "r_" << designVariable.first << "_3 : "
+            << ret.obsBasisScaled.row(idx++).norm() << std::endl;
+          std::cout << "R_" << designVariable.first << "_1 : "
+            << ret.obsBasisScaled.row(idx++).norm() << std::endl;
+          std::cout << "R_" << designVariable.first << "_2 : "
+            << ret.obsBasisScaled.row(idx++).norm() << std::endl;
+          std::cout << "R_" << designVariable.first << "_3 : "
+            << ret.obsBasisScaled.row(idx++).norm() << std::endl;
+        }
       }
+      for (const auto& designVariable : designVariables_->calibrationVariables_)
+        designVariablesHistory_[designVariable.first].push_back(
+          designVariables_->getParameters(designVariable.first));
       infoGainHistory_.push_back(ret.informationGain);
     }
 
@@ -154,14 +170,19 @@ namespace aslam {
       const auto& measurements = motionMeasurements_.at(idx);
       const auto numMeasurements = measurements.size();
       std::vector<NsecTime> timestamps;
-      timestamps.reserve(numMeasurements);
+      timestamps.reserve(numMeasurements + 1);
       std::vector<Eigen::Vector3d> transPoses;
-      transPoses.reserve(numMeasurements);
+      transPoses.reserve(numMeasurements + 1);
       std::vector<Eigen::Vector4d> rotPoses;
-      rotPoses.reserve(numMeasurements);
+      rotPoses.reserve(numMeasurements + 1);
       auto prevTransformation = sm::kinematics::Transformation();
       for (const auto& measurement : measurements) {
         const auto timestamp = measurement.first;
+        if (timestamps.empty()) {
+          timestamps.push_back(timestamp - measurement.second.duration);
+          transPoses.push_back(prevTransformation.t());
+          rotPoses.push_back(prevTransformation.q());
+        }
         const auto currentTransformation = prevTransformation *
           measurement.second.motion;
         prevTransformation = currentTransformation;
@@ -200,42 +221,155 @@ namespace aslam {
     void Calibrator::addMotionErrorTerms(const OptimizationProblemSplineSP&
         batch, size_t idx) {
       const auto& measurements = motionMeasurements_.at(idx);
+      auto prevTransformation = TransformationExpression();
       for (const auto& measurement : measurements) {
         const auto timestamp = measurement.first;
-        auto translationExpressionFactory =
-          translationSpline_->getExpressionFactoryAt<0>(timestamp);
-        auto rotationExpressionFactory =
-          rotationSpline_->getExpressionFactoryAt<0>(timestamp);
-//        ErrorTermPose::Input w_T_p;
-//        w_T_p.head<3>() = it->second.w_r_wp;
-//        w_T_p.tail<3>() = it->second.w_R_p;
-//        ErrorTermPose::Covariance Q = ErrorTermPose::Covariance::Zero();
-//        Q.topLeftCorner<3, 3>() = it->second.sigma2_w_r_wp;
-//        Q.bottomRightCorner<3, 3>() = it->second.sigma2_w_R_p;
+        if (idx == options_.referenceSensor) {
+          auto translationExpressionFactory =
+            translationSpline_->getExpressionFactoryAt<0>(timestamp);
+          auto rotationExpressionFactory =
+            rotationSpline_->getExpressionFactoryAt<0>(timestamp);
 
-//        auto v_r_vp = EuclideanExpression(_odometryDesignVariables->v_r_vp);
-//        auto w_R_v = Vector2RotationQuaternionExpressionAdapter::adapt(
-//          rotationExpressionFactory.getValueExpression());
-//        auto w_r_vp = w_R_v * v_r_vp;
-//        auto w_r_wv = EuclideanExpression(
-//          translationExpressionFactory.getValueExpression());
-//        auto w_r_wp = w_r_wv + w_r_vp;
-//        auto v_R_p = RotationExpression(_odometryDesignVariables->v_R_p);
-//        auto w_R_p = w_R_v * v_R_p;
-//        auto e_pose = boost::make_shared<ErrorTermPose>(
-//          TransformationExpression(w_R_p, w_r_wp), w_T_p, Q);
-//        batch->addErrorTerm(e_pose);
+          auto currentTransformation = TransformationExpression(
+            Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression()),
+            EuclideanExpression(
+            translationExpressionFactory.getValueExpression()));
+
+          if (prevTransformation.root()) {
+            auto e_mot = boost::make_shared<ErrorTermTransformation>(
+              prevTransformation.inverse() * currentTransformation,
+              measurement.second.motion, measurement.second.sigma2);
+            batch->addErrorTerm(e_mot);
+          }
+
+          prevTransformation = currentTransformation;
+        }
+        else {
+          auto timeDelay = std::get<0>(
+            designVariables_->calibrationVariables_.at(idx))->toExpression();
+          auto timestampDelay = timeDelay +
+            GenericScalarExpression<DesignVariables::Time>(timestamp);
+          auto Tmax = translationSpline_->getMaxTime();
+          auto Tmin = translationSpline_->getMinTime();
+          auto lBound = -options_.delayBound +
+            timestampDelay.toScalar().getNumerator();
+          auto uBound = options_.delayBound +
+            timestampDelay.toScalar().getNumerator();
+
+          if(uBound > Tmax || lBound < Tmin)
+            continue;
+
+          auto translationExpressionFactory =
+            translationSpline_->getExpressionFactoryAt<0>(timestampDelay,
+            lBound, uBound);
+          auto rotationExpressionFactory =
+            rotationSpline_->getExpressionFactoryAt<0>(timestampDelay,
+            lBound, uBound);
+
+          auto currentTransformation = TransformationExpression(
+            Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression()),
+            EuclideanExpression(
+            translationExpressionFactory.getValueExpression())) *
+            TransformationExpression(RotationExpression(std::get<2>(
+            designVariables_->calibrationVariables_.at(idx))),
+            EuclideanExpression(std::get<1>(
+            designVariables_->calibrationVariables_.at(idx))));
+
+          if (prevTransformation.root()) {
+            auto e_mot = boost::make_shared<ErrorTermTransformation>(
+              prevTransformation.inverse() * currentTransformation,
+              measurement.second.motion, measurement.second.sigma2);
+            batch->addErrorTerm(e_mot);
+          }
+
+          prevTransformation = currentTransformation;
+        }
       }
     }
 
     void Calibrator::predictMotion(size_t idx) {
       const auto& measurements = motionMeasurements_.at(idx);
+      auto prevTransformation = TransformationExpression();
       for (const auto& measurement : measurements) {
         const auto timestamp = measurement.first;
-        auto translationExpressionFactory =
-          translationSpline_->getExpressionFactoryAt<0>(timestamp);
-        auto rotationExpressionFactory =
-          rotationSpline_->getExpressionFactoryAt<0>(timestamp);
+        if (idx == options_.referenceSensor) {
+          auto translationExpressionFactory =
+            translationSpline_->getExpressionFactoryAt<0>(timestamp);
+          auto rotationExpressionFactory =
+            rotationSpline_->getExpressionFactoryAt<0>(timestamp);
+
+          auto currentTransformation = TransformationExpression(
+            Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression()),
+            EuclideanExpression(
+            translationExpressionFactory.getValueExpression()));
+
+          if (prevTransformation.root()) {
+            auto e_mot = boost::make_shared<ErrorTermTransformation>(
+              prevTransformation.inverse() * currentTransformation,
+              measurement.second.motion, measurement.second.sigma2);
+
+            auto sr = e_mot->evaluateError();
+            auto error = e_mot->error();
+            MotionMeasurement motion;// TODO
+            motionMeasurementsPred_[idx].push_back(std::make_pair(timestamp,
+              motion));
+            motionMeasurementsPredErrors_[idx].push_back(error);
+            motionMeasurementsPredErrors2_[idx].push_back(sr);
+          }
+
+          prevTransformation = currentTransformation;
+        }
+        else {
+          auto timeDelay = std::get<0>(
+            designVariables_->calibrationVariables_.at(idx))->toExpression();
+          auto timestampDelay = timeDelay +
+            GenericScalarExpression<DesignVariables::Time>(timestamp);
+          auto Tmax = translationSpline_->getMaxTime();
+          auto Tmin = translationSpline_->getMinTime();
+          auto lBound = -options_.delayBound +
+            timestampDelay.toScalar().getNumerator();
+          auto uBound = options_.delayBound +
+            timestampDelay.toScalar().getNumerator();
+
+          if(uBound > Tmax || lBound < Tmin)
+            continue;
+
+          auto translationExpressionFactory =
+            translationSpline_->getExpressionFactoryAt<0>(timestampDelay,
+            lBound, uBound);
+          auto rotationExpressionFactory =
+            rotationSpline_->getExpressionFactoryAt<0>(timestampDelay,
+            lBound, uBound);
+
+          auto currentTransformation = TransformationExpression(
+            Vector2RotationQuaternionExpressionAdapter::adapt(
+            rotationExpressionFactory.getValueExpression()),
+            EuclideanExpression(
+            translationExpressionFactory.getValueExpression())) *
+            TransformationExpression(RotationExpression(std::get<2>(
+            designVariables_->calibrationVariables_.at(idx))),
+            EuclideanExpression(std::get<1>(
+            designVariables_->calibrationVariables_.at(idx))));
+
+          if (prevTransformation.root()) {
+            auto e_mot = boost::make_shared<ErrorTermTransformation>(
+              prevTransformation.inverse() * currentTransformation,
+              measurement.second.motion, measurement.second.sigma2);
+
+            auto sr = e_mot->evaluateError();
+            auto error = e_mot->error();
+            MotionMeasurement motion;// TODO
+            motionMeasurementsPred_[idx].push_back(std::make_pair(timestamp,
+              motion));
+            motionMeasurementsPredErrors_[idx].push_back(error);
+            motionMeasurementsPredErrors2_[idx].push_back(sr);
+          }
+
+          prevTransformation = currentTransformation;
+        }
       }
     }
 

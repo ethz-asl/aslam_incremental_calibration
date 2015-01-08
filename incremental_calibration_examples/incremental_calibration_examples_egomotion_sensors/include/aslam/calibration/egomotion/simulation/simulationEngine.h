@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,8 +20,8 @@
     \brief This file performs the simulation.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_SIMULATION_ENGINE_H
-#define ASLAM_CALIBRATION_TIME_DELAY_SIMULATION_ENGINE_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_SIMULATION_ENGINE_H
+#define ASLAM_CALIBRATION_EGOMOTION_SIMULATION_ENGINE_H
 
 #include <Eigen/Core>
 
@@ -50,13 +50,10 @@ namespace aslam {
     /// Generate 2d body linear and angular velocities along a sine wave
     Eigen::Vector2d genSineBodyVel2d(double& w_phi_v_km1, Eigen::Vector2d&
       w_r_wv_km1, double t, double dt, double A, double f);
-    /// Generate wheel linear velocity from body linear/angular velocity
-    Eigen::Vector3d genWheelVelocity(const Eigen::Vector3d& v_v_wv, const
-      Eigen::Vector3d& v_om_wv, const Eigen::Vector3d& v_r_vc);
     /** @}
       */
 
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_SIMULATION_ENGINE_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_SIMULATION_ENGINE_H

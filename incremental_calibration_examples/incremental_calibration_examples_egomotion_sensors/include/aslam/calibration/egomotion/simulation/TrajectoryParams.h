@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,8 +20,8 @@
     \brief This file represents trajectory parameters.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_PARAMS_H
-#define ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_PARAMS_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_PARAMS_H
+#define ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_PARAMS_H
 
 #include <sm/kinematics/Transformation.hpp>
 
@@ -64,4 +64,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_TRAJECTORY_PARAMS_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_PARAMS_H

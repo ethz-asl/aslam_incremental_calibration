@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,27 +16,33 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-#include "aslam/calibration/time-delay/simulation/simulationEngine.h"
+#include "aslam/calibration/egomotion/simulation/simulationEngine.h"
 
 #include <cmath>
 
 #include <utility>
+#include <vector>
+#include <limits>
+
+#include <boost/make_shared.hpp>
+
+#include <bsplines/BSplineFitter.hpp>
 
 #include <sm/timing/NsecTimeUtilities.hpp>
 
-#include <sm/kinematics/EulerAnglesYawPitchRoll.hpp>
 #include <sm/kinematics/Transformation.hpp>
 #include <sm/kinematics/quaternion_algebra.hpp>
 
 #include <aslam/calibration/statistics/NormalDistribution.h>
 
-#include "aslam/calibration/time-delay/simulation/SimulationData.h"
-#include "aslam/calibration/time-delay/simulation/SimulationParams.h"
-#include "aslam/calibration/time-delay/data/WheelSpeedMeasurement.h"
-#include "aslam/calibration/time-delay/data/PoseMeasurement.h"
+#include "aslam/calibration/egomotion/simulation/Trajectory.h"
+#include "aslam/calibration/egomotion/simulation/SimulationData.h"
+#include "aslam/calibration/egomotion/simulation/SimulationParams.h"
+#include "aslam/calibration/egomotion/algo/bestQuat.h"
 
 using namespace sm::timing;
 using namespace sm::kinematics;
+using namespace bsplines;
 
 namespace aslam {
   namespace calibration {
@@ -46,76 +52,69 @@ namespace aslam {
 /******************************************************************************/
 
     void simulate(const SimulationParams& params, SimulationData& data) {
-      data.trajectory.w_T_v.push_back(params.trajectoryParams.w_T_v_0);
-      data.trajectory.v_v_wv.push_back(Eigen::Vector3d::Zero());
-      data.trajectory.v_om_wv.push_back(Eigen::Vector3d::Zero());
-      const double f = params.trajectoryParams.f;
-      const double dt = params.dt;
-      const double A = params.trajectoryParams.A;
-      const double T = params.T;
+      const auto f = params.trajectoryParams.f;
+      const auto dt = params.dt;
+      const auto A = params.trajectoryParams.A;
+      const auto T = params.T;
       double w_phi_v_km1 = std::atan(2 * M_PI * f * A * cos(2 * M_PI * f * dt));
       Eigen::Vector2d w_r_wv_km1 = Eigen::Vector2d::Zero();
       NsecTime timestamp = 0;
+
+      std::vector<NsecTime> timestamps;
+      timestamps.push_back(timestamp);
+      std::vector<Eigen::Vector3d> transPoses;
+      transPoses.push_back(params.trajectoryParams.w_T_v_0.t());
+      std::vector<Eigen::Vector4d> rotPoses;
+      rotPoses.push_back(params.trajectoryParams.w_T_v_0.q());
+
+      // generate trajectory
       for (double t = dt; t < T; t += dt) {
-        // trajectory
         const Eigen::Vector2d v_v_om_wv_k = genSineBodyVel2d(w_phi_v_km1,
           w_r_wv_km1, t, dt, A, f);
         const Eigen::Vector3d v_v_wv_k(v_v_om_wv_k(0), 0.0, 0.0);
         const Eigen::Vector3d v_om_wv_k(0.0, 0.0, v_v_om_wv_k(1));
-        data.trajectory.w_T_v.push_back(integrateMotionModel(
-          data.trajectory.w_T_v.back(), v_v_wv_k, v_om_wv_k, dt));
-        data.trajectory.v_v_wv.push_back(v_v_wv_k);
-        data.trajectory.v_om_wv.push_back(v_om_wv_k);
-
-        // wheel speed sensors
-        data.w_v_wwl.push_back(genWheelVelocity(v_v_wv_k, v_om_wv_k,
-          Eigen::Vector3d(0.0, params.b, 0.0)));
-        data.w_v_wwr.push_back(genWheelVelocity(v_v_wv_k, v_om_wv_k,
-          Eigen::Vector3d(0.0, -params.b, 0.0)));
-
-        WheelSpeedMeasurement lw;
-        lw.value = params.k_l * data.w_v_wwl.back()(0);
-        data.lwData.push_back(std::make_pair(timestamp + secToNsec(params.t_l),
-          lw));
-
-        const NormalDistribution<1> lwDist(0, params.sigma2_l);
-        lw.value = params.k_l * (data.w_v_wwl.back()(0) + lwDist.getSample());
-        data.lwData_n.push_back(std::make_pair(timestamp +
-          secToNsec(params.t_l), lw));
-
-        WheelSpeedMeasurement rw;
-        rw.value = params.k_r * data.w_v_wwr.back()(0);
-        data.rwData.push_back(std::make_pair(timestamp + secToNsec(params.t_r),
-          rw));
-
-        const NormalDistribution<1> rwDist(0, params.sigma2_r);
-        rw.value = params.k_r * (data.w_v_wwr.back()(0) + rwDist.getSample());
-        data.rwData_n.push_back(std::make_pair(timestamp +
-          secToNsec(params.t_r), rw));
-
-        // pose sensor
-        PoseMeasurement pose;
-        const EulerAnglesYawPitchRoll ypr;
-        pose.w_r_wp = data.trajectory.w_T_v.back().t() +
-          data.trajectory.w_T_v.back().C() * params.v_T_p.t();
-        pose.sigma2_w_r_wp = params.sigma2_w_r_wp;
-        pose.w_R_p = ypr.rotationMatrixToParameters(
-          data.trajectory.w_T_v.back().C() * params.v_T_p.C());
-        pose.sigma2_w_R_p = params.sigma2_w_R_p;
-        data.poseData.push_back(std::make_pair(timestamp + secToNsec(dt * 0.5),
-          pose));
-
-        const NormalDistribution<3> w_r_wpDist(Eigen::Vector3d::Zero(),
-          pose.sigma2_w_r_wp);
-        pose.w_r_wp = pose.w_r_wp + w_r_wpDist.getSample();
-        const NormalDistribution<3>
-          w_R_pDist(Eigen::Vector3d::Zero(), pose.sigma2_w_R_p);
-        pose.w_R_p = pose.w_R_p + w_R_pDist.getSample();
-        data.poseData_n.push_back(std::make_pair(timestamp +
-          secToNsec(dt * 0.5), pose));
-
+        const auto w_T_v_t = integrateMotionModel(
+          Transformation(rotPoses.back(), transPoses.back()), v_v_wv_k,
+          v_om_wv_k, dt);
         timestamp += secToNsec(dt);
+        timestamps.push_back(timestamp);
+        transPoses.push_back(w_T_v_t.t());
+        auto q = w_T_v_t.q();
+        if (!rotPoses.empty())
+          q = bestQuat(rotPoses.back(), q);
+        rotPoses.push_back(q);
       }
+
+      // fit splines
+      const auto elapsedTime = (timestamps.back() - timestamps.front()) /
+        static_cast<double>(NsecTimePolicy::getOne());
+      const auto numMeasurements = timestamps.size();
+      const auto measPerSec = std::lround(numMeasurements / elapsedTime);
+      int numSegments;
+      if (measPerSec > 5) // PARAM
+        numSegments = std::ceil(5 * elapsedTime);
+      else
+        numSegments = numMeasurements;
+
+      data.trajectory.translationSpline =
+        boost::make_shared<Trajectory::TranslationSpline>(
+        EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
+        EuclideanBSpline<Eigen::Dynamic, 3,
+        NsecTimePolicy>::CONF::ManifoldConf(3), 4)); // PARAM
+      BSplineFitter<Trajectory::TranslationSpline>::initUniformSpline(
+        *data.trajectory.translationSpline, timestamps, transPoses, numSegments,
+        1e-3); // PARAM
+
+      data.trajectory.rotationSpline =
+        boost::make_shared<Trajectory::RotationSpline>(
+        UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF(
+        UnitQuaternionBSpline<Eigen::Dynamic,
+        NsecTimePolicy>::CONF::ManifoldConf(), 4)); // PARAM
+      BSplineFitter<Trajectory::RotationSpline>::initUniformSpline(
+        *data.trajectory.rotationSpline, timestamps, rotPoses, numSegments,
+        1e-3); // PARAM
+
+      // generate sensor data
     }
 
     Transformation integrateMotionModel(const Transformation& w_T_v_km1, const
@@ -155,12 +154,6 @@ namespace aslam {
       w_r_wv_km1 = w_r_wv_k;
       return Eigen::Vector2d(v_v_wv_k(0), v_om_wv_k);
     }
-
-    Eigen::Vector3d genWheelVelocity(const Eigen::Vector3d& v_v_wv, const
-        Eigen::Vector3d& v_om_wv, const Eigen::Vector3d& v_r_vc) {
-      return v_v_wv + v_om_wv.cross(v_r_vc);
-    }
-
 
   }
 }

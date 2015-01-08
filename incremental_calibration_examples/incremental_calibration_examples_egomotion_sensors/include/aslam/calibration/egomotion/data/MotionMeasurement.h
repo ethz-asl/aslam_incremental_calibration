@@ -28,6 +28,8 @@
 
 #include <sm/kinematics/Transformation.hpp>
 
+#include <sm/timing/NsecTimeUtilities.hpp>
+
 namespace aslam {
   namespace calibration {
 
@@ -46,6 +48,8 @@ namespace aslam {
         */
       /// Incremental motion
       sm::kinematics::Transformation motion;
+      /// Duration of the incremental motion
+      sm::timing::NsecTime duration;
       /// Measurement covariance
       Eigen::Matrix<double, 6, 6> sigma2;
       /** @}

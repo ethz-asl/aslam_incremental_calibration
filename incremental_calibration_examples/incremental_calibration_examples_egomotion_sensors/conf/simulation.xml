@@ -68,45 +68,53 @@
       <transSplineOrder>4</transSplineOrder>
       <rotSplineOrder>4</rotSplineOrder>
     </splines>
-    <odometry>
-      <sensors>
-        <wss>
-          <noise>
-            <lwVariance>130</lwVariance>
-            <rwVariance>130</rwVariance>
-          </noise>
-        </wss>
-      </sensors>
-      <intrinsics>
-        <halfWheelBase>0.4</halfWheelBase>
-        <lwCoefficient>360.0</lwCoefficient>
-        <rwCoefficient>360.0</rwCoefficient>
-<!--time delay in nanoseconds-->
-        <lwTimeDelay>0</lwTimeDelay>
-        <rwTimeDelay>0</rwTimeDelay>
-        <timeDelaysActive>true</timeDelaysActive>
-      </intrinsics>
-      <extrinsics>
-        <translation>
-          <active>true</active>
-          <x>0.0</x>
-          <y>0.0</y>
-          <z>0.0</z>
-        </translation>
-        <rotation>
-          <active>true</active>
-          <yaw>0.0</yaw>
-          <pitch>0.0</pitch>
-          <roll>0.0</roll>
-        </rotation>
-      </extrinsics>
-      <constraints>
-          <noise>
-            <vyVariance>1e-3</vyVariance>
-            <vzVariance>1e-3</vzVariance>
-          </noise>
-      </constraints>
-    </odometry>
+    <sensors>
+      <num>2</num>
+      <sensor_0>
+        <idx>1</idx>
+        <intrinsics>
+  <!--time delay in nanoseconds-->
+          <timeDelay>0</timeDelay>
+          <timeDelayActive>true</timeDelayActive>
+        </intrinsics>
+        <extrinsics>
+          <translation>
+            <active>true</active>
+            <x>0.0</x>
+            <y>0.0</y>
+            <z>0.0</z>
+          </translation>
+          <rotation>
+            <active>true</active>
+            <yaw>0.0</yaw>
+            <pitch>0.0</pitch>
+            <roll>0.0</roll>
+          </rotation>
+        </extrinsics>
+      </sensor_0>
+      <sensor_1>
+        <idx>2</idx>
+        <intrinsics>
+  <!--time delay in nanoseconds-->
+          <timeDelay>0</timeDelay>
+          <timeDelayActive>true</timeDelayActive>
+        </intrinsics>
+        <extrinsics>
+          <translation>
+            <active>true</active>
+            <x>0.0</x>
+            <y>0.0</y>
+            <z>0.0</z>
+          </translation>
+          <rotation>
+            <active>true</active>
+            <yaw>0.0</yaw>
+            <pitch>0.0</pitch>
+            <roll>0.0</roll>
+          </rotation>
+        </extrinsics>
+      </sensor_1>
+    </sensors>
     <estimator>
       <infoGainDelta>0.5</infoGainDelta>
       <groupId>1</groupId>

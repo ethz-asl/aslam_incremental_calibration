@@ -58,6 +58,7 @@ namespace aslam {
 
     class OptimizationProblemSpline;
     class IncrementalEstimator;
+    struct DesignVariables;
 
     /** The class Calibrator implements the calibration algorithm.
         \brief Calibration algorithm.
@@ -88,6 +89,8 @@ namespace aslam {
         OptimizationProblemSplineSP;
       /// Motion measurements
       typedef MeasurementsContainer<MotionMeasurement>::Type MotionMeasurements;
+      /// Design variables shared pointer
+      typedef boost::shared_ptr<DesignVariables> DesignVariablesSP;
       /// Self type
       typedef Calibrator Self;
       /** @}
@@ -146,6 +149,19 @@ namespace aslam {
       const std::vector<double>& getInformationGainHistory() const {
         return infoGainHistory_;
       }
+      /// Returns the calibration variables history
+      const std::unordered_map<size_t, std::vector<Eigen::VectorXd> >
+          getDesignVariablesHistory() const {
+        return designVariablesHistory_;
+      }
+      /// Returns the calibration design variables
+      const DesignVariablesSP& getDesignVariables() const {
+        return designVariables_;
+      }
+      /// Returns the calibration design variables
+      DesignVariablesSP& getDesignVariables() {
+        return designVariables_;
+      }
       /** @}
         */
 
@@ -189,6 +205,8 @@ namespace aslam {
       Options options_;
       /// Incremental estimator
       IncrementalEstimatorSP estimator_;
+      /// Calibration design variables
+      DesignVariablesSP designVariables_;
       /// Current translation spline
       TranslationSplineSP translationSpline_;
       /// Current rotation spline
@@ -209,6 +227,9 @@ namespace aslam {
       /// Motion measurements squared errors
       std::unordered_map<size_t, std::vector<double> >
         motionMeasurementsPredErrors2_;
+      /// Calibration variables history
+      std::unordered_map<size_t, std::vector<Eigen::VectorXd> >
+        designVariablesHistory_;
       /** @}
         */
 

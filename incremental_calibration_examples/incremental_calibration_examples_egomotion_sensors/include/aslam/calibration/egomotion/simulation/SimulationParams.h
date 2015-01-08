@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -20,14 +20,19 @@
     \brief This file contains simulation parameters.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_SIMULATION_PARAMS_H
-#define ASLAM_CALIBRATION_TIME_DELAY_SIMULATION_PARAMS_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_SIMULATION_PARAMS_H
+#define ASLAM_CALIBRATION_EGOMOTION_SIMULATION_PARAMS_H
+
+#include <unordered_map>
+#include <utility>
 
 #include <Eigen/Core>
 
 #include <sm/kinematics/Transformation.hpp>
 
-#include "aslam/calibration/time-delay/simulation/TrajectoryParams.h"
+#include <sm/timing/NsecTimeUtilities.hpp>
+
+#include "aslam/calibration/egomotion/simulation/TrajectoryParams.h"
 
 namespace sm {
 
@@ -41,11 +46,14 @@ namespace aslam {
         \brief Simulation parameters
       */
     struct SimulationParams {
+      /// \cond
+      // Required by Eigen for fixed-size matrices members
+      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+      /// \endcond
+
       /** \name Constructors/destructor
         @{
         */
-      /// Default constructor
-      SimulationParams();
       /// Constructs options from property tree
       SimulationParams(const sm::PropertyTree& config);
       /** @}
@@ -56,30 +64,15 @@ namespace aslam {
         */
       /// Parameters for the trajectory
       TrajectoryParams trajectoryParams;
-      /// Relative pose of pose sensor w.r.t. to vehicle frame
-      sm::kinematics::Transformation v_T_p;
-      /// Wheel base
-      double b;
-      /// Left wheel scale factor
-      double k_l;
-      /// Time delay of left wheel sensor
-      double t_l;
-      /// Time delay of right wheel sensor
-      double t_r;
-      /// Right wheel scale factor
-      double k_r;
+      /// Relative pose and time delay of the sensors w.r.t reference sensor
+      std::unordered_map<size_t, std::pair<sm::timing::NsecTime,
+        sm::kinematics::Transformation> > sensorCalibration;
       /// Simulation step size [s]
       double dt;
       /// Time of the simulation [s]
       double T;
-      /// Variance of left wheel measurement
-      double sigma2_l;
-      /// Variance of right wheel measurement
-      double sigma2_r;
-      /// Covariance matrix for w_r_wp
-      Eigen::Matrix3d sigma2_w_r_wp;
-      /// Covariance matrix for w_R_p
-      Eigen::Matrix3d sigma2_w_R_p;
+      /// Covariance matrices of the measurements
+      std::unordered_map<size_t, Eigen::Matrix<double, 6, 6> > sigma2;
       /** @}
         */
 
@@ -88,4 +81,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_SIMULATION_PARAMS_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_SIMULATION_PARAMS_H

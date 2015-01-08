@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2014 by Jerome Maye                                          *
+ * Copyright (C) 2015 by Jerome Maye                                          *
  * jerome.maye@gmail.com                                                      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or modify       *
@@ -16,15 +16,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
  ******************************************************************************/
 
-/** \file OdometryDesignVariables.h
-    \brief This file defines the OdometryDesignVariables structure which
-           holds the design variables used during odometry calibration.
+/** \file DesignVariables.h
+    \brief This file defines the DesignVariables structure which holds the
+           design variables used during calibration.
   */
 
-#ifndef ASLAM_CALIBRATION_TIME_DELAY_ODOMETRY_DESIGN_VARIABLES_H
-#define ASLAM_CALIBRATION_TIME_DELAY_ODOMETRY_DESIGN_VARIABLES_H
+#ifndef ASLAM_CALIBRATION_EGOMOTION_DESIGN_VARIABLES_H
+#define ASLAM_CALIBRATION_EGOMOTION_DESIGN_VARIABLES_H
 
 #include <cstdint>
+
+#include <unordered_map>
+#include <tuple>
 
 #include <Eigen/Core>
 
@@ -44,7 +47,6 @@ namespace aslam {
 
     class EuclideanPoint;
     class RotationQuaternion;
-    class Scalar;
     template <typename S> class GenericScalar;
     template <typename I, std::uintmax_t D> class FixedPointNumber;
 
@@ -53,11 +55,11 @@ namespace aslam {
 
     class OptimizationProblem;
 
-    /** The structure OdometryDesignVariables holds the design variables
-        used during odometry calibration.
-        \brief Odometry calibration design variables.
+    /** The structure DesignVariables holds the design variables used during
+        calibration.
+        \brief Calibration design variables.
       */
-    struct OdometryDesignVariables :
+    struct DesignVariables :
       public virtual Serializable {
       /** \name Types definitions
         @{
@@ -68,17 +70,18 @@ namespace aslam {
       /// Shared pointer to rotation quaternion
       typedef boost::shared_ptr<aslam::backend::RotationQuaternion>
         RotationQuaternionSP;
-      /// Shared pointer to the scalar
-      typedef boost::shared_ptr<aslam::backend::Scalar> ScalarSP;
       /// Batch shared pointer
       typedef boost::shared_ptr<OptimizationProblem> BatchSP;
       /// Time type
-      typedef aslam::backend::FixedPointNumber<sm::timing::NsecTime, (long)1e9>
-        Time;
+      typedef aslam::backend::FixedPointNumber<sm::timing::NsecTime,
+        static_cast<long>(1e9)> Time;
       /// Time design variable
       typedef aslam::backend::GenericScalar<Time> TimeDesignVariable;
       /// Shared pointer to TimeDesignVariable
       typedef boost::shared_ptr<TimeDesignVariable> TimeDesignVariableSP;
+      /// Calibration variables per sensor
+      typedef std::tuple<TimeDesignVariableSP, EuclideanPointSP,
+        RotationQuaternionSP> CalibrationVariables;
       /** @}
         */
 
@@ -86,37 +89,25 @@ namespace aslam {
         @{
         */
       /// Constructs design variables from property tree
-      OdometryDesignVariables(const sm::PropertyTree& config);
+      DesignVariables(const sm::PropertyTree& config);
       /** @}
         */
 
       /** \name Methods
         @{
         */
-      /// Adds the odometry design variables to the batch
+      /// Adds the design variables to the batch
       void addToBatch(const BatchSP& batch, size_t groupId);
       /// Write current values to Eigen vector
-      Eigen::VectorXd getParameters() const;
+      Eigen::VectorXd getParameters(size_t idx) const;
       /** @}
         */
 
       /** \name Public members
         @{
         */
-      /// Relative position of the pose sensor w.r.t. vehicle frame in F_v
-      EuclideanPointSP v_r_vp;
-      /// Relative orientation of the pose sensor w.r.t. vehicle frame in F_v
-      RotationQuaternionSP v_R_p;
-      /// Half wheel base
-      ScalarSP b;
-      /// Left wheel scale factor
-      ScalarSP k_l;
-      /// Right wheel scale factor
-      ScalarSP k_r;
-      /// Time delay for left wheel
-      TimeDesignVariableSP t_l;
-      /// Time delay for right wheel
-      TimeDesignVariableSP t_r;
+      /// Calibration variables
+      std::unordered_map<size_t, CalibrationVariables> calibrationVariables_;
       /** @}
         */
 
@@ -139,4 +130,4 @@ namespace aslam {
   }
 }
 
-#endif // ASLAM_CALIBRATION_TIME_DELAY_ODOMETRY_DESIGN_VARIABLES_H
+#endif // ASLAM_CALIBRATION_EGOMOTION_DESIGN_VARIABLES_H
