@@ -248,8 +248,9 @@ namespace aslam {
         else {
           auto timeDelay = std::get<0>(
             designVariables_->calibrationVariables_.at(idx))->toExpression();
-          auto timestampDelay = timeDelay +
-            GenericScalarExpression<DesignVariables::Time>(timestamp);
+          auto timestampDelay =
+            GenericScalarExpression<DesignVariables::Time>(timestamp) -
+            timeDelay;
           auto Tmax = translationSpline_->getMaxTime();
           auto Tmin = translationSpline_->getMinTime();
           auto lBound = -options_.delayBound +
@@ -313,7 +314,10 @@ namespace aslam {
 
             auto sr = e_mot->evaluateError();
             auto error = e_mot->error();
-            MotionMeasurement motion;// TODO
+            MotionMeasurement motion;
+            motion.motion =
+              Transformation((prevTransformation.inverse() *
+              currentTransformation).toTransformationMatrix());
             motionMeasurementsPred_[idx].push_back(std::make_pair(timestamp,
               motion));
             motionMeasurementsPredErrors_[idx].push_back(error);
@@ -325,8 +329,9 @@ namespace aslam {
         else {
           auto timeDelay = std::get<0>(
             designVariables_->calibrationVariables_.at(idx))->toExpression();
-          auto timestampDelay = timeDelay +
-            GenericScalarExpression<DesignVariables::Time>(timestamp);
+          auto timestampDelay =
+            GenericScalarExpression<DesignVariables::Time>(timestamp) -
+            timeDelay;
           auto Tmax = translationSpline_->getMaxTime();
           auto Tmin = translationSpline_->getMinTime();
           auto lBound = -options_.delayBound +
@@ -361,7 +366,10 @@ namespace aslam {
 
             auto sr = e_mot->evaluateError();
             auto error = e_mot->error();
-            MotionMeasurement motion;// TODO
+            MotionMeasurement motion;
+            motion.motion =
+              Transformation((prevTransformation.inverse() *
+              currentTransformation).toTransformationMatrix());
             motionMeasurementsPred_[idx].push_back(std::make_pair(timestamp,
               motion));
             motionMeasurementsPredErrors_[idx].push_back(error);

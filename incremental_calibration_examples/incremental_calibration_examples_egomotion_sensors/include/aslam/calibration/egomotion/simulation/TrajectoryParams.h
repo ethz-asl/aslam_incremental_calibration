@@ -23,6 +23,8 @@
 #ifndef ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_PARAMS_H
 #define ASLAM_CALIBRATION_EGOMOTION_TRAJECTORY_PARAMS_H
 
+#include <string>
+
 #include <sm/kinematics/Transformation.hpp>
 
 namespace sm {
@@ -56,6 +58,18 @@ namespace aslam {
       double A;
       /// Sine wave frequency [Hz]
       double f;
+      /// Translation spline lambda
+      double transSplineLambda;
+      /// Rotation spline lambda
+      double rotSplineLambda;
+      /// Pose measurements per second desired for the spline
+      int splineKnotsPerSecond;
+      /// Translation spline order
+      int transSplineOrder;
+      /// Rotation spline order
+      int rotSplineOrder;
+      /// Type of trajectory
+      std::string type;
       /** @}
         */
 

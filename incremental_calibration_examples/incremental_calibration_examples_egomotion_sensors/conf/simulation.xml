@@ -2,55 +2,96 @@
   <simulation>
     <params>
       <trajectory>
+        <type>straight</type> <!--straight, sinePlanar, random, combined-->
         <A>20.0</A>
         <f>0.05</f>
+        <w_T_v_0>
+          <x>0.0</x>
+          <y>0.0</y>
+          <z>0.0</z>
+          <yaw>0.0</yaw>
+          <pitch>0.0</pitch>
+          <roll>0.0</roll>
+        </w_T_v_0>
+        <splines>
+          <transSplineLambda>1e-3</transSplineLambda>
+          <rotSplineLambda>1e-3</rotSplineLambda>
+          <splineKnotsPerSecond>5</splineKnotsPerSecond>
+          <transSplineOrder>4</transSplineOrder>
+          <rotSplineOrder>4</rotSplineOrder>
+        </splines>
       </trajectory>
-      <T>3000.0</T>
-      <dt>0.1</dt>
+      <T>2000.0</T> <!--seconds-->
+      <dt>0.1</dt> <!--seconds-->
       <calibration>
-        <odometry>
-          <wss>
-            <b>0.4</b>
-            <k_l>360.0</k_l>
-<!--time delay in seconds-->
-            <t_l>0.1</t_l>
-            <k_r>360.0</k_r>
-<!--time delay in seconds-->
-            <t_r>0.2</t_r>
-          </wss>
-        </odometry>
-        <v_T_p>
-          <v_r_vp>
-            <e1>0.0</e1>
-            <e2>0.0</e2>
-            <e3>0.0</e3>
-          </v_r_vp>
-          <v_R_p>
-            <e1>0.0</e1>
-            <e2>0.0</e2>
-            <e3>0.0</e3>
-          </v_R_p>
-        </v_T_p>
+        <num>2</num>
+        <sensor_0>
+          <idx>1</idx>
+          <intrinsics>
+            <!--time delay in nanoseconds-->
+            <timeDelay>0</timeDelay>
+          </intrinsics>
+          <extrinsics>
+            <translation>
+              <x>0.0</x>
+              <y>0.0</y>
+              <z>0.0</z>
+            </translation>
+            <rotation>
+              <yaw>0.0</yaw>
+              <pitch>0.0</pitch>
+              <roll>0.0</roll>
+            </rotation>
+          </extrinsics>
+        </sensor_0>
+        <sensor_1>
+          <idx>2</idx>
+          <intrinsics>
+            <!--time delay in nanoseconds-->
+            <timeDelay>0</timeDelay>
+          </intrinsics>
+          <extrinsics>
+            <translation>
+              <x>0.0</x>
+              <y>0.0</y>
+              <z>0.0</z>
+            </translation>
+            <rotation>
+              <yaw>0.0</yaw>
+              <pitch>0.0</pitch>
+              <roll>0.0</roll>
+            </rotation>
+          </extrinsics>
+        </sensor_1>
       </calibration>
       <noise>
-        <odometry>
-          <wss>
-            <sigma2_l>1e-3</sigma2_l>
-            <sigma2_r>1e-3</sigma2_r>
-          </wss>
-        </odometry>
-        <pose>
-          <sigma2_w_r_wp>
-            <e1>1e-6</e1>
-            <e2>1e-6</e2>
-            <e3>1e-6</e3>
-          </sigma2_w_r_wp>
-          <sigma2_w_R_p>
-            <e1>1e-6</e1>
-            <e2>1e-6</e2>
-            <e3>1e-6</e3>
-          </sigma2_w_R_p>
-        </pose>
+        <sensor_0>
+          <idx>0</idx>
+          <e1>1e-0</e1>
+          <e2>1e-0</e2>
+          <e3>1e-0</e3>
+          <e4>1e-0</e4>
+          <e5>1e-0</e5>
+          <e6>1e-0</e6>
+        </sensor_0>
+        <sensor_1>
+          <idx>1</idx>
+          <e1>1e-0</e1>
+          <e2>1e-0</e2>
+          <e3>1e-0</e3>
+          <e4>1e-0</e4>
+          <e5>1e-0</e5>
+          <e6>1e-0</e6>
+        </sensor_1>
+        <sensor_2>
+          <idx>2</idx>
+          <e1>1e-0</e1>
+          <e2>1e-0</e2>
+          <e3>1e-0</e3>
+          <e4>1e-0</e4>
+          <e5>1e-0</e5>
+          <e6>1e-0</e6>
+        </sensor_2>
       </noise>
     </params>
   </simulation>
@@ -58,9 +99,10 @@
   <calibrator>
     <windowDuration>1e18</windowDuration>
     <verbose>true</verbose>
-<!--time delay bound in nanoseconds-->
+    <!--time delay bound in nanoseconds-->
     <delayBound>500000000</delayBound>
     <referenceSensor>0</referenceSensor>
+    <useNoisyData>false</useNoisyData>
     <splines>
       <transSplineLambda>1e-3</transSplineLambda>
       <rotSplineLambda>1e-3</rotSplineLambda>
@@ -73,7 +115,7 @@
       <sensor_0>
         <idx>1</idx>
         <intrinsics>
-  <!--time delay in nanoseconds-->
+          <!--time delay in nanoseconds-->
           <timeDelay>0</timeDelay>
           <timeDelayActive>true</timeDelayActive>
         </intrinsics>
@@ -95,7 +137,7 @@
       <sensor_1>
         <idx>2</idx>
         <intrinsics>
-  <!--time delay in nanoseconds-->
+          <!--time delay in nanoseconds-->
           <timeDelay>0</timeDelay>
           <timeDelayActive>true</timeDelayActive>
         </intrinsics>
@@ -129,7 +171,7 @@
         <linearSolver>
           <columnScaling>true</columnScaling>
           <epsNorm>1e-16</epsNorm>
-          <epsSVD>1e-4</epsSVD>
+          <epsSVD>1e-3</epsSVD>
           <epsQR>1e-16</epsQR>
           <svdTol>-1</svdTol>
           <qrTol>-1</qrTol>

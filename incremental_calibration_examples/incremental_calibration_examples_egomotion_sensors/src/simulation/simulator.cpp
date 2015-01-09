@@ -50,7 +50,8 @@ int main(int argc, char** argv) {
   config.loadXml(argv[1]);
 
   // load simulation parameters
-  SimulationParams params(PropertyTree(config, "egomotion/simulation/params"));
+  SimulationParams params(PropertyTree(config, "egomotion/simulation/params"),
+    config);
 
   std::cout << "Simulating..." << std::endl;
 
@@ -93,15 +94,28 @@ int main(int argc, char** argv) {
 
   const auto referenceSensor =
     config.getInt("egomotion/calibrator/referenceSensor");
-  for (auto it = data.motionData.at(referenceSensor).cbegin();
-      it != data.motionData.at(referenceSensor).cend(); ++it) {
-    for (const auto& motionData : data.motionData) {
-      auto motion = motionData.second.at(
-        std::distance(data.motionData.at(referenceSensor).cbegin(), it));
-      calibrator.addMotionMeasurement(motion.second, motion.first,
-        motionData.first);
+  const auto useNoisyData =
+    config.getBool("egomotion/calibrator/useNoisyData");
+  if (useNoisyData)
+    for (auto it = data.motionDataNoisy.at(referenceSensor).cbegin();
+        it != data.motionDataNoisy.at(referenceSensor).cend(); ++it) {
+      for (const auto& motionData : data.motionDataNoisy) {
+        auto motion = motionData.second.at(
+          std::distance(data.motionDataNoisy.at(referenceSensor).cbegin(), it));
+        calibrator.addMotionMeasurement(motion.second, motion.first,
+          motionData.first);
+      }
     }
-  }
+  else
+    for (auto it = data.motionData.at(referenceSensor).cbegin();
+        it != data.motionData.at(referenceSensor).cend(); ++it) {
+      for (const auto& motionData : data.motionData) {
+        auto motion = motionData.second.at(
+          std::distance(data.motionData.at(referenceSensor).cbegin(), it));
+        calibrator.addMotionMeasurement(motion.second, motion.first,
+          motionData.first);
+      }
+    }
 
   if (calibrator.unprocessedMeasurements())
     calibrator.addMeasurements();

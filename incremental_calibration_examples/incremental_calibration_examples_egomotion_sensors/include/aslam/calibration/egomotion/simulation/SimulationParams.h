@@ -55,7 +55,8 @@ namespace aslam {
         @{
         */
       /// Constructs options from property tree
-      SimulationParams(const sm::PropertyTree& config);
+      SimulationParams(const sm::PropertyTree& config, const sm::PropertyTree&
+        parent);
       /** @}
         */
 
@@ -73,6 +74,8 @@ namespace aslam {
       double T;
       /// Covariance matrices of the measurements
       std::unordered_map<size_t, Eigen::Matrix<double, 6, 6> > sigma2;
+      /// Reference sensor
+      size_t referenceSensor;
       /** @}
         */
 

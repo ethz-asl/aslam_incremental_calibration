@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 #include <limits>
+#include <unordered_map>
 
 #include <boost/make_shared.hpp>
 
@@ -52,14 +53,13 @@ namespace aslam {
 /******************************************************************************/
 
     void simulate(const SimulationParams& params, SimulationData& data) {
+      const auto type = params.trajectoryParams.type;
       const auto f = params.trajectoryParams.f;
       const auto dt = params.dt;
       const auto A = params.trajectoryParams.A;
       const auto T = params.T;
-      double w_phi_v_km1 = std::atan(2 * M_PI * f * A * cos(2 * M_PI * f * dt));
-      Eigen::Vector2d w_r_wv_km1 = Eigen::Vector2d::Zero();
-      NsecTime timestamp = 0;
 
+      NsecTime timestamp = 0;
       std::vector<NsecTime> timestamps;
       timestamps.push_back(timestamp);
       std::vector<Eigen::Vector3d> transPoses;
@@ -67,22 +67,126 @@ namespace aslam {
       std::vector<Eigen::Vector4d> rotPoses;
       rotPoses.push_back(params.trajectoryParams.w_T_v_0.q());
 
-      // generate trajectory
-      for (double t = dt; t < T; t += dt) {
-        const Eigen::Vector2d v_v_om_wv_k = genSineBodyVel2d(w_phi_v_km1,
-          w_r_wv_km1, t, dt, A, f);
-        const Eigen::Vector3d v_v_wv_k(v_v_om_wv_k(0), 0.0, 0.0);
-        const Eigen::Vector3d v_om_wv_k(0.0, 0.0, v_v_om_wv_k(1));
-        const auto w_T_v_t = integrateMotionModel(
-          Transformation(rotPoses.back(), transPoses.back()), v_v_wv_k,
-          v_om_wv_k, dt);
-        timestamp += secToNsec(dt);
-        timestamps.push_back(timestamp);
-        transPoses.push_back(w_T_v_t.t());
-        auto q = w_T_v_t.q();
-        if (!rotPoses.empty())
-          q = bestQuat(rotPoses.back(), q);
-        rotPoses.push_back(q);
+      if (type == "combined") {
+        // straight
+        double w_phi_v_km1 = 0;
+        Eigen::Vector2d w_r_wv_km1 = Eigen::Vector2d::Zero();
+        for (double t = dt; t < T / 3; t += dt) {
+          Eigen::Vector2d v_v_om_wv_k = genSineBodyVel2d(w_phi_v_km1,
+            w_r_wv_km1, t, dt, 0.0, f);
+          Eigen::Vector3d v_v_wv_k(v_v_om_wv_k(0), 0.0, 0.0);
+          Eigen::Vector3d v_om_wv_k(0.0, 0.0, v_v_om_wv_k(1));
+          const auto w_T_v_t = integrateMotionModel(
+            Transformation(rotPoses.back(), transPoses.back()), v_v_wv_k,
+            v_om_wv_k, dt);
+          timestamp += secToNsec(dt);
+          timestamps.push_back(timestamp);
+          transPoses.push_back(w_T_v_t.t());
+          auto q = w_T_v_t.q();
+          if (!rotPoses.empty())
+            q = bestQuat(rotPoses.back(), q);
+          rotPoses.push_back(q);
+        }
+
+        // sinePlanar
+        w_phi_v_km1 = std::atan(2 * M_PI * f * A * cos(2 * M_PI * f * dt));
+        w_r_wv_km1 = Eigen::Vector2d::Zero();
+        auto lastTimestamp = nsecToSec(timestamps.back());
+        for (double t = lastTimestamp + dt; t < 2.0 / 3.0 * T; t += dt) {
+          Eigen::Vector2d v_v_om_wv_k = genSineBodyVel2d(w_phi_v_km1,
+            w_r_wv_km1, t, dt, A, f);
+          Eigen::Vector3d v_v_wv_k(v_v_om_wv_k(0), 0.0, 0.0);
+          Eigen::Vector3d v_om_wv_k(0.0, 0.0, v_v_om_wv_k(1));
+          const auto w_T_v_t = integrateMotionModel(
+            Transformation(rotPoses.back(), transPoses.back()), v_v_wv_k,
+            v_om_wv_k, dt);
+          timestamp += secToNsec(dt);
+          timestamps.push_back(timestamp);
+          transPoses.push_back(w_T_v_t.t());
+          auto q = w_T_v_t.q();
+          if (!rotPoses.empty())
+            q = bestQuat(rotPoses.back(), q);
+          rotPoses.push_back(q);
+        }
+
+        // random
+        w_phi_v_km1 = std::atan(2 * M_PI * f * A * cos(2 * M_PI * f * dt));
+        w_r_wv_km1 = Eigen::Vector2d::Zero();
+        lastTimestamp = nsecToSec(timestamps.back());
+        auto trajDist = NormalDistribution<3>(
+          Eigen::Matrix<double, 3, 1>::Zero(),
+          Eigen::Matrix<double, 3, 3>::Identity() * 2);
+        for (double t = lastTimestamp + dt; t < T; t += dt) {
+          Eigen::Vector2d v_v_om_wv_k = genSineBodyVel2d(w_phi_v_km1,
+            w_r_wv_km1, t, dt, A, f);
+          auto sample = trajDist.getSample();
+          Eigen::Vector3d v_v_wv_k(v_v_om_wv_k(0), v_v_om_wv_k(0),
+            v_v_om_wv_k(0));
+          v_v_wv_k = v_v_wv_k + sample;
+          sample = trajDist.getSample();
+          Eigen::Vector3d v_om_wv_k(v_v_om_wv_k(1), v_v_om_wv_k(1),
+            v_v_om_wv_k(1));
+          v_om_wv_k = v_om_wv_k + sample;
+          const auto w_T_v_t = integrateMotionModel(
+            Transformation(rotPoses.back(), transPoses.back()), v_v_wv_k,
+            v_om_wv_k, dt);
+          timestamp += secToNsec(dt);
+          timestamps.push_back(timestamp);
+          transPoses.push_back(w_T_v_t.t());
+          auto q = w_T_v_t.q();
+          if (!rotPoses.empty())
+            q = bestQuat(rotPoses.back(), q);
+          rotPoses.push_back(q);
+        }
+      }
+      else {
+        double w_phi_v_km1;
+        if (type == "straight")
+          w_phi_v_km1 = 0;
+        else
+          w_phi_v_km1 = std::atan(2 * M_PI * f * A * cos(2 * M_PI * f * dt));
+        Eigen::Vector2d w_r_wv_km1 = Eigen::Vector2d::Zero();
+
+        auto trajDist = NormalDistribution<3>(
+          Eigen::Matrix<double, 3, 1>::Zero(),
+          Eigen::Matrix<double, 3, 3>::Identity() * 2);
+
+        // generate trajectory
+        for (double t = dt; t < T; t += dt) {
+          Eigen::Vector2d v_v_om_wv_k;
+          if (type == "straight")
+            v_v_om_wv_k =
+              genSineBodyVel2d(w_phi_v_km1, w_r_wv_km1, t, dt, 0.0, f);
+          else
+            v_v_om_wv_k = genSineBodyVel2d(w_phi_v_km1, w_r_wv_km1, t, dt, A,
+              f);
+          Eigen::Vector3d v_v_wv_k;
+          Eigen::Vector3d v_om_wv_k;
+          if (type == "random") {
+            auto sample = trajDist.getSample();
+            v_v_wv_k = Eigen::Vector3d(v_v_om_wv_k(0), v_v_om_wv_k(0),
+              v_v_om_wv_k(0));
+            v_v_wv_k = v_v_wv_k + sample;
+            sample = trajDist.getSample();
+            v_om_wv_k = Eigen::Vector3d(v_v_om_wv_k(1), v_v_om_wv_k(1),
+              v_v_om_wv_k(1));
+            v_om_wv_k = v_om_wv_k + sample;
+          }
+          else {
+            v_v_wv_k = Eigen::Vector3d(v_v_om_wv_k(0), 0.0, 0.0);
+            v_om_wv_k = Eigen::Vector3d(0.0, 0.0, v_v_om_wv_k(1));
+          }
+          const auto w_T_v_t = integrateMotionModel(
+            Transformation(rotPoses.back(), transPoses.back()), v_v_wv_k,
+            v_om_wv_k, dt);
+          timestamp += secToNsec(dt);
+          timestamps.push_back(timestamp);
+          transPoses.push_back(w_T_v_t.t());
+          auto q = w_T_v_t.q();
+          if (!rotPoses.empty())
+            q = bestQuat(rotPoses.back(), q);
+          rotPoses.push_back(q);
+        }
       }
 
       // fit splines
@@ -91,8 +195,9 @@ namespace aslam {
       const auto numMeasurements = timestamps.size();
       const auto measPerSec = std::lround(numMeasurements / elapsedTime);
       int numSegments;
-      if (measPerSec > 5) // PARAM
-        numSegments = std::ceil(5 * elapsedTime);
+      if (measPerSec > params.trajectoryParams.splineKnotsPerSecond)
+        numSegments = std::ceil(params.trajectoryParams.splineKnotsPerSecond *
+          elapsedTime);
       else
         numSegments = numMeasurements;
 
@@ -100,21 +205,76 @@ namespace aslam {
         boost::make_shared<Trajectory::TranslationSpline>(
         EuclideanBSpline<Eigen::Dynamic, 3, NsecTimePolicy>::CONF(
         EuclideanBSpline<Eigen::Dynamic, 3,
-        NsecTimePolicy>::CONF::ManifoldConf(3), 4)); // PARAM
+        NsecTimePolicy>::CONF::ManifoldConf(3),
+        params.trajectoryParams.transSplineOrder));
       BSplineFitter<Trajectory::TranslationSpline>::initUniformSpline(
         *data.trajectory.translationSpline, timestamps, transPoses, numSegments,
-        1e-3); // PARAM
+        params.trajectoryParams.transSplineLambda);
 
       data.trajectory.rotationSpline =
         boost::make_shared<Trajectory::RotationSpline>(
         UnitQuaternionBSpline<Eigen::Dynamic, NsecTimePolicy>::CONF(
         UnitQuaternionBSpline<Eigen::Dynamic,
-        NsecTimePolicy>::CONF::ManifoldConf(), 4)); // PARAM
+        NsecTimePolicy>::CONF::ManifoldConf(),
+        params.trajectoryParams.rotSplineOrder));
       BSplineFitter<Trajectory::RotationSpline>::initUniformSpline(
         *data.trajectory.rotationSpline, timestamps, rotPoses, numSegments,
-        1e-3); // PARAM
+        params.trajectoryParams.rotSplineLambda);
 
       // generate sensor data
+      auto prevTransformation = Transformation();
+      const auto referenceSensor = params.referenceSensor;
+      bool firstTime = true;
+      std::unordered_map<size_t, NormalDistribution<6> > normDists;
+      for (const auto& cov : params.sigma2)
+        normDists[cov.first] = NormalDistribution<6>(
+          Eigen::Matrix<double, 6, 1>::Zero(), cov.second);
+      for (auto t = data.trajectory.translationSpline->getMinTime();
+          t <= data.trajectory.translationSpline->getMaxTime();
+          t += secToNsec(dt)) {
+        auto translationEvaluator =
+          data.trajectory.translationSpline->getEvaluatorAt<0>(t);
+        auto rotationEvaluator =
+          data.trajectory.rotationSpline->getEvaluatorAt<0>(t);
+        const auto currentTransformation =
+          Transformation(rotationEvaluator.eval(), translationEvaluator.eval());
+        if (!firstTime) {
+          for (const auto& cov : params.sigma2) {
+            if (cov.first == referenceSensor) {
+              auto w_T_s = prevTransformation.inverse() * currentTransformation;
+              MotionMeasurement motion;
+              motion.motion = w_T_s;
+              motion.duration = secToNsec(dt);
+              motion.sigma2 = cov.second;
+              data.motionData[cov.first].push_back(std::make_pair(t, motion));
+              auto normSample = normDists[cov.first].getSample();
+              motion.motion = w_T_s * Transformation(qexp(normSample.tail<3>()),
+                normSample.head<3>());
+              data.motionDataNoisy[cov.first].push_back(std::make_pair(t,
+                motion));
+            }
+            else {
+              auto r_T_s = params.sensorCalibration.at(cov.first).second;
+              auto timeDelay = params.sensorCalibration.at(cov.first).first;
+              auto w_T_s = r_T_s.inverse() * prevTransformation.inverse() *
+                currentTransformation * r_T_s;
+              MotionMeasurement motion;
+              motion.motion = w_T_s;
+              motion.duration = secToNsec(dt);
+              motion.sigma2 = cov.second;
+              data.motionData[cov.first].push_back(std::make_pair(t + timeDelay,
+                motion));
+              auto normSample = normDists[cov.first].getSample();
+              motion.motion = w_T_s * Transformation(qexp(normSample.tail<3>()),
+                normSample.head<3>());
+              data.motionDataNoisy[cov.first].push_back(std::make_pair(t +
+                timeDelay, motion));
+            }
+          }
+        }
+        prevTransformation = currentTransformation;
+        firstTime = false;
+      }
     }
 
     Transformation integrateMotionModel(const Transformation& w_T_v_km1, const

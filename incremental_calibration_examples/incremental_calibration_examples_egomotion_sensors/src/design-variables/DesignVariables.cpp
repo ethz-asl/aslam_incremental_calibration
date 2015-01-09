@@ -53,7 +53,7 @@ namespace aslam {
       for (int i = 0; i < numSensors; ++i) {
         std::stringstream tagStream;
         tagStream << "sensor_" << i << "/";
-        std::string tag = tagStream.str();
+        const auto tag = tagStream.str();
         auto r = boost::make_shared<EuclideanPoint>(Eigen::Vector3d(
           config.getDouble(tag + "extrinsics/translation/x"),
           config.getDouble(tag + "extrinsics/translation/y"),
