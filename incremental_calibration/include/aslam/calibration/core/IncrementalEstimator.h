@@ -80,12 +80,15 @@ namespace aslam {
         Options() :
             infoGainDelta(0.2),
             checkValidity(false),
+            maxIterationHitIsStillValid(false),
             verbose(false)
         {}
         /// Information gain delta
         double infoGainDelta;
         /// Check validity of the solution
         bool checkValidity;
+        /// True means hitting max iterations is still valid
+        bool maxIterationHitIsStillValid;
         /// Verbosity of the estimator
         bool verbose;
       };

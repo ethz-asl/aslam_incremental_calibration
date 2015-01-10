@@ -120,6 +120,8 @@ namespace aslam {
         _options.infoGainDelta);
       _options.checkValidity = config.getBool("checkValidity",
         _options.checkValidity);
+      _options.maxIterationHitIsStillValid = config.getBool("maxIterationHitIsStillValid",
+        _options.maxIterationHitIsStillValid);
       _options.verbose = config.getBool("verbose", _options.verbose);
       _margGroupId = config.getInt("groupId");
     }
@@ -482,7 +484,7 @@ namespace aslam {
       ret.numFlops = linearSolver->getNumFlops();
 
       // check if the solution is valid
-      ret.solutionValid = srv.iterations < _optimizer->options().maxIterations && srv.JFinal < srv.JStart;
+      ret.solutionValid = (_options.maxIterationHitIsStillValid || srv.iterations < _optimizer->options().maxIterations) && srv.JFinal < srv.JStart;
 
       // compute the information gain
       if(linearSolver){
