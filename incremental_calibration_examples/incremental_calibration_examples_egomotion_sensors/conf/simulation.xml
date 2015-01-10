@@ -2,7 +2,7 @@
   <simulation>
     <params>
       <trajectory>
-        <type>straight</type> <!--straight, sinePlanar, random, combined-->
+        <type>combined</type> <!--straight, sinePlanar, random, combined-->
         <A>20.0</A>
         <f>0.05</f>
         <w_T_v_0>
@@ -97,7 +97,7 @@
   </simulation>
 
   <calibrator>
-    <windowDuration>1e18</windowDuration>
+    <windowDuration>30</windowDuration>
     <verbose>true</verbose>
     <!--time delay bound in nanoseconds-->
     <delayBound>500000000</delayBound>

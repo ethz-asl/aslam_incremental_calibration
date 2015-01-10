@@ -22,8 +22,6 @@
 
 #include <boost/make_shared.hpp>
 
-#include <sm/kinematics/Transformation.hpp>
-
 #include <sm/PropertyTree.hpp>
 
 #include <bsplines/BSplineFitter.hpp>
@@ -175,17 +173,16 @@ namespace aslam {
       transPoses.reserve(numMeasurements + 1);
       std::vector<Eigen::Vector4d> rotPoses;
       rotPoses.reserve(numMeasurements + 1);
-      auto prevTransformation = sm::kinematics::Transformation();
       for (const auto& measurement : measurements) {
         const auto timestamp = measurement.first;
         if (timestamps.empty()) {
           timestamps.push_back(timestamp - measurement.second.duration);
-          transPoses.push_back(prevTransformation.t());
-          rotPoses.push_back(prevTransformation.q());
+          transPoses.push_back(prevTransformation_.t());
+          rotPoses.push_back(prevTransformation_.q());
         }
-        const auto currentTransformation = prevTransformation *
+        const auto currentTransformation = prevTransformation_ *
           measurement.second.motion;
-        prevTransformation = currentTransformation;
+        prevTransformation_ = currentTransformation;
         transPoses.push_back(currentTransformation.t());
         auto q = currentTransformation.q();
         if (!rotPoses.empty())

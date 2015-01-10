@@ -33,6 +33,8 @@
 
 #include <sm/timing/NsecTimeUtilities.hpp>
 
+#include <sm/kinematics/Transformation.hpp>
+
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
 
@@ -230,6 +232,8 @@ namespace aslam {
       /// Calibration variables history
       std::unordered_map<size_t, std::vector<Eigen::VectorXd> >
         designVariablesHistory_;
+      /// Last transformation
+      sm::kinematics::Transformation prevTransformation_;
       /** @}
         */
 
