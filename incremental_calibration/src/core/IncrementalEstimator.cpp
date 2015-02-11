@@ -493,7 +493,7 @@ namespace aslam {
       }
 
       // batch is kept? information gain improvement or rank goes up
-      ret.isInformativeBatch = (ret.informationGain > _options.infoGainDelta ||
+      ret.isInformativeBatch = (ret.rankTheta > 0) && (ret.informationGain > _options.infoGainDelta ||
           ret.rankTheta > _rankTheta) && (ret.solutionValid || !_options.checkValidity);
 
       ret.batchAccepted = false;
