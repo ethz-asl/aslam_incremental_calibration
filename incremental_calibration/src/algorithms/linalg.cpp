@@ -245,7 +245,7 @@ namespace aslam {
     std::ptrdiff_t estimateNumericalRank(const Eigen::VectorXd& sv, double
         tol) {
       std::ptrdiff_t nrank = sv.size();
-      for (std::ptrdiff_t i = sv.size() - 1; i > 0; --i) {
+      for (std::ptrdiff_t i = sv.size() - 1; i >= 0; --i) {
         if (sv(i) > tol)
           break;
         else
@@ -273,10 +273,12 @@ namespace aslam {
     }
 
     double svGap(const Eigen::VectorXd& sv, std::ptrdiff_t rank) {
-      if (rank > sv.size() || rank <= 0)
+      if (rank > sv.size() || rank < 0)
         throw InvalidOperationException("inconsistent rank", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
-      if (rank < sv.size())
+      if (rank == 0)
+        return 0;
+      else if (rank < sv.size())
         return sv(rank - 1) / sv(rank);
       else
         return std::numeric_limits<double>::infinity();
