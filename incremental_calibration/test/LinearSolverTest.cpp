@@ -126,7 +126,50 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   cholmod_l_finish(&cholmod);
 }
 
+void evaluateSPQRSolverDeterminedSystem() {
+  // Create the system.
+  constexpr size_t kNumVariables = 10;
+  constexpr size_t kXResult = 2.0;
+
+  Eigen::MatrixXd A = Eigen::MatrixXd::Identity(kNumVariables, kNumVariables);
+  Eigen::VectorXd b = Eigen::VectorXd::Constant(kNumVariables, kXResult);
+
+  // Convert to cholmod types.
+  cholmod_common_struct cholmod;
+  cholmod_l_start(&cholmod);
+  cholmod_sparse* A_cm = aslam::calibration::eigenDenseToCholmodSparseCopy(A, &cholmod);
+
+  cholmod_dense b_cm;
+  aslam::calibration::eigenDenseToCholmodDenseView(b, &b_cm);
+
+  // Solve this system and check the results.
+  aslam::calibration::LinearSolverOptions options;
+  options.verbose = true;
+  options.columnScaling = false;
+
+  aslam::calibration::LinearSolver solver(options);
+
+  for (std::ptrdiff_t i = 1; i < A.cols(); ++i) {
+    Eigen::VectorXd x;
+    solver.solve(A_cm, &b_cm, i, x);
+    EXPECT_EQ(solver.getSVDRank(), kNumVariables - i);
+    EXPECT_EQ(solver.getQRRank(), i);
+
+    EXPECT_EQ(solver.getQRRankDeficiency(), 0);
+    EXPECT_EQ(solver.getSVDRankDeficiency(), 0);
+
+    EXPECT_EQ(solver.getNullSpace().size(), 0);
+
+    size_t num_calib_vars = kNumVariables - i;
+    EXPECT_EQ(solver.getCovariance(), Eigen::MatrixXd::Identity(num_calib_vars, num_calib_vars));
+    EXPECT_EQ(x, Eigen::VectorXd::Constant(num_calib_vars, kXResult));
+  }
+}
+
 TEST(AslamCalibrationTestSuite, testLinearSolver) {
+  // Solve a well-defined linear system.
+  evaluateSPQRSolverDeterminedSystem();
+
   Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 30);
   const Eigen::VectorXd x = Eigen::VectorXd::Random(30);
   Eigen::VectorXd b = A * x;
