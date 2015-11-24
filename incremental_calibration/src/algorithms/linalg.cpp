@@ -308,7 +308,7 @@ namespace aslam {
         throw InvalidOperationException("SuiteSparseQR_qmult failed",
           __FILE__, __LINE__, __PRETTY_FUNCTION__);
       try {
-        *A_rtQ = columnSubmatrix(A_rtQFull, 0, factor->QRsym->n, cholmod);
+        *A_rtQ = columnSubmatrix(A_rtQFull, 0, factor->QRsym->n - 1, cholmod);
       }
       catch (const InvalidOperationException& e) {
         cholmod_l_free_sparse(&A_rtQFull, cholmod);
@@ -377,7 +377,7 @@ namespace aslam {
       }
       cholmod_sparse* Qtb;
       try {
-        Qtb = rowSubmatrix(QtbFull, 0, factor->QRsym->n, cholmod);
+        Qtb = rowSubmatrix(QtbFull, 0, factor->QRsym->n - 1, cholmod);
       }
       catch (const InvalidOperationException& e) {
         cholmod_l_free_sparse(&A_rtb, cholmod);
