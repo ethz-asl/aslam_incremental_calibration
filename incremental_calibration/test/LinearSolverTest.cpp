@@ -126,10 +126,10 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   cholmod_l_finish(&cholmod);
 }
 
-void evaluateSPQRSolverDeterminedSystem() {
+void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOptions& options) {
   // Create the system.
   constexpr size_t kNumVariables = 10;
-  constexpr size_t kXResult = 2.0;
+  constexpr double kXResult = 2.0;
 
   Eigen::MatrixXd A = Eigen::MatrixXd::Identity(kNumVariables, kNumVariables);
   Eigen::VectorXd b = Eigen::VectorXd::Constant(kNumVariables, kXResult);
@@ -143,16 +143,15 @@ void evaluateSPQRSolverDeterminedSystem() {
   aslam::calibration::eigenDenseToCholmodDenseView(b, &b_cm);
 
   // Solve this system and check the results.
-  aslam::calibration::LinearSolverOptions options;
-  options.verbose = true;
-  options.columnScaling = false;
 
   aslam::calibration::LinearSolver solver(options);
 
   for (std::ptrdiff_t i = 1; i < A.cols(); ++i) {
+    const size_t num_calib_vars = kNumVariables - i;
+
     Eigen::VectorXd x;
     solver.solve(A_cm, &b_cm, i, x);
-    EXPECT_EQ(solver.getSVDRank(), kNumVariables - i);
+    EXPECT_EQ(solver.getSVDRank(), num_calib_vars);
     EXPECT_EQ(solver.getQRRank(), i);
 
     EXPECT_EQ(solver.getQRRankDeficiency(), 0);
@@ -160,16 +159,24 @@ void evaluateSPQRSolverDeterminedSystem() {
 
     EXPECT_EQ(solver.getNullSpace().size(), 0);
 
-    size_t num_calib_vars = kNumVariables - i;
+
     EXPECT_EQ(solver.getCovariance(), Eigen::MatrixXd::Identity(num_calib_vars, num_calib_vars));
     EXPECT_EQ(x, Eigen::VectorXd::Constant(num_calib_vars, kXResult));
   }
 }
 
-TEST(AslamCalibrationTestSuite, testLinearSolver) {
-  // Solve a well-defined linear system.
-  evaluateSPQRSolverDeterminedSystem();
 
+TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystem) {
+  // Solve a well-defined linear system.
+  aslam::calibration::LinearSolverOptions options;
+  options.columnScaling = false;
+  evaluateSPQRSolverDeterminedSystem(options);
+
+  options.columnScaling = true;
+  evaluateSPQRSolverDeterminedSystem(options);
+}
+
+TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
   Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 30);
   const Eigen::VectorXd x = Eigen::VectorXd::Random(30);
   Eigen::VectorXd b = A * x;
