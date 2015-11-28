@@ -53,7 +53,7 @@ namespace aslam {
 /******************************************************************************/
 
     template <typename T, int M>
-    void Randomizer<T, M>::read(std::istream& stream) {
+    void Randomizer<T, M>::read(std::istream& /* stream */) {
     }
 
     template <typename T, int M>
@@ -62,11 +62,11 @@ namespace aslam {
     }
 
     template <typename T, int M>
-    void Randomizer<T, M>::read(std::ifstream& stream) {
+    void Randomizer<T, M>::read(std::ifstream& /* stream */) {
     }
 
     template <typename T, int M>
-    void Randomizer<T, M>::write(std::ofstream& stream) const {
+    void Randomizer<T, M>::write(std::ofstream& /* stream */) const {
     }
 
 /******************************************************************************/

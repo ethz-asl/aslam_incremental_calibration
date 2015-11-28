@@ -75,7 +75,7 @@ namespace aslam {
 /******************************************************************************/
 
     template <int M>
-    void NormalDistribution<M>::read(std::istream& stream) {
+    void NormalDistribution<M>::read(std::istream& /* stream */) {
     }
 
     template <int M>
@@ -85,11 +85,11 @@ namespace aslam {
     }
 
     template <int M>
-    void NormalDistribution<M>::read(std::ifstream& stream) {
+    void NormalDistribution<M>::read(std::ifstream& /* stream */) {
     }
 
     template <int M>
-    void NormalDistribution<M>::write(std::ofstream& stream) const {
+    void NormalDistribution<M>::write(std::ofstream& /* stream */) const {
     }
 
 /******************************************************************************/
