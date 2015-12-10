@@ -168,12 +168,14 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
 }
 
 
-TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystem) {
-  // Solve a well-defined linear system.
+TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithoutColumnScaling) {
   aslam::calibration::LinearSolverOptions options;
   options.columnScaling = false;
   evaluateSPQRSolverDeterminedSystem(options);
+}
 
+TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithColumnScaling) {
+  aslam::calibration::LinearSolverOptions options;
   options.columnScaling = true;
   evaluateSPQRSolverDeterminedSystem(options);
 }
