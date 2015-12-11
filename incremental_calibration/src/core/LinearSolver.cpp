@@ -68,10 +68,10 @@ namespace aslam {
       return _ptr;
     }
 
-    T ** getPointersAddress(){
+    T ** operator & () {
       return &_ptr;
     }
-   private:
+  private:
     cholmod_common & _cholmod;
     T * _ptr;
   };
@@ -408,7 +408,7 @@ namespace aslam {
           }
           SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(NULL, _cholmod);
           SelfFreeingCholmodPtr<cholmod_sparse> Omega(NULL, _cholmod);
-          reduceLeftHandSide(_factor, A_rt, Omega.getPointersAddress(), A_rtQ.getPointersAddress(), &_cholmod);
+          reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
           analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
           b_r = reduceRightHandSide(_factor, A_rt, A_rtQ, b, &_cholmod);
         }
@@ -484,7 +484,7 @@ namespace aslam {
       }
       SelfFreeingCholmodPtr<cholmod_sparse> Omega(NULL, _cholmod);
       SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(NULL, _cholmod);
-      reduceLeftHandSide(_factor, A_rt, Omega.getPointersAddress(), A_rtQ.getPointersAddress(), &_cholmod);
+      reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
       analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
       if (_svdRank == -1) {
         _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol :
