@@ -287,7 +287,7 @@ namespace aslam {
     void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
         cholmod_sparse* A_rt, cholmod_sparse** Omega, cholmod_sparse** A_rtQ,
         cholmod_common* cholmod) {
-      if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
+      if (factor != NULL && (factor->QRsym == NULL || factor->QRnum == NULL))
         throw NullPointerException("factor", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       if (A_rt == NULL)
@@ -299,6 +299,12 @@ namespace aslam {
       if (Omega == NULL)
         throw NullPointerException("Omega", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
+
+      if(factor == NULL){ // NO QR part!
+        *Omega = cholmod_l_aat(A_rt, NULL, 0, 1, cholmod);
+        return;
+      }
+
       if (A_rtQ == NULL)
         throw NullPointerException("A_rtQ", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
@@ -342,7 +348,7 @@ namespace aslam {
     cholmod_dense* reduceRightHandSide(SuiteSparseQR_factorization<double>*
         factor, cholmod_sparse* A_rt, cholmod_sparse* A_rtQ, cholmod_dense* b,
         cholmod_common* cholmod) {
-      if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
+      if (factor != NULL && (factor->QRsym == NULL || factor->QRnum == NULL))
         throw NullPointerException("factor", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       if (A_rt == NULL)
@@ -351,11 +357,26 @@ namespace aslam {
       if (b == NULL)
         throw NullPointerException("b", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
-      if (A_rtQ == NULL)
-        throw NullPointerException("A_rtQ", __FILE__, __LINE__,
-          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
         throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
+
+      if(factor == NULL){ // NO QR part!
+        double one = 1, zero = 0;
+        cholmod_dense* bReduced = cholmod_l_allocate_dense(A_rt->nrow, 1, A_rt->nrow, CHOLMOD_REAL, cholmod);
+        if (bReduced == NULL) {
+          throw InvalidOperationException("cholmod_l_allocate_dense failed", __FILE__, __LINE__, __PRETTY_FUNCTION__);
+        }
+        const int status = cholmod_l_sdmult(A_rt, 0, &one, &zero, b, bReduced, cholmod);
+        if (!status) {
+          cholmod_l_free_dense(&bReduced, cholmod);
+          throw InvalidOperationException("cholmod_l_sdmult failed", __FILE__, __LINE__, __PRETTY_FUNCTION__);
+        }
+        return bReduced;
+      }
+
+      if (A_rtQ == NULL)
+        throw NullPointerException("A_rtQ", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       cholmod_sparse* bSparse = cholmod_l_dense_to_sparse(b, 1, cholmod);
       if (bSparse == NULL)

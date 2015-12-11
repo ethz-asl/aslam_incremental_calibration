@@ -20,6 +20,8 @@
 
 #include <cmath>
 
+#include <memory>
+
 #include <algorithm>
 #include <iostream>
 
@@ -36,6 +38,45 @@
 
 namespace aslam {
   namespace calibration {
+
+  void deleteCholdmodPtr(cholmod_sparse * & ptr, cholmod_common & cholmod){
+    if(ptr) cholmod_l_free_sparse(&ptr, &cholmod);
+  }
+  void deleteCholdmodPtr(cholmod_dense * & ptr, cholmod_common & cholmod){
+    if(ptr) cholmod_l_free_dense(&ptr, &cholmod);
+  }
+
+  template <typename T>
+  struct SelfFreeingCholmodPtr {
+    explicit SelfFreeingCholmodPtr(T * ptr, cholmod_common & cholmod) : _ptr(ptr), _cholmod(cholmod) { }
+    ~SelfFreeingCholmodPtr(){
+      reset(NULL);
+    }
+    void reset(T * ptr){
+      deleteCholdmodPtr(_ptr, _cholmod);
+      _ptr = ptr;
+    }
+    SelfFreeingCholmodPtr & operator = (T * ptr){
+      reset(ptr);
+      return *this;
+    }
+
+    operator T * () {
+      return _ptr;
+    }
+    T * operator -> () {
+      return _ptr;
+    }
+
+    T ** getPointersAddress(){
+      return &_ptr;
+    }
+   private:
+    cholmod_common & _cholmod;
+    T * _ptr;
+  };
+
+
 
 /******************************************************************************/
 /* Constructors and Destructor                                                */
@@ -117,14 +158,14 @@ namespace aslam {
       if (_factor && _factor->QRnum)
         return _factor->rank;
       else
-        return -1;
+        return 0;
     }
 
     std::ptrdiff_t LinearSolver::getQRRankDeficiency() const {
       if (_factor && _factor->QRsym && _factor->QRnum)
         return _factor->QRsym->n - _factor->rank;
       else
-        return -1;
+        return 0;
     }
 
     std::ptrdiff_t LinearSolver::getMargStartIndex() const {
@@ -302,162 +343,104 @@ namespace aslam {
       if (A->nrow != b->nrow)
         throw InvalidOperationException("inconsistent A and b", __FILE__,
           __LINE__, __PRETTY_FUNCTION__);
-      cholmod_sparse* A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
-      cholmod_dense* G_l = NULL;
-      if (_options.columnScaling) {
-        try {
+      const bool isQRPartEmpty = j <= 0;
+      SelfFreeingCholmodPtr<cholmod_sparse> A_l(isQRPartEmpty ? NULL : columnSubmatrix(A, 0, j - 1, &_cholmod), _cholmod);
+      SelfFreeingCholmodPtr<cholmod_dense> G_l(NULL, _cholmod);
+      if(!isQRPartEmpty) {
+        if (_options.columnScaling) {
           G_l = columnScalingMatrix(A_l, &_cholmod, _options.epsNorm);
+          if (!cholmod_l_scale(G_l, CHOLMOD_COL, A_l, &_cholmod)) {
+            throw InvalidOperationException("cholmod_l_scale failed", __FILE__,
+              __LINE__, __PRETTY_FUNCTION__);
+          }
         }
-        catch (...) {
-          cholmod_l_free_sparse(&A_l, &_cholmod);
-          throw;
+        if (_factor && _factor->QRsym &&
+            (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
+            _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
+            _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
+          clear();
+        if (!_factor) {
+          const double t2 = Timestamp::now();
+          _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
+            SPQR_DEFAULT_TOL, A_l, &_cholmod);
+          const double t3 = Timestamp::now();
+          _cholmod.other1[1] = t3 - t2;
+          if (_factor == NULL) {
+            throw InvalidOperationException("SuiteSparseQR_symbolic failed",
+              __FILE__, __LINE__, __PRETTY_FUNCTION__);
+          }
         }
-        if (!cholmod_l_scale(G_l, CHOLMOD_COL, A_l, &_cholmod)) {
-          cholmod_l_free_dense(&G_l, &_cholmod);
-          cholmod_l_free_sparse(&A_l, &_cholmod);
-          throw InvalidOperationException("cholmod_l_scale failed", __FILE__,
-            __LINE__, __PRETTY_FUNCTION__);
-        }
-      }
-      if (_factor && _factor->QRsym &&
-          (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
-          _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
-          _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
-        clear();
-      if (!_factor) {
+        const double qrTolerance = (_options.qrTol != -1.0) ? _options.qrTol :
+          qrTol(A_l, &_cholmod, _options.epsQR);
         const double t2 = Timestamp::now();
-        _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
-          SPQR_DEFAULT_TOL, A_l, &_cholmod);
+        const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
+          _factor, &_cholmod);
         const double t3 = Timestamp::now();
-        _cholmod.other1[1] = t3 - t2;
-        if (_factor == NULL) {
-          cholmod_l_free_sparse(&A_l, &_cholmod);
-          if (G_l)
-            cholmod_l_free_dense(&G_l, &_cholmod);
-          throw InvalidOperationException("SuiteSparseQR_symbolic failed",
+        _cholmod.other1[2] = t3 - t2;
+        if (!status) {
+          throw InvalidOperationException("SuiteSparseQR_numeric failed",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
         }
+      } else {
+        clear();
+        _cholmod.other1[1] = _cholmod.other1[2] = 0.0;
       }
-      const double qrTolerance = (_options.qrTol != -1.0) ? _options.qrTol :
-        qrTol(A_l, &_cholmod, _options.epsQR);
-      const double t2 = Timestamp::now();
-      const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
-        _factor, &_cholmod);
-      const double t3 = Timestamp::now();
-      _cholmod.other1[2] = t3 - t2;
-      cholmod_l_free_sparse(&A_l, &_cholmod);
-      if (!status) {
-        if (G_l)
-          cholmod_l_free_dense(&G_l, &_cholmod);
-        throw InvalidOperationException("SuiteSparseQR_numeric failed",
-          __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      }
-      cholmod_sparse* A_r;
-      try {
-        A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
-      }
-      catch (...) {
-        if (G_l)
-          cholmod_l_free_dense(&G_l, &_cholmod);
-        throw;
-      }
-      cholmod_dense* G_r = NULL;
+      SelfFreeingCholmodPtr<cholmod_sparse> A_r(NULL, _cholmod);
+      A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
+
+      SelfFreeingCholmodPtr<cholmod_dense> G_r(NULL, _cholmod);
       if (_options.columnScaling) {
-        try {
-          G_r = columnScalingMatrix(A_r, &_cholmod, _options.epsNorm);
-        }
-        catch (...) {
-          cholmod_l_free_sparse(&A_r, &_cholmod);
-          cholmod_l_free_dense(&G_l, &_cholmod);
-          throw;
-        }
+        G_r = columnScalingMatrix(A_r, &_cholmod, _options.epsNorm);
         if (!cholmod_l_scale(G_r, CHOLMOD_COL, A_r, &_cholmod)) {
-          cholmod_l_free_sparse(&A_r, &_cholmod);
-          cholmod_l_free_dense(&G_r, &_cholmod);
-          cholmod_l_free_dense(&G_l, &_cholmod);
           throw InvalidOperationException("cholmod_l_scale failed", __FILE__,
             __LINE__, __PRETTY_FUNCTION__);
         }
       }
-      cholmod_sparse* A_rt = cholmod_l_transpose(A_r, 1, &_cholmod);
-      if (A_rt == NULL) {
-        cholmod_l_free_sparse(&A_r, &_cholmod);
-        if (G_l)
-          cholmod_l_free_dense(&G_l, &_cholmod);
-        if (G_r)
-          cholmod_l_free_dense(&G_r, &_cholmod);
-        throw InvalidOperationException("cholmod_l_transpose failed", __FILE__,
-          __LINE__, __PRETTY_FUNCTION__);
-      }
-      cholmod_sparse* Omega = NULL;
-      cholmod_sparse* A_rtQ = NULL;
-      try {
-        reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
-      }
-      catch (...) {
-        cholmod_l_free_sparse(&A_r, &_cholmod);
-        cholmod_l_free_sparse(&A_rt, &_cholmod);
-        if (G_l)
-          cholmod_l_free_dense(&G_l, &_cholmod);
-        if (G_r)
-          cholmod_l_free_dense(&G_r, &_cholmod);
-        throw;
-      }
-      analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
-      cholmod_l_free_sparse(&Omega, &_cholmod);
-      cholmod_dense* b_r;
-      try {
-        b_r = reduceRightHandSide(_factor, A_rt, A_rtQ, b, &_cholmod);
-      }
-      catch (...) {
-        cholmod_l_free_sparse(&A_r, &_cholmod);
-        cholmod_l_free_sparse(&A_rt, &_cholmod);
-        cholmod_l_free_sparse(&A_rtQ, &_cholmod);
-        if (G_l)
-          cholmod_l_free_dense(&G_l, &_cholmod);
-        if (G_r)
-          cholmod_l_free_dense(&G_r, &_cholmod);
-        throw;
-      }
-      cholmod_l_free_sparse(&A_rt, &_cholmod);
-      cholmod_l_free_sparse(&A_rtQ, &_cholmod);
-      _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol :
-        rankTol(_singularValues, _options.epsSVD);
-      _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
-      _svdRankDeficiency = _singularValues.size() - _svdRank;
-      _svGap = svGap(_singularValues, _svdRank);
+
       Eigen::VectorXd x_r;
-      solveSVD(b_r, _singularValues, _matrixU, _matrixV, _svdRank, x_r);
-      cholmod_l_free_dense(&b_r, &_cholmod);
-      cholmod_dense* x_l;
-      try {
-        x_l = solveQR(_factor, b, A_r, x_r, &_cholmod);
+      {
+        SelfFreeingCholmodPtr<cholmod_dense> b_r(NULL, _cholmod);
+        {
+          SelfFreeingCholmodPtr<cholmod_sparse> A_rt(cholmod_l_transpose(A_r, 1, &_cholmod), _cholmod);
+          if (A_rt == NULL) {
+            throw InvalidOperationException("cholmod_l_transpose failed", __FILE__,
+              __LINE__, __PRETTY_FUNCTION__);
+          }
+          SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(NULL, _cholmod);
+          SelfFreeingCholmodPtr<cholmod_sparse> Omega(NULL, _cholmod);
+          reduceLeftHandSide(_factor, A_rt, Omega.getPointersAddress(), A_rtQ.getPointersAddress(), &_cholmod);
+          analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
+          b_r = reduceRightHandSide(_factor, A_rt, A_rtQ, b, &_cholmod);
+        }
+        _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol : rankTol(_singularValues, _options.epsSVD);
+        _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
+        _svdRankDeficiency = _singularValues.size() - _svdRank;
+        _svGap = svGap(_singularValues, _svdRank);
+        solveSVD(b_r, _singularValues, _matrixU, _matrixV, _svdRank, x_r);
       }
-      catch (...) {
-        cholmod_l_free_sparse(&A_r, &_cholmod);
-        if (G_l)
-          cholmod_l_free_dense(&G_l, &_cholmod);
-        if (G_r)
-          cholmod_l_free_dense(&G_r, &_cholmod);
-        throw;
-      }
+      SelfFreeingCholmodPtr<cholmod_dense> x_l(NULL, _cholmod);
+      x_l = isQRPartEmpty ? NULL : solveQR(_factor, b, A_r, x_r, &_cholmod);
+
       if (_options.columnScaling) {
-        const double* G_l_val = reinterpret_cast<const double*>(G_l->x);
-        double* x_l_val = reinterpret_cast<double*>(x_l->x);
-        for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(x_l->nrow);
-            ++i)
-          x_l_val[i] = G_l_val[i] * x_l_val[i];
-        cholmod_l_free_dense(&G_l, &_cholmod);
+        if(!isQRPartEmpty){
+          const double* G_l_val = reinterpret_cast<const double*>(G_l->x);
+          double* x_l_val = reinterpret_cast<double*>(x_l->x);
+          for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(x_l->nrow);
+              ++i)
+            x_l_val[i] = G_l_val[i] * x_l_val[i];
+          G_l.reset(NULL);
+        }
         Eigen::Map<const Eigen::VectorXd> G_rEigen(
           reinterpret_cast<const double*>(G_r->x), G_r->nrow);
         x_r = G_rEigen.array() * x_r.array();
-        cholmod_l_free_dense(&G_r, &_cholmod);
+        G_r.reset(NULL);
       }
-      cholmod_l_free_sparse(&A_r, &_cholmod);
+
       x.resize(A->ncol);
-      const double* x_l_val = reinterpret_cast<const double*>(x_l->x);
-      std::copy(x_l_val, x_l_val + x_l->nzmax, x.data());
-      cholmod_l_free_dense(&x_l, &_cholmod);
+      if(!isQRPartEmpty){
+        const double* x_l_val = reinterpret_cast<const double*>(x_l->x);
+        std::copy(x_l_val, x_l_val + x_l->nzmax, x.data());
+      }
       x.tail(x_r.size()) = x_r;
       const double t1 = Timestamp::now();
       _linearSolverTime = t1 - t0;

@@ -155,7 +155,7 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
 
   aslam::calibration::LinearSolver solver(options);
 
-  for (std::ptrdiff_t i = 1; i < A.cols(); ++i) {
+  for (std::ptrdiff_t i = 0; i < A.cols(); ++i) {
     const size_t num_calib_vars = kNumVariables - i;
 
     Eigen::VectorXd x;
