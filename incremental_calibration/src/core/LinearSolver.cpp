@@ -448,7 +448,8 @@ namespace aslam {
 
     void LinearSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
       const double t0 = Timestamp::now();
-      {
+      const bool isQRPartEmpty = j <= 0;
+      if(!isQRPartEmpty){
         SelfFreeingCholmodPtr<cholmod_sparse> A_l(columnSubmatrix(A, 0, j - 1, &_cholmod), _cholmod);
         if (_factor && _factor->QRsym &&
             (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
@@ -475,6 +476,9 @@ namespace aslam {
         if (!status)
           throw InvalidOperationException("SuiteSparseQR_numeric failed",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
+      }else{
+        clear();
+        _cholmod.other1[1] = _cholmod.other1[2] = 0.0;
       }
       SelfFreeingCholmodPtr<cholmod_sparse> A_r(columnSubmatrix(A, j, A->ncol - 1, &_cholmod), _cholmod);
       SelfFreeingCholmodPtr<cholmod_sparse> A_rt(cholmod_l_transpose(A_r, 1, &_cholmod), _cholmod);
