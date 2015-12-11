@@ -159,15 +159,33 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
     const size_t num_calib_vars = kNumVariables - i;
 
     Eigen::VectorXd x;
+    solver.clear();
+    EXPECT_EQ(solver.getSVDRank(), -1);
+    EXPECT_EQ(solver.getSVDRankDeficiency(), -1);
+    EXPECT_EQ(solver.getQRRank(), 0);
+    EXPECT_EQ(solver.getQRRankDeficiency(), 0);
+    EXPECT_EQ(solver.getNullSpace().size(), 0);
+
+    solver.analyzeMarginal(A_cm, i);
+    EXPECT_EQ(solver.getSVDRank(), num_calib_vars);
+    EXPECT_EQ(solver.getQRRank(), i);
+    EXPECT_EQ(solver.getQRRankDeficiency(), 0);
+    EXPECT_EQ(solver.getSVDRankDeficiency(), 0);
+    EXPECT_EQ(solver.getNullSpace().size(), 0);
+
+    solver.clear();
+    EXPECT_EQ(solver.getSVDRank(), -1);
+    EXPECT_EQ(solver.getSVDRankDeficiency(), -1);
+    EXPECT_EQ(solver.getQRRank(), 0);
+    EXPECT_EQ(solver.getQRRankDeficiency(), 0);
+    EXPECT_EQ(solver.getNullSpace().size(), 0);
+
     solver.solve(A_cm, &b_cm, i, x);
     EXPECT_EQ(solver.getSVDRank(), num_calib_vars);
     EXPECT_EQ(solver.getQRRank(), i);
-
     EXPECT_EQ(solver.getQRRankDeficiency(), 0);
     EXPECT_EQ(solver.getSVDRankDeficiency(), 0);
-
     EXPECT_EQ(solver.getNullSpace().size(), 0);
-
 
     Eigen::VectorXd expectedSingularValues;
     if(options.columnScaling){
