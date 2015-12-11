@@ -163,6 +163,8 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
     EXPECT_EQ(solver.getCovariance(), Eigen::MatrixXd::Identity(num_calib_vars, num_calib_vars));
     EXPECT_EQ(x, Eigen::VectorXd::Constant(kNumVariables, kXResult));
   }
+
+  cholmod_l_free_sparse(&A_cm, &cholmod);
 }
 
 
