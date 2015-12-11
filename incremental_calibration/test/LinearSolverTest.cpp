@@ -161,7 +161,7 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
 
 
     EXPECT_EQ(solver.getCovariance(), Eigen::MatrixXd::Identity(num_calib_vars, num_calib_vars));
-    EXPECT_EQ(x, Eigen::VectorXd::Constant(num_calib_vars, kXResult));
+    EXPECT_EQ(x, Eigen::VectorXd::Constant(kNumVariables, kXResult));
   }
 }
 
