@@ -448,57 +448,44 @@ namespace aslam {
 
     void LinearSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
       const double t0 = Timestamp::now();
-      cholmod_sparse* A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
-      if (_factor && _factor->QRsym &&
-          (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
-          _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
-          _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
-        clear();
-      if (!_factor) {
-        const double t2 = Timestamp::now();
-        _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
-          SPQR_DEFAULT_TOL, A_l, &_cholmod);
-        const double t3 = Timestamp::now();
-        _cholmod.other1[1] = t3 - t2;
-        if (_factor == NULL) {
-          cholmod_l_free_sparse(&A_l, &_cholmod);
-          throw InvalidOperationException("SuiteSparseQR_symbolic failed",
-            __FILE__, __LINE__, __PRETTY_FUNCTION__);
+      {
+        SelfFreeingCholmodPtr<cholmod_sparse> A_l(columnSubmatrix(A, 0, j - 1, &_cholmod), _cholmod);
+        if (_factor && _factor->QRsym &&
+            (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
+            _factor->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
+            _factor->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
+          clear();
+        if (!_factor) {
+          const double t2 = Timestamp::now();
+          _factor = SuiteSparseQR_symbolic<double>(SPQR_ORDERING_BEST,
+            SPQR_DEFAULT_TOL, A_l, &_cholmod);
+          const double t3 = Timestamp::now();
+          _cholmod.other1[1] = t3 - t2;
+          if (_factor == NULL) {
+            throw InvalidOperationException("SuiteSparseQR_symbolic failed",
+              __FILE__, __LINE__, __PRETTY_FUNCTION__);
+          }
         }
+        const double qrTolerance = (_options.qrTol != -1.0) ? _options.qrTol :
+          qrTol(A_l, &_cholmod, _options.epsQR);
+        const double t2 = Timestamp::now();
+        const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
+          _factor, &_cholmod);
+        _cholmod.other1[2] = Timestamp::now() - t2;
+        if (!status)
+          throw InvalidOperationException("SuiteSparseQR_numeric failed",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
       }
-      const double qrTolerance = (_options.qrTol != -1.0) ? _options.qrTol :
-        qrTol(A_l, &_cholmod, _options.epsQR);
-      const double t2 = Timestamp::now();
-      const int status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
-        _factor, &_cholmod);
-      const double t3 = Timestamp::now();
-      _cholmod.other1[2] = t3 - t2;
-      cholmod_l_free_sparse(&A_l, &_cholmod);
-      if (!status)
-        throw InvalidOperationException("SuiteSparseQR_numeric failed",
-          __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      cholmod_sparse* A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
-      cholmod_sparse* A_rt = cholmod_l_transpose(A_r, 1, &_cholmod);
+      SelfFreeingCholmodPtr<cholmod_sparse> A_r(columnSubmatrix(A, j, A->ncol - 1, &_cholmod), _cholmod);
+      SelfFreeingCholmodPtr<cholmod_sparse> A_rt(cholmod_l_transpose(A_r, 1, &_cholmod), _cholmod);
       if (A_rt == NULL) {
-        cholmod_l_free_sparse(&A_r, &_cholmod);
         throw InvalidOperationException("cholmod_l_transpose failed", __FILE__,
           __LINE__, __PRETTY_FUNCTION__);
       }
-      cholmod_sparse* Omega = NULL;
-      cholmod_sparse* A_rtQ = NULL;
-      try {
-        reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
-      }
-      catch (...) {
-        cholmod_l_free_sparse(&A_r, &_cholmod);
-        cholmod_l_free_sparse(&A_rt, &_cholmod);
-        throw;
-      }
-      cholmod_l_free_sparse(&A_r, &_cholmod);
-      cholmod_l_free_sparse(&A_rt, &_cholmod);
-      cholmod_l_free_sparse(&A_rtQ, &_cholmod);
+      SelfFreeingCholmodPtr<cholmod_sparse> Omega(NULL, _cholmod);
+      SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(NULL, _cholmod);
+      reduceLeftHandSide(_factor, A_rt, Omega.getPointersAddress(), A_rtQ.getPointersAddress(), &_cholmod);
       analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
-      cholmod_l_free_sparse(&Omega, &_cholmod);
       if (_svdRank == -1) {
         _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol :
           rankTol(_singularValues, _options.epsSVD);
