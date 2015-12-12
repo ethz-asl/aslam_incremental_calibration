@@ -343,10 +343,14 @@ namespace aslam {
       if (A->nrow != b->nrow)
         throw InvalidOperationException("inconsistent A and b", __FILE__,
           __LINE__, __PRETTY_FUNCTION__);
-      const bool isQRPartEmpty = j <= 0;
-      SelfFreeingCholmodPtr<cholmod_sparse> A_l(isQRPartEmpty ? NULL : columnSubmatrix(A, 0, j - 1, &_cholmod), _cholmod);
+
+      const bool hasQrPart = j > 0;
+      const bool hasSvdPart = j < A->ncol;
+
       SelfFreeingCholmodPtr<cholmod_dense> G_l(NULL, _cholmod);
-      if(!isQRPartEmpty) {
+      if(hasQrPart) {
+        SelfFreeingCholmodPtr<cholmod_sparse> A_l(NULL, _cholmod);
+        A_l = columnSubmatrix(A, 0, j - 1, &_cholmod);
         if (_options.columnScaling) {
           G_l = columnScalingMatrix(A_l, &_cholmod, _options.epsNorm);
           if (!cholmod_l_scale(G_l, CHOLMOD_COL, A_l, &_cholmod)) {
@@ -385,11 +389,11 @@ namespace aslam {
         clear();
         _cholmod.other1[1] = _cholmod.other1[2] = 0.0;
       }
-      const bool hasCalibrationPart = j < A->ncol;
+
       Eigen::VectorXd x_r;
       SelfFreeingCholmodPtr<cholmod_dense> x_l(NULL, _cholmod);
       SelfFreeingCholmodPtr<cholmod_dense> G_r(NULL, _cholmod);
-      if(hasCalibrationPart){
+      if(hasSvdPart){
         SelfFreeingCholmodPtr<cholmod_sparse> A_r(NULL, _cholmod);
         A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
 
@@ -415,11 +419,15 @@ namespace aslam {
           b_r = reduceRightHandSide(_factor, A_rt, A_rtQ, b, &_cholmod);
         }
         solveSVD(b_r, _singularValues, _matrixU, _matrixV, _svdRank, x_r);
-        x_l = isQRPartEmpty ? NULL : solveQR(_factor, b, A_r, x_r, &_cholmod);
+        if(hasQrPart){
+          x_l = solveQR(_factor, b, A_r, x_r, &_cholmod);
+        }
       } else {
         analyzeSVD(NULL);
         x_r.resize(0);
-        x_l = isQRPartEmpty ? NULL : solveQR(_factor, b, NULL, x_r, &_cholmod);
+        if(hasQrPart){
+          x_l = solveQR(_factor, b, NULL, x_r, &_cholmod);
+        }
       }
 
       if (_options.columnScaling) {
@@ -437,13 +445,15 @@ namespace aslam {
       }
 
       x.resize(A->ncol);
-      if(!isQRPartEmpty){
+      if(hasQrPart){
         Eigen::Map<Eigen::VectorXd> x_lEigen(reinterpret_cast<double*>(x_l->x), x_l->nrow);
         x.head(x_lEigen.size()) = x_lEigen;
       }
-      x.tail(x_r.size()) = x_r;
-      const double t1 = Timestamp::now();
-      _linearSolverTime = t1 - t0;
+      if(hasSvdPart){
+        x.tail(x_r.size()) = x_r;
+      }
+
+      _linearSolverTime = Timestamp::now() - t0;
     }
 
     void LinearSolver::analyzeSVD(cholmod_sparse * Omega) {
@@ -462,8 +472,11 @@ namespace aslam {
 
     void LinearSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
       const double t0 = Timestamp::now();
-      const bool isQRPartEmpty = j <= 0;
-      if(!isQRPartEmpty){
+
+      const bool hasQrPart = j > 0;
+      const bool hasSvdPart = j < A->ncol;
+
+      if(hasQrPart){
         SelfFreeingCholmodPtr<cholmod_sparse> A_l(columnSubmatrix(A, 0, j - 1, &_cholmod), _cholmod);
         if (_factor && _factor->QRsym &&
             (_factor->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
@@ -494,8 +507,7 @@ namespace aslam {
         clear();
         _cholmod.other1[1] = _cholmod.other1[2] = 0.0;
       }
-      const bool hasCalibrationPart = j < A->ncol;
-      if(hasCalibrationPart){
+      if(hasSvdPart){
         SelfFreeingCholmodPtr<cholmod_sparse> A_r(columnSubmatrix(A, j, A->ncol - 1, &_cholmod), _cholmod);
         SelfFreeingCholmodPtr<cholmod_sparse> A_rt(cholmod_l_transpose(A_r, 1, &_cholmod), _cholmod);
         if (A_rt == NULL) {
@@ -509,39 +521,33 @@ namespace aslam {
       } else {
         analyzeSVD(NULL);
       }
-      const double t1 = Timestamp::now();
-      _marginalAnalysisTime = t1 - t0;
+
+      _marginalAnalysisTime = Timestamp::now() - t0;
     }
 
     bool LinearSolver::analyzeMarginal() {
-      aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>& Jt =
-        _jacobianBuilder.J_transpose();
+      aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>& Jt = _jacobianBuilder.J_transpose();
       cholmod_sparse Jt_CS;
       Jt.getView(&Jt_CS);
-      cholmod_sparse* J_CS = cholmod_l_transpose(&Jt_CS, 1, &_cholmod);
+      SelfFreeingCholmodPtr<cholmod_sparse> J_CS(cholmod_l_transpose(&Jt_CS, 1, &_cholmod), _cholmod);
       if (J_CS == NULL)
         return false;
       bool status = true;
       try {
         analyzeMarginal(J_CS, _margStartIndex);
       }
-      catch (const OutOfBoundException<std::ptrdiff_t>& e) {
-        if (_options.verbose)
-          std::cerr << e.what() << std::endl;
-        status = false;
-      }
-      catch (const InvalidOperationException& e) {
-        if (_options.verbose)
-          std::cerr << e.what() << std::endl;
+      catch (const Exception& e) {
+        if (_options.verbose){
+          std::cerr << __PRETTY_FUNCTION__ << ": " << e.what() << std::endl;
+        }
         status = false;
       }
       catch (...) {
-        if (_options.verbose)
-          std::cerr << __PRETTY_FUNCTION__ << ": unknown exception"
-            << std::endl;
+        if (_options.verbose){
+          std::cerr << __PRETTY_FUNCTION__ << ": unknown exception" << std::endl;
+        }
         status = false;
       }
-      cholmod_l_free_sparse(&J_CS, &_cholmod);
       return status;
     }
 
