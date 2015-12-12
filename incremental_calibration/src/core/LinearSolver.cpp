@@ -385,20 +385,22 @@ namespace aslam {
         clear();
         _cholmod.other1[1] = _cholmod.other1[2] = 0.0;
       }
-      SelfFreeingCholmodPtr<cholmod_sparse> A_r(NULL, _cholmod);
-      A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
-
-      SelfFreeingCholmodPtr<cholmod_dense> G_r(NULL, _cholmod);
-      if (_options.columnScaling) {
-        G_r = columnScalingMatrix(A_r, &_cholmod, _options.epsNorm);
-        if (!cholmod_l_scale(G_r, CHOLMOD_COL, A_r, &_cholmod)) {
-          throw InvalidOperationException("cholmod_l_scale failed", __FILE__,
-            __LINE__, __PRETTY_FUNCTION__);
-        }
-      }
-
+      const bool hasCalibrationPart = j < A->ncol;
       Eigen::VectorXd x_r;
-      {
+      SelfFreeingCholmodPtr<cholmod_dense> x_l(NULL, _cholmod);
+      SelfFreeingCholmodPtr<cholmod_dense> G_r(NULL, _cholmod);
+      if(hasCalibrationPart){
+        SelfFreeingCholmodPtr<cholmod_sparse> A_r(NULL, _cholmod);
+        A_r = columnSubmatrix(A, j, A->ncol - 1, &_cholmod);
+
+        if (_options.columnScaling) {
+          G_r = columnScalingMatrix(A_r, &_cholmod, _options.epsNorm);
+          if (!cholmod_l_scale(G_r, CHOLMOD_COL, A_r, &_cholmod)) {
+            throw InvalidOperationException("cholmod_l_scale failed", __FILE__,
+              __LINE__, __PRETTY_FUNCTION__);
+          }
+        }
+
         SelfFreeingCholmodPtr<cholmod_dense> b_r(NULL, _cholmod);
         {
           SelfFreeingCholmodPtr<cholmod_sparse> A_rt(cholmod_l_transpose(A_r, 1, &_cholmod), _cholmod);
@@ -409,31 +411,32 @@ namespace aslam {
           SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(NULL, _cholmod);
           SelfFreeingCholmodPtr<cholmod_sparse> Omega(NULL, _cholmod);
           reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
-          analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
+          analyzeSVD(Omega);
           b_r = reduceRightHandSide(_factor, A_rt, A_rtQ, b, &_cholmod);
         }
-        _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol : rankTol(_singularValues, _options.epsSVD);
-        _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
-        _svdRankDeficiency = _singularValues.size() - _svdRank;
-        _svGap = svGap(_singularValues, _svdRank);
         solveSVD(b_r, _singularValues, _matrixU, _matrixV, _svdRank, x_r);
+        x_l = isQRPartEmpty ? NULL : solveQR(_factor, b, A_r, x_r, &_cholmod);
+      } else {
+        analyzeSVD(NULL);
+        x_r.resize(0);
+        x_l = isQRPartEmpty ? NULL : solveQR(_factor, b, NULL, x_r, &_cholmod);
       }
-      SelfFreeingCholmodPtr<cholmod_dense> x_l(NULL, _cholmod);
-      x_l = isQRPartEmpty ? NULL : solveQR(_factor, b, A_r, x_r, &_cholmod);
 
       if (_options.columnScaling) {
-        if(!isQRPartEmpty){
+        if(G_l){
           const double* G_l_val = reinterpret_cast<const double*>(G_l->x);
+          Eigen::Map<const Eigen::VectorXd> G_rEigen(reinterpret_cast<const double*>(G_r->x), G_r->nrow);
           double* x_l_val = reinterpret_cast<double*>(x_l->x);
-          for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(x_l->nrow);
-              ++i)
+          for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(x_l->nrow); ++i){
             x_l_val[i] = G_l_val[i] * x_l_val[i];
+          }
           G_l.reset(NULL);
         }
-        Eigen::Map<const Eigen::VectorXd> G_rEigen(
-          reinterpret_cast<const double*>(G_r->x), G_r->nrow);
-        x_r = G_rEigen.array() * x_r.array();
-        G_r.reset(NULL);
+        if(G_r){
+          Eigen::Map<const Eigen::VectorXd> G_rEigen(reinterpret_cast<const double*>(G_r->x), G_r->nrow);
+          x_r = G_rEigen.array() * x_r.array();
+          G_r.reset(NULL);
+        }
       }
 
       x.resize(A->ncol);
@@ -444,6 +447,20 @@ namespace aslam {
       x.tail(x_r.size()) = x_r;
       const double t1 = Timestamp::now();
       _linearSolverTime = t1 - t0;
+    }
+
+    void LinearSolver::analyzeSVD(cholmod_sparse * Omega) {
+      if(Omega){
+        calibration::analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
+        _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol : rankTol(_singularValues, _options.epsSVD);
+        _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
+        _svdRankDeficiency = _singularValues.size() - _svdRank;
+        _svGap = svGap(_singularValues, _svdRank);
+      } else {
+        clearSvdAnalysisResultMembers();
+        _svdRank = 0;
+        _svdRankDeficiency = 0;
+      }
     }
 
     void LinearSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
@@ -480,22 +497,20 @@ namespace aslam {
         clear();
         _cholmod.other1[1] = _cholmod.other1[2] = 0.0;
       }
-      SelfFreeingCholmodPtr<cholmod_sparse> A_r(columnSubmatrix(A, j, A->ncol - 1, &_cholmod), _cholmod);
-      SelfFreeingCholmodPtr<cholmod_sparse> A_rt(cholmod_l_transpose(A_r, 1, &_cholmod), _cholmod);
-      if (A_rt == NULL) {
-        throw InvalidOperationException("cholmod_l_transpose failed", __FILE__,
-          __LINE__, __PRETTY_FUNCTION__);
-      }
-      SelfFreeingCholmodPtr<cholmod_sparse> Omega(NULL, _cholmod);
-      SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(NULL, _cholmod);
-      reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
-      analyzeSVD(Omega, _singularValues, _matrixU, _matrixV);
-      if (_svdRank == -1) {
-        _svdTolerance = (_options.svdTol != -1.0) ? _options.svdTol :
-          rankTol(_singularValues, _options.epsSVD);
-        _svdRank = estimateNumericalRank(_singularValues, _svdTolerance);
-        _svdRankDeficiency = _singularValues.size() - _svdRank;
-        _svGap = svGap(_singularValues, _svdRank);
+      const bool hasCalibrationPart = j < A->ncol;
+      if(hasCalibrationPart){
+        SelfFreeingCholmodPtr<cholmod_sparse> A_r(columnSubmatrix(A, j, A->ncol - 1, &_cholmod), _cholmod);
+        SelfFreeingCholmodPtr<cholmod_sparse> A_rt(cholmod_l_transpose(A_r, 1, &_cholmod), _cholmod);
+        if (A_rt == NULL) {
+          throw InvalidOperationException("cholmod_l_transpose failed", __FILE__,
+            __LINE__, __PRETTY_FUNCTION__);
+        }
+        SelfFreeingCholmodPtr<cholmod_sparse> Omega(NULL, _cholmod);
+        SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(NULL, _cholmod);
+        reduceLeftHandSide(_factor, A_rt, &Omega, &A_rtQ, &_cholmod);
+        analyzeSVD(Omega);
+      } else {
+        analyzeSVD(NULL);
       }
       const double t1 = Timestamp::now();
       _marginalAnalysisTime = t1 - t0;
@@ -533,11 +548,7 @@ namespace aslam {
       return status;
     }
 
-    void LinearSolver::clear() {
-      if (_factor) {
-        SuiteSparseQR_free<double>(&_factor, &_cholmod);
-        _factor = NULL;
-      }
+    void LinearSolver::clearSvdAnalysisResultMembers() {
       _svdRank = -1;
       _svGap = std::numeric_limits<double>::infinity();
       _svdRankDeficiency = -1;
@@ -545,6 +556,14 @@ namespace aslam {
       _singularValues.resize(0);
       _matrixU.resize(0, 0);
       _matrixV.resize(0, 0);
+    }
+
+    void LinearSolver::clear() {
+      if (_factor) {
+        SuiteSparseQR_free<double>(&_factor, &_cholmod);
+        _factor = NULL;
+      }
+      clearSvdAnalysisResultMembers();
       _linearSolverTime = 0.0;
       _marginalAnalysisTime = 0.0;
     }

@@ -213,6 +213,12 @@ namespace aslam {
         std::vector<aslam::backend::DesignVariable*>& dvs, const
         std::vector<aslam::backend::ErrorTerm*>& errors, bool
         useDiagonalConditioner);
+
+
+     
+      void clearSvdAnalysisResultMembers();
+      void analyzeSVD(cholmod_sparse * Omega);
+
       /** @}
         */
 
