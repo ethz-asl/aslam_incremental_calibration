@@ -532,23 +532,8 @@ namespace aslam {
       SelfFreeingCholmodPtr<cholmod_sparse> J_CS(cholmod_l_transpose(&Jt_CS, 1, &_cholmod), _cholmod);
       if (J_CS == NULL)
         return false;
-      bool status = true;
-      try {
-        analyzeMarginal(J_CS, _margStartIndex);
-      }
-      catch (const Exception& e) {
-        if (_options.verbose){
-          std::cerr << __PRETTY_FUNCTION__ << ": " << e.what() << std::endl;
-        }
-        status = false;
-      }
-      catch (...) {
-        if (_options.verbose){
-          std::cerr << __PRETTY_FUNCTION__ << ": unknown exception" << std::endl;
-        }
-        status = false;
-      }
-      return status;
+      analyzeMarginal(J_CS, _margStartIndex);
+      return true;
     }
 
     void LinearSolver::clearSvdAnalysisResultMembers() {
