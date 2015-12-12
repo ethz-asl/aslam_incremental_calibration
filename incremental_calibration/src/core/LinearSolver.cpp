@@ -424,12 +424,9 @@ namespace aslam {
 
       if (_options.columnScaling) {
         if(G_l){
-          const double* G_l_val = reinterpret_cast<const double*>(G_l->x);
-          Eigen::Map<const Eigen::VectorXd> G_rEigen(reinterpret_cast<const double*>(G_r->x), G_r->nrow);
-          double* x_l_val = reinterpret_cast<double*>(x_l->x);
-          for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(x_l->nrow); ++i){
-            x_l_val[i] = G_l_val[i] * x_l_val[i];
-          }
+          Eigen::Map<const Eigen::VectorXd> G_lEigen(reinterpret_cast<const double*>(G_l->x), G_l->nrow);
+          Eigen::Map<Eigen::VectorXd> x_lEigen(reinterpret_cast<double*>(x_l->x), x_l->nrow);
+          x_lEigen = G_lEigen.cwiseProduct(x_lEigen);
           G_l.reset(NULL);
         }
         if(G_r){
