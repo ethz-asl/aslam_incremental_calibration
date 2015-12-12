@@ -438,8 +438,8 @@ namespace aslam {
 
       x.resize(A->ncol);
       if(!isQRPartEmpty){
-        const double* x_l_val = reinterpret_cast<const double*>(x_l->x);
-        std::copy(x_l_val, x_l_val + x_l->nzmax, x.data());
+        Eigen::Map<Eigen::VectorXd> x_lEigen(reinterpret_cast<double*>(x_l->x), x_l->nrow);
+        x.head(x_lEigen.size()) = x_lEigen;
       }
       x.tail(x_r.size()) = x_r;
       const double t1 = Timestamp::now();
