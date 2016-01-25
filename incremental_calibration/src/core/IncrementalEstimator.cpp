@@ -25,7 +25,7 @@
 #include <stdexcept>
 
 #include <aslam-tsvd-solver/aslam-tsvd-solver.h>
-#include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
+#include <aslam/backend/LineSearchTrustRegionPolicy.hpp>
 #include <aslam/backend/LevenbergMarquardtTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 #include <boost/make_shared.hpp>
@@ -69,7 +69,7 @@ namespace aslam {
       OptimizerOptions& optOptions = _optimizer->options();
       optOptions.linearSystemSolver =
         boost::make_shared<LinearSolver>(linearSolverOptions);
-      optOptions.trustRegionPolicy = boost::make_shared<TrustRegionPolicy>();
+      optOptions.trustRegionPolicy = boost::make_shared<backend::LineSearchTrustRegionPolicy>();
       _optimizer->initializeLinearSolver();
       _optimizer->initializeTrustRegionPolicy();
 
@@ -100,7 +100,7 @@ namespace aslam {
       if(method == "ObservabilityAware"){
         boost::shared_ptr<LinearSolver> linearSolver = boost::make_shared<LinearSolver>(sm::ConstPropertyTree(config, "optimizer/linearSolver"));
         //TODO (HannesSommer) support choosing trust region policy by property tree
-        _optimizer = boost::make_shared<Optimizer>(optimizerPT, linearSolver, boost::make_shared<TrustRegionPolicy>());
+        _optimizer = boost::make_shared<Optimizer>(optimizerPT, linearSolver, boost::make_shared<backend::LineSearchTrustRegionPolicy>());
         _isObservabilityAware = true;
       } else if(method == "LevenbergMarquard"){
         _optimizer = boost::make_shared<Optimizer>(

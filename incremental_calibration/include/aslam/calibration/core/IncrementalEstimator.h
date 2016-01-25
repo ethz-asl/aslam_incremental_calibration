@@ -67,8 +67,6 @@ namespace aslam {
         IncrementalOptimizationProblemSP;
       /// Self type
       typedef IncrementalEstimator Self;
-      /// Trust region type
-      typedef aslam::backend::GaussNewtonTrustRegionPolicy TrustRegionPolicy;
       /// Optimizer type
       typedef aslam::backend::Optimizer2 Optimizer;
       /// Optimizer options type
