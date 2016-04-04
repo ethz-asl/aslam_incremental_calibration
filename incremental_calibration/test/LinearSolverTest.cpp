@@ -29,6 +29,8 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
+#include <sm/eigen/gtest.hpp>
+
 #include <cholmod.h>
 #include <SuiteSparseQR.hpp>
 
@@ -131,8 +133,15 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
   constexpr size_t kNumVariables = 10;
   constexpr double kXResult = 2.0;
 
-  Eigen::MatrixXd A = Eigen::MatrixXd::Identity(kNumVariables, kNumVariables);
-  Eigen::VectorXd b = Eigen::VectorXd::Constant(kNumVariables, kXResult);
+  Eigen::VectorXd Adiag(kNumVariables);
+  for(std::ptrdiff_t i = 0; i < kNumVariables; ++i){
+    Adiag(i) =  kNumVariables - i;
+  }
+
+  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(kNumVariables, kNumVariables);
+  A.diagonal() = Adiag;
+
+  Eigen::VectorXd b = A * Eigen::VectorXd::Constant(kNumVariables, kXResult);
 
   // Convert to cholmod types.
   cholmod_common_struct cholmod;
@@ -146,32 +155,60 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
 
   aslam::calibration::LinearSolver solver(options);
 
-  for (std::ptrdiff_t i = 1; i < A.cols(); ++i) {
+  for (std::ptrdiff_t i = 0; i <= A.cols(); ++i) {
     const size_t num_calib_vars = kNumVariables - i;
 
     Eigen::VectorXd x;
+    solver.clear();
+    EXPECT_EQ(solver.getSVDRank(), -1);
+    EXPECT_EQ(solver.getSVDRankDeficiency(), -1);
+    EXPECT_EQ(solver.getQRRank(), 0);
+    EXPECT_EQ(solver.getQRRankDeficiency(), 0);
+    EXPECT_EQ(solver.getNullSpace().size(), 0);
+
+    solver.analyzeMarginal(A_cm, i);
+    EXPECT_EQ(solver.getSVDRank(), num_calib_vars);
+    EXPECT_EQ(solver.getQRRank(), i);
+    EXPECT_EQ(solver.getQRRankDeficiency(), 0);
+    EXPECT_EQ(solver.getSVDRankDeficiency(), 0);
+    EXPECT_EQ(solver.getNullSpace().size(), 0);
+
+    solver.clear();
+    EXPECT_EQ(solver.getSVDRank(), -1);
+    EXPECT_EQ(solver.getSVDRankDeficiency(), -1);
+    EXPECT_EQ(solver.getQRRank(), 0);
+    EXPECT_EQ(solver.getQRRankDeficiency(), 0);
+    EXPECT_EQ(solver.getNullSpace().size(), 0);
+
     solver.solve(A_cm, &b_cm, i, x);
     EXPECT_EQ(solver.getSVDRank(), num_calib_vars);
     EXPECT_EQ(solver.getQRRank(), i);
-
     EXPECT_EQ(solver.getQRRankDeficiency(), 0);
     EXPECT_EQ(solver.getSVDRankDeficiency(), 0);
-
     EXPECT_EQ(solver.getNullSpace().size(), 0);
 
-
-    EXPECT_EQ(solver.getCovariance(), Eigen::MatrixXd::Identity(num_calib_vars, num_calib_vars));
-    EXPECT_EQ(x, Eigen::VectorXd::Constant(kNumVariables, kXResult));
+    Eigen::VectorXd expectedSingularValues;
+    if(options.columnScaling){
+      expectedSingularValues = Eigen::VectorXd::Ones(num_calib_vars);
+    }else{
+      expectedSingularValues = Adiag.tail(num_calib_vars).array() * Adiag.tail(num_calib_vars).array();
+    }
+    sm::eigen::assertNear(solver.getSingularValues(), expectedSingularValues, 1e-8, SM_SOURCE_FILE_POS, "");
+    sm::eigen::assertNear(x, Eigen::VectorXd::Constant(kNumVariables, kXResult), 1e-8, SM_SOURCE_FILE_POS, "");
   }
+
+  cholmod_l_free_sparse(&A_cm, &cholmod);
 }
 
 
-TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystem) {
-  // Solve a well-defined linear system.
+TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithoutColumnScaling) {
   aslam::calibration::LinearSolverOptions options;
   options.columnScaling = false;
   evaluateSPQRSolverDeterminedSystem(options);
+}
 
+TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithColumnScaling) {
+  aslam::calibration::LinearSolverOptions options;
   options.columnScaling = true;
   evaluateSPQRSolverDeterminedSystem(options);
 }

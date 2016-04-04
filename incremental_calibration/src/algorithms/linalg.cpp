@@ -287,7 +287,7 @@ namespace aslam {
     void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
         cholmod_sparse* A_rt, cholmod_sparse** Omega, cholmod_sparse** A_rtQ,
         cholmod_common* cholmod) {
-      if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
+      if (factor != NULL && (factor->QRsym == NULL || factor->QRnum == NULL))
         throw NullPointerException("factor", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       if (A_rt == NULL)
@@ -299,6 +299,12 @@ namespace aslam {
       if (Omega == NULL)
         throw NullPointerException("Omega", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
+
+      if(factor == NULL){ // NO QR part!
+        *Omega = cholmod_l_aat(A_rt, NULL, 0, 1, cholmod);
+        return;
+      }
+
       if (A_rtQ == NULL)
         throw NullPointerException("A_rtQ", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
@@ -342,7 +348,7 @@ namespace aslam {
     cholmod_dense* reduceRightHandSide(SuiteSparseQR_factorization<double>*
         factor, cholmod_sparse* A_rt, cholmod_sparse* A_rtQ, cholmod_dense* b,
         cholmod_common* cholmod) {
-      if (factor == NULL || factor->QRsym == NULL || factor->QRnum == NULL)
+      if (factor != NULL && (factor->QRsym == NULL || factor->QRnum == NULL))
         throw NullPointerException("factor", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       if (A_rt == NULL)
@@ -351,11 +357,26 @@ namespace aslam {
       if (b == NULL)
         throw NullPointerException("b", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
-      if (A_rtQ == NULL)
-        throw NullPointerException("A_rtQ", __FILE__, __LINE__,
-          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
         throw NullPointerException("cholmod", __FILE__, __LINE__,
+          __PRETTY_FUNCTION__);
+
+      if(factor == NULL){ // NO QR part!
+        double one = 1, zero = 0;
+        cholmod_dense* bReduced = cholmod_l_allocate_dense(A_rt->nrow, 1, A_rt->nrow, CHOLMOD_REAL, cholmod);
+        if (bReduced == NULL) {
+          throw InvalidOperationException("cholmod_l_allocate_dense failed", __FILE__, __LINE__, __PRETTY_FUNCTION__);
+        }
+        const int status = cholmod_l_sdmult(A_rt, 0, &one, &zero, b, bReduced, cholmod);
+        if (!status) {
+          cholmod_l_free_dense(&bReduced, cholmod);
+          throw InvalidOperationException("cholmod_l_sdmult failed", __FILE__, __LINE__, __PRETTY_FUNCTION__);
+        }
+        return bReduced;
+      }
+
+      if (A_rtQ == NULL)
+        throw NullPointerException("A_rtQ", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
       cholmod_sparse* bSparse = cholmod_l_dense_to_sparse(b, 1, cholmod);
       if (bSparse == NULL)
@@ -454,43 +475,45 @@ namespace aslam {
       if (b == NULL)
         throw NullPointerException("b", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
-      if (A_r == NULL)
-        throw NullPointerException("A_r", __FILE__, __LINE__,
-          __PRETTY_FUNCTION__);
-      if (x_r.size() != static_cast<int>(A_r->ncol))
-        throw OutOfBoundException<int>(x_r.size(), A_r->ncol,
-          "mismatch between x_r and A_r", __FILE__, __LINE__,
-          __PRETTY_FUNCTION__);
       if (cholmod == NULL)
         throw NullPointerException("cholmod", __FILE__, __LINE__,
           __PRETTY_FUNCTION__);
-      cholmod_dense x_rCholmod;
-      eigenDenseToCholmodDenseView(x_r, &x_rCholmod);
-      cholmod_dense* A_rx_r = cholmod_l_allocate_dense(A_r->nrow, 1, A_r->nrow,
-        CHOLMOD_REAL, cholmod);
-      if (A_rx_r == NULL)
-        throw InvalidOperationException("cholmod_l_allocate_dense failed",
-          __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      double alpha[2];
-      alpha[0] = 1.0;
-      double beta[2];
-      beta[0] = 0.0;
-      if (!cholmod_l_sdmult(A_r, 0, alpha, beta, &x_rCholmod, A_rx_r,
-          cholmod)) {
+
+      cholmod_dense* QtbmA_rx_r = NULL;
+      if (A_r != NULL) {
+        if (x_r.size() != static_cast<int>(A_r->ncol))
+          throw OutOfBoundException<int>(x_r.size(), A_r->ncol,
+            "mismatch between x_r and A_r", __FILE__, __LINE__,
+            __PRETTY_FUNCTION__);
+        cholmod_dense x_rCholmod;
+        eigenDenseToCholmodDenseView(x_r, &x_rCholmod);
+        cholmod_dense* A_rx_r = cholmod_l_allocate_dense(A_r->nrow, 1, A_r->nrow,
+          CHOLMOD_REAL, cholmod);
+        if (A_rx_r == NULL)
+          throw InvalidOperationException("cholmod_l_allocate_dense failed",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
+        double alpha[2];
+        alpha[0] = 1.0;
+        double beta[2];
+        beta[0] = 0.0;
+        if (!cholmod_l_sdmult(A_r, 0, alpha, beta, &x_rCholmod, A_rx_r,
+            cholmod)) {
+          cholmod_l_free_dense(&A_rx_r, cholmod);
+          throw InvalidOperationException("cholmod_l_sdmult failed", __FILE__,
+            __LINE__, __PRETTY_FUNCTION__);
+        }
+        Eigen::Map<const Eigen::VectorXd> bEigen(
+          reinterpret_cast<const double*>(b->x), b->nrow);
+        Eigen::Map<const Eigen::VectorXd> A_rx_rEigen(
+          reinterpret_cast<const double*>(A_rx_r->x), A_rx_r->nrow);
+        const Eigen::VectorXd bmA_rx_rEigen = bEigen - A_rx_rEigen;
         cholmod_l_free_dense(&A_rx_r, cholmod);
-        throw InvalidOperationException("cholmod_l_sdmult failed", __FILE__,
-          __LINE__, __PRETTY_FUNCTION__);
+        cholmod_dense bmA_rx_r;
+        eigenDenseToCholmodDenseView(bmA_rx_rEigen, &bmA_rx_r);
+        QtbmA_rx_r = SuiteSparseQR_qmult<double>(SPQR_QTX, factor, &bmA_rx_r, cholmod);
+      } else {
+        QtbmA_rx_r = SuiteSparseQR_qmult<double>(SPQR_QTX, factor, b, cholmod);
       }
-      Eigen::Map<const Eigen::VectorXd> bEigen(
-        reinterpret_cast<const double*>(b->x), b->nrow);
-      Eigen::Map<const Eigen::VectorXd> A_rx_rEigen(
-        reinterpret_cast<const double*>(A_rx_r->x), A_rx_r->nrow);
-      const Eigen::VectorXd bmA_rx_rEigen = bEigen - A_rx_rEigen;
-      cholmod_l_free_dense(&A_rx_r, cholmod);
-      cholmod_dense bmA_rx_r;
-      eigenDenseToCholmodDenseView(bmA_rx_rEigen, &bmA_rx_r);
-      cholmod_dense* QtbmA_rx_r = SuiteSparseQR_qmult<double>(SPQR_QTX, factor,
-        &bmA_rx_r, cholmod);
       if (QtbmA_rx_r == NULL)
         throw InvalidOperationException("SuiteSparseQR_qmult failed", __FILE__,
           __LINE__, __PRETTY_FUNCTION__);
