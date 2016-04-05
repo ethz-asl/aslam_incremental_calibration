@@ -20,23 +20,19 @@
     \brief This file defines the python exports for the LinearSolver class.
   */
 
+#include <aslam-tsvd-solver/aslam-tsvd-solver.h>
 #include <boost/shared_ptr.hpp>
-
 #include <numpy_eigen/boost_python_headers.hpp>
-
 #include <sm/PropertyTree.hpp>
 
-#include <aslam/backend/LinearSystemSolver.hpp>
-
-#include <aslam/calibration/core/LinearSolverOptions.h>
-#include <aslam/calibration/core/LinearSolver.h>
-
 using namespace boost::python;
-using namespace aslam::calibration;
 using namespace aslam::backend;
 using namespace sm;
 
 void exportLinearSolver() {
+  typedef AslamTruncatedSvdSolver LinearSolver;
+  typedef AslamTruncatedSvdSolver::Options LinearSolverOptions;
+
   /// Export LinearSolverOptions structure
   class_<LinearSolverOptions>("LinearSolverOptions", init<>())
     .def_readwrite("columnScaling", &LinearSolverOptions::columnScaling)

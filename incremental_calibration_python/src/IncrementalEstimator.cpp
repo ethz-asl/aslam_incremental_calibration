@@ -28,7 +28,7 @@
 #include <aslam/backend/CompressedColumnMatrix.hpp>
 #include <aslam/backend/Optimizer2Options.hpp>
 
-#include <aslam/calibration/core/LinearSolverOptions.h>
+#include <aslam-tsvd-solver/aslam-tsvd-solver.h>
 #include <aslam/calibration/core/IncrementalEstimator.h>
 #include <aslam/calibration/core/IncrementalOptimizationProblem.h>
 
