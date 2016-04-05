@@ -41,8 +41,8 @@
 #include <aslam/calibration/statistics/NormalDistribution.h>
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/geometry/Transformation.h>
-#include <aslam/calibration/algorithms/marginalize.h>
 #include <aslam/calibration/base/Timestamp.h>
+#include <truncated-svd-solver/marginalization.h>
 
 #include "aslam/calibration/2dlrf/utils.h"
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
@@ -259,13 +259,18 @@ int main(int argc, char** argv) {
     optimizer.optimize();
 
     // Sigma computation
+    aslam::backend::CompressedColumnMatrix<std::ptrdiff_t> Jt =
+        optimizer.getSolver<SparseQrLinearSystemSolver>()->
+        getJacobianTranspose();
+
     const size_t dim = 3;
-    const size_t numCols = optimizer.getSolver<SparseQrLinearSystemSolver>()->
-      getJacobianTranspose().rows();
+    const size_t numCols = Jt.rows();
+
     Eigen::MatrixXd NS, CS, Sigma, SigmaP, Omega;
-    marginalize(
-      optimizer.getSolver<SparseQrLinearSystemSolver>()->getJacobianTranspose(),
-      numCols - dim, NS, CS, Sigma, SigmaP, Omega);
+    cholmod_sparse Jt_cholmod;
+    Jt.getView(&Jt_cholmod);
+    truncated_svd_solver::marginalize(&Jt_cholmod, numCols - dim, NS, CS,
+                                      Sigma, SigmaP, Omega);
     const double SigmaDet = Sigma.determinant();
 
     std::cout << "Calibration after: " << *dv_Theta << std::endl;
