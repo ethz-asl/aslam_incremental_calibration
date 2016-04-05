@@ -31,5 +31,4 @@
   <run_depend>sm_kinematics</run_depend>
   <run_depend>sm_property_tree</run_depend>
   <run_depend>sm_timing</run_depend>
-
 </package>
