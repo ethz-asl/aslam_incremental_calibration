@@ -45,7 +45,7 @@
 #include <aslam/calibration/data-structures/VectorDesignVariable.h>
 #include <aslam/calibration/geometry/Transformation.h>
 #include <aslam/calibration/base/Timestamp.h>
-#include <aslam/calibration/core/LinearSolver.h>
+#include <aslam-tsvd-solver/aslam-tsvd-solver.h>
 
 #include "aslam/calibration/2dlrf/utils.h"
 #include "aslam/calibration/2dlrf/ErrorTermMotion.h"
@@ -56,6 +56,7 @@ using namespace aslam::backend;
 using namespace sm::kinematics;
 using namespace sm;
 
+typedef aslam::backend::AslamTruncatedSvdSolver LinearSolver;
 int main(int argc, char** argv) {
   if (argc != 2) {
     std::cerr << "Usage: " << argv[0] << " <conf_file>" << std::endl;

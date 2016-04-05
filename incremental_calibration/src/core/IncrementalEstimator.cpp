@@ -23,14 +23,13 @@
 #include <vector>
 #include <ostream>
 
-#include <boost/make_shared.hpp>
-
-#include <sm/PropertyTree.hpp>
-
+#include <aslam-tsvd-solver/aslam-tsvd-solver.h>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
+#include <boost/make_shared.hpp>
+#include <sm/PropertyTree.hpp>
 
-#include "aslam/calibration/core/LinearSolver.h"
+
 #include "aslam/calibration/core/IncrementalOptimizationProblem.h"
 #include "aslam/calibration/base/Timestamp.h"
 #include "aslam/calibration/exceptions/InvalidOperationException.h"
@@ -108,8 +107,7 @@ namespace aslam {
       _margGroupId = config.getInt("groupId");
     }
 
-    IncrementalEstimator::~IncrementalEstimator() {
-    }
+    IncrementalEstimator::~IncrementalEstimator() {}
 
 /******************************************************************************/
 /* Accessors                                                                  */

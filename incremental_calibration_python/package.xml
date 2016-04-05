@@ -13,8 +13,10 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <buildtool_depend>catkin_simple</buildtool_depend>
+  <build_depend>aslam_tsvd_solver</build_depend>
 
   <build_depend>incremental_calibration</build_depend>
   <build_depend>numpy_eigen</build_depend>
   <build_depend>python_module</build_depend>
+  <build_depend>aslam_tsvd_solver</build_depend>
 </package>

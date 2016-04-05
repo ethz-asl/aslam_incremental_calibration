@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package format="2">
+  <name>aslam_tsvd_solver</name>
+  <version>0.0.1</version>
+  <description>Aslam solve interface for the truncated-SVD linear solver.</description>
+  
+  <license>BSD</license>
+  <url type="website">https://github.com/ethz-asl/truncated_svd_solver</url>
+  <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
+  <maintainer email="schneith@ethz.ch">Thomas Schneider</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <depend>aslam_backend</depend>
+  <depend>truncated_svd_solver</depend>
+</package>
