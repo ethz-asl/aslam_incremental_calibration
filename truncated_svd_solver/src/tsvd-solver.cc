@@ -14,7 +14,7 @@
 namespace truncated_svd_solver {
 
 TruncatedSvdSolver::TruncatedSvdSolver(const Options& options) :
-    options_(options),
+    tsvd_options_(options),
     factor_(nullptr),
     svdRank_(-1),
     svGap_(std::numeric_limits<double>::infinity()),
@@ -27,33 +27,10 @@ TruncatedSvdSolver::TruncatedSvdSolver(const Options& options) :
   cholmod_.SPQR_grain = 16;  // Maybe useless.
 }
 
-// TODO(schneith): Move PropertyTree stuff to aslam glue code.
-//TruncatedSvdSolver::LinearSolver(const sm::PropertyTree& config) :
-//    _factor(nullptr),
-//    _svdRank(-1),
-//    _svGap(std::numeric_limits<double>::infinity()),
-//    _svdRankDeficiency(-1),
-//    _margStartIndex(-1),
-//    _svdTolerance(-1.0),
-//    _linearSolverTime(0.0),
-//    _marginalAnalysisTime(0.0) {
-//  cholmod_l_start(&_cholmod);
-//  _cholmod.SPQR_grain = 16; // maybe useless
-//  _options.columnScaling = config.getBool("columnScaling",
-//    _options.columnScaling);
-//  _options.epsNorm = config.getDouble("epsNorm", _options.epsNorm);
-//  _options.epsSVD = config.getDouble("epsSVD", _options.epsSVD);
-//  _options.epsQR = config.getDouble("epsQR", _options.epsQR);
-//  _options.svdTol = config.getDouble("svdTol", _options.svdTol);
-//  _options.qrTol = config.getDouble("qrTol", _options.qrTol);
-//  _options.verbose = config.getBool("verbose", _options.verbose);
-//  // TODO(schneith): ideally, use constructor delegation, not available for now.
-//}
-
 TruncatedSvdSolver::~TruncatedSvdSolver() {
   clear();
   cholmod_l_finish(&cholmod_);
-  if (options_.verbose && getMemoryUsage() > 0) {
+  if (tsvd_options_.verbose && getMemoryUsage() > 0) {
     LOG(ERROR) << "Cholmod memory leak detected.";
   }
 }
@@ -69,15 +46,11 @@ void TruncatedSvdSolver::clear() {
 }
 
 const TruncatedSvdSolver::Options& TruncatedSvdSolver::getOptions() const {
-  return options_;
+  return tsvd_options_;
 }
 
 TruncatedSvdSolver::Options& TruncatedSvdSolver::getOptions() {
-  return options_;
-}
-
-std::string TruncatedSvdSolver::name() const {
-  return std::string("marginal_spqr_svd");
+  return tsvd_options_;
 }
 
 std::ptrdiff_t TruncatedSvdSolver::getSVDRank() const {
@@ -221,8 +194,8 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
     SelfFreeingCholmodPtr<cholmod_sparse> A_l(nullptr, cholmod_);
     A_l = columnSubmatrix(A, 0, j - 1, &cholmod_);
 
-    if (options_.columnScaling) {
-      G_l = columnScalingMatrix(A_l, &cholmod_, options_.epsNorm);
+    if (tsvd_options_.columnScaling) {
+      G_l = columnScalingMatrix(A_l, &cholmod_, tsvd_options_.epsNorm);
       bool success = cholmod_l_scale(G_l, CHOLMOD_COL, A_l, &cholmod_);
       CHECK(success) << "cholmod_l_scale failed.";
     }
@@ -246,8 +219,8 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
       cholmod_.other1[1] = t3 - t2;
     }
 
-    const double qrTolerance = (options_.qrTol != -1.0) ? options_.qrTol :
-      qrTol(A_l, &cholmod_, options_.epsQR);
+    const double qrTolerance = (tsvd_options_.qrTol != -1.0) ? tsvd_options_.qrTol :
+      qrTol(A_l, &cholmod_, tsvd_options_.epsQR);
     const double t2 = Timestamp::now();
     const bool status = SuiteSparseQR_numeric<double>(qrTolerance, A_l,
       factor_, &cholmod_);
@@ -266,8 +239,8 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
     SelfFreeingCholmodPtr<cholmod_sparse> A_r(nullptr, cholmod_);
     A_r = columnSubmatrix(A, j, A->ncol - 1, &cholmod_);
 
-    if (options_.columnScaling) {
-      G_r = columnScalingMatrix(A_r, &cholmod_, options_.epsNorm);
+    if (tsvd_options_.columnScaling) {
+      G_r = columnScalingMatrix(A_r, &cholmod_, tsvd_options_.epsNorm);
       const bool success = cholmod_l_scale(G_r, CHOLMOD_COL, A_r, &cholmod_);
       CHECK(success) << "cholmod_l_scale failed.";
     }
@@ -296,7 +269,7 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
     }
   }
 
-  if (options_.columnScaling) {
+  if (tsvd_options_.columnScaling) {
     if(G_l){
       Eigen::Map<const Eigen::VectorXd> G_lEigen(
           reinterpret_cast<const double*>(G_l->x), G_l->nrow);
@@ -330,8 +303,8 @@ void TruncatedSvdSolver::analyzeSVD(cholmod_sparse * Omega) {
   if (Omega) {
     truncated_svd_solver::analyzeSVD(Omega, singularValues_, matrixU_,
                                      matrixV_);
-    svdTolerance_ = (options_.svdTol != -1.0) ? options_.svdTol :
-        rankTol(singularValues_, options_.epsSVD);
+    svdTolerance_ = (tsvd_options_.svdTol != -1.0) ? tsvd_options_.svdTol :
+        rankTol(singularValues_, tsvd_options_.epsSVD);
     svdRank_ = estimateNumericalRank(singularValues_, svdTolerance_);
     svdRankDeficiency_ = singularValues_.size() - svdRank_;
     svGap_ = svGap(singularValues_, svdRank_);
@@ -368,8 +341,8 @@ void TruncatedSvdSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
 
     const double t2 = Timestamp::now();
     const double qrTolerance =
-        (options_.qrTol != -1.0) ? options_.qrTol :
-            qrTol(A_l, &cholmod_, options_.epsQR);
+        (tsvd_options_.qrTol != -1.0) ? tsvd_options_.qrTol :
+            qrTol(A_l, &cholmod_, tsvd_options_.epsQR);
     const bool success = SuiteSparseQR_numeric<double>(
         qrTolerance, A_l, factor_, &cholmod_);
     CHECK(success) << "SuiteSparseQR_numeric failed.";

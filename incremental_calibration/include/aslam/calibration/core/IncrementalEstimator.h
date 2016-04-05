@@ -26,32 +26,28 @@
 
 #include <cstddef>
 
+#include <aslam-tsvd-solver/aslam-tsvd-solver.h>
+#include <aslam/backend/Optimizer2Options.hpp>
 #include <boost/shared_ptr.hpp>
-
 #include <Eigen/Core>
 
-#include <aslam/backend/Optimizer2Options.hpp>
-
-#include "aslam/calibration/core/LinearSolverOptions.h"
-
 namespace sm {
-
   class PropertyTree;
-
 }
+
 namespace aslam {
   namespace backend {
-
     class GaussNewtonTrustRegionPolicy;
     class Optimizer2;
     template<typename I> class CompressedColumnMatrix;
-
   }
-  namespace calibration {
 
+  namespace calibration {
+    typedef aslam::backend::AslamTruncatedSvdSolver LinearSolver;
+    typedef aslam::backend::AslamTruncatedSvdSolver::Options
+        LinearSolverOptions;
     class OptimizationProblem;
     class IncrementalOptimizationProblem;
-    class LinearSolver;
 
     /** The class IncrementalEstimator implements an incremental estimator
         for robotic calibration problems.

@@ -18,6 +18,7 @@ target_link_libraries(${PROJECT_NAME} pthread ${TBB_LIBRARIES})
 catkin_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
   test/test-tsvd-solver.cc
+  test/test-marginalization.cc
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 

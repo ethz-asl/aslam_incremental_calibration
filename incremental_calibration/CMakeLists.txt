@@ -34,14 +34,10 @@ cs_add_library(${PROJECT_NAME}
   src/core/IncrementalEstimator.cpp
   src/core/OptimizationProblem.cpp
   src/core/IncrementalOptimizationProblem.cpp
-  src/core/LinearSolver.cpp
-  src/core/LinearSolverOptions.cpp
-  src/algorithms/marginalize.cpp
-  src/algorithms/linalg.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS system thread)
-target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} ${TBB_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} ${TBB_LIBRARIES} pthread)
 
 # Avoid clash with tr1::tuple:
 # https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
@@ -53,7 +49,6 @@ catkin_add_gtest(${PROJECT_NAME}_test
   test/AlgorithmsTest.cpp
   test/OptimizationProblemTest.cpp
   test/IncrementalOptimizationProblemTest.cpp
-  test/LinearSolverTest.cpp
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 

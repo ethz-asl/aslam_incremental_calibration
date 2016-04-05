@@ -64,8 +64,6 @@ class TruncatedSvdSolver {
   const Options& getOptions() const;
   /// Returns the options
   Options& getOptions();
-  /// Returns the name of the solver
-  virtual std::string name() const;
   /// Returns the current SVD rank
   std::ptrdiff_t getSVDRank() const;
   /// Returns the current SVD rank deficiency
@@ -117,12 +115,12 @@ class TruncatedSvdSolver {
   // TODO(schneith): we are missing here the Frobenius norm, available in
   //                 SPQR 3.4
 
-protected:
+ protected:
   void clearSvdAnalysisResultMembers();
   void analyzeSVD(cholmod_sparse * Omega);
 
   /// Linear solver options
-  Options options_;
+  Options tsvd_options_;
   /// Cholmod common structure
   cholmod_common cholmod_;
   /// Caching current factorization if needed
