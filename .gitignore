@@ -8,3 +8,5 @@ incremental_calibration_python/lib/
 *.pyc
 *.so
 *.dylib
+.cproject
+.project
