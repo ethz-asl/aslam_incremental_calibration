@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package format="2">
+  <name>truncated_svd_solver</name>
+  <version>0.0.1</version>
+  <description>Truncated-SVD linear solver.</description>
+  
+  <license>BSD</license>
+  <url type="website">https://github.com/ethz-asl/truncated_svd_solver</url>
+  <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
+  <maintainer email="schneith@ethz.ch">Thomas Schneider</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <depend>eigen_catkin</depend>
+  <depend>suitesparse</depend>
+  <depend>TBB</depend>
+</package>
