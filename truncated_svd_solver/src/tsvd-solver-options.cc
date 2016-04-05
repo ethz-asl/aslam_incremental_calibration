@@ -4,7 +4,7 @@
 
 namespace truncated_svd_solver {
 
-LinearSolverOptions::LinearSolverOptions()
+TruncatedSvdSolverOptions::TruncatedSvdSolverOptions()
     : columnScaling(false),
       epsNorm(std::numeric_limits<double>::epsilon()),
       epsSVD(std::numeric_limits<double>::epsilon()),

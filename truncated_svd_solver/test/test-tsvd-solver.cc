@@ -1,67 +1,43 @@
-/******************************************************************************
- * Copyright (C) 2013 by Jerome Maye                                          *
- * jerome.maye@gmail.com                                                      *
- *                                                                            *
- * This program is free software; you can redistribute it and/or modify       *
- * it under the terms of the Lesser GNU General Public License as published by*
- * the Free Software Foundation; either version 3 of the License, or          *
- * (at your option) any later version.                                        *
- *                                                                            *
- * This program is distributed in the hope that it will be useful,            *
- * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
- * Lesser GNU General Public License for more details.                        *
- *                                                                            *
- * You should have received a copy of the Lesser GNU General Public License   *
- * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
- ******************************************************************************/
-
-/** \file VectorDesignVariableTest.cpp
-    \brief This file tests the VectorDesignVariable class.
-  */
-
 #include <cstddef>
 #include <iostream>
 #include <iomanip>
 
+#include <eigen-checks/gtest.h>
 #include <gtest/gtest.h>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-#include <sm/eigen/gtest.hpp>
-
 #include <cholmod.h>
 #include <SuiteSparseQR.hpp>
 
-#include "aslam/calibration/statistics/NormalDistribution.h"
-#include "aslam/calibration/core/LinearSolver.h"
-#include "aslam/calibration/algorithms/linalg.h"
-#include "aslam/calibration/base/Timestamp.h"
+#include "truncated-svd-solver/tsvd-solver.h"
+#include "truncated-svd-solver/linear-algebra-helpers.h"
+#include "truncated-svd-solver/timing.h"
 
 void evaluateSVDSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
     const Eigen::VectorXd& x, double tol = 1e-9) {
   cholmod_common cholmod;
   cholmod_l_start(&cholmod);
-  cholmod_sparse* A_CS = aslam::calibration::eigenDenseToCholmodSparseCopy(A,
+  cholmod_sparse* A_CS = truncated_svd_solver::eigenDenseToCholmodSparseCopy(A,
     &cholmod);
   cholmod_dense b_CD;
-  aslam::calibration::eigenDenseToCholmodDenseView(b, &b_CD);
+  truncated_svd_solver::eigenDenseToCholmodDenseView(b, &b_CD);
   Eigen::VectorXd x_est;
-  aslam::calibration::LinearSolver linearSolver;
+  truncated_svd_solver::TruncatedSvdSolver linearSolver;
   for (std::ptrdiff_t i = 1; i < A.cols(); ++i) {
-//    double before = aslam::calibration::Timestamp::now();
+//    double before = truncated_svd_solver::Timestamp::now();
     linearSolver.solve(A_CS, &b_CD, i, x_est);
-//    double after = aslam::calibration::Timestamp::now();
+//    double after = truncated_svd_solver::Timestamp::now();
     double error = (b - A * x_est).norm();
 //    std::cout << std::fixed << std::setprecision(18) << "noscale: " << "error: "
 //      << error << " est_diff: " << (x - x_est).norm() << " time: "
 //      << after - before << std::endl;
     ASSERT_NEAR(error, 0, tol);
     linearSolver.getOptions().columnScaling = true;
-//    before = aslam::calibration::Timestamp::now();
+//    before = truncated_svd_solver::Timestamp::now();
     linearSolver.solve(A_CS, &b_CD, i, x_est);
-//    after = aslam::calibration::Timestamp::now();
+//    after = truncated_svd_solver::Timestamp::now();
     error = (b - A * x_est).norm();
 //    std::cout << std::fixed << std::setprecision(18) << "onscale: " << "error: "
 //      << error << " est_diff: " << (x - x_est).norm() << " time: "
@@ -82,11 +58,11 @@ void evaluateSVDSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
 
 void evaluateSVDSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
     const Eigen::VectorXd& x) {
-//  const double before = aslam::calibration::Timestamp::now();
+//  const double before = truncated_svd_solver::Timestamp::now();
   const Eigen::JacobiSVD<Eigen::MatrixXd> svd(A,
     Eigen::ComputeThinU | Eigen::ComputeThinV);
   Eigen::VectorXd x_est = svd.solve(b);
-//  const double after = aslam::calibration::Timestamp::now();
+//  const double after = truncated_svd_solver::Timestamp::now();
 //  const double error = (b - A * x_est).norm();
 //  std::cout << std::fixed << std::setprecision(18) << "error: " << error
 //    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
@@ -100,12 +76,12 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
     const Eigen::VectorXd& x) {
   cholmod_common cholmod;
   cholmod_l_start(&cholmod);
-  cholmod_sparse* A_CS = aslam::calibration::eigenDenseToCholmodSparseCopy(A,
+  cholmod_sparse* A_CS = truncated_svd_solver::eigenDenseToCholmodSparseCopy(A,
     &cholmod);
   cholmod_dense b_CD;
-  aslam::calibration::eigenDenseToCholmodDenseView(b, &b_CD);
+  truncated_svd_solver::eigenDenseToCholmodDenseView(b, &b_CD);
   Eigen::VectorXd x_est;
-//  const double before = aslam::calibration::Timestamp::now();
+//  const double before = truncated_svd_solver::Timestamp::now();
   SuiteSparseQR_factorization<double>* factor = SuiteSparseQR_factorize<double>(
     SPQR_ORDERING_BEST, SPQR_DEFAULT_TOL, A_CS, &cholmod);
   cholmod_dense* Qtb = SuiteSparseQR_qmult<double>(SPQR_QTX, factor, &b_CD,
@@ -113,13 +89,13 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   cholmod_dense* x_est_cd = SuiteSparseQR_solve<double>(SPQR_RETX_EQUALS_B,
     factor, Qtb, &cholmod);
   cholmod_l_free_dense(&Qtb, &cholmod);
-  aslam::calibration::cholmodDenseToEigenDenseCopy(x_est_cd, x_est);
+  truncated_svd_solver::cholmodDenseToEigenDenseCopy(x_est_cd, x_est);
   cholmod_l_free_dense(&x_est_cd, &cholmod);
 //  std::cout << "estimated rank: " << factor->rank << std::endl;
 //  std::cout << "estimated rank deficiency: " << A.cols() - factor->rank
 //    << std::endl;
   SuiteSparseQR_free(&factor, &cholmod);
-//  const double after = aslam::calibration::Timestamp::now();
+//  const double after = truncated_svd_solver::Timestamp::now();
 //  const double error = (b - A * x_est).norm();
 //  std::cout << std::fixed << std::setprecision(18) << "error: " << error
 //    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
@@ -128,7 +104,8 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   cholmod_l_finish(&cholmod);
 }
 
-void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOptions& options) {
+void evaluateSPQRSolverDeterminedSystem(
+    const truncated_svd_solver::TruncatedSvdSolverOptions& options) {
   // Create the system.
   constexpr size_t kNumVariables = 10;
   constexpr double kXResult = 2.0;
@@ -146,14 +123,15 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
   // Convert to cholmod types.
   cholmod_common_struct cholmod;
   cholmod_l_start(&cholmod);
-  cholmod_sparse* A_cm = aslam::calibration::eigenDenseToCholmodSparseCopy(A, &cholmod);
+  cholmod_sparse* A_cm =
+      truncated_svd_solver::eigenDenseToCholmodSparseCopy(A, &cholmod);
 
   cholmod_dense b_cm;
-  aslam::calibration::eigenDenseToCholmodDenseView(b, &b_cm);
+  truncated_svd_solver::eigenDenseToCholmodDenseView(b, &b_cm);
 
   // Solve this system and check the results.
 
-  aslam::calibration::LinearSolver solver(options);
+  truncated_svd_solver::TruncatedSvdSolver solver(options);
 
   for (std::ptrdiff_t i = 0; i <= A.cols(); ++i) {
     const size_t num_calib_vars = kNumVariables - i;
@@ -191,24 +169,30 @@ void evaluateSPQRSolverDeterminedSystem(const aslam::calibration::LinearSolverOp
     if(options.columnScaling){
       expectedSingularValues = Eigen::VectorXd::Ones(num_calib_vars);
     }else{
-      expectedSingularValues = Adiag.tail(num_calib_vars).array() * Adiag.tail(num_calib_vars).array();
+      expectedSingularValues =
+          Adiag.tail(num_calib_vars).array() * Adiag.tail(num_calib_vars).array();
     }
-    sm::eigen::assertNear(solver.getSingularValues(), expectedSingularValues, 1e-8, SM_SOURCE_FILE_POS, "");
-    sm::eigen::assertNear(x, Eigen::VectorXd::Constant(kNumVariables, kXResult), 1e-8, SM_SOURCE_FILE_POS, "");
+
+    EXPECT_TRUE(
+        EIGEN_MATRIX_NEAR(solver.getSingularValues(),
+                          expectedSingularValues, 1e-8));
+    EXPECT_TRUE(
+        EIGEN_MATRIX_NEAR(x, Eigen::VectorXd::Constant(kNumVariables,
+                                                       kXResult),
+                          1e-8));
   }
 
   cholmod_l_free_sparse(&A_cm, &cholmod);
 }
 
-
 TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithoutColumnScaling) {
-  aslam::calibration::LinearSolverOptions options;
+  truncated_svd_solver::TruncatedSvdSolverOptions options;
   options.columnScaling = false;
   evaluateSPQRSolverDeterminedSystem(options);
 }
 
 TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithColumnScaling) {
-  aslam::calibration::LinearSolverOptions options;
+  truncated_svd_solver::TruncatedSvdSolverOptions options;
   options.columnScaling = true;
   evaluateSPQRSolverDeterminedSystem(options);
 }
@@ -273,7 +257,7 @@ TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
 //  A = Eigen::MatrixXd::Random(100, 30);
 //  A.col(10) = Eigen::VectorXd::Zero(A.rows());
 //  b = A * x;
-//  A.col(10) = aslam::calibration::NormalDistribution<100>(
+//  A.col(10) = truncated_svd_solver::NormalDistribution<100>(
 //    Eigen::VectorXd::Zero(A.rows()),
 //    1e-6 * Eigen::MatrixXd::Identity(A.rows(), A.rows())).getSample();
 //  std::cout << "SVD-SPQR solver" << std::endl;
@@ -289,7 +273,7 @@ TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
 //  A = Eigen::MatrixXd::Random(100, 30);
 //  A.col(10) = 2 * A.col(1) + 5 * A.col(20);
 //  b = A * x;
-//  A.col(10) = aslam::calibration::NormalDistribution<100>(A.col(10),
+//  A.col(10) = truncated_svd_solver::NormalDistribution<100>(A.col(10),
 //    1e-20 * Eigen::MatrixXd::Identity(A.rows(), A.rows())).getSample();
 //  std::cout << "SVD-SPQR solver" << std::endl;
 //  evaluateSVDSPQRSolver(A, b, x, 1e-3);

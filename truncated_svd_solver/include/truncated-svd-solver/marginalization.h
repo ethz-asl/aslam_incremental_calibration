@@ -25,11 +25,10 @@ namespace truncated_svd_solver {
  * \param[out] Omega marginalized Fisher information matrix
  * \return sum of the log of the singular values of the marginalized system
  */
-double marginalize(const
-  aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>& Jt, size_t j,
-  Eigen::MatrixXd& NS, Eigen::MatrixXd& CS, Eigen::MatrixXd& Sigma,
-  Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega, double normTol = 1e-8,
-  double epsTol = 1e-4);
+double marginalize(cholmod_sparse* Jt, size_t j, Eigen::MatrixXd& NS,
+                   Eigen::MatrixXd& CS, Eigen::MatrixXd& Sigma,
+                   Eigen::MatrixXd& SigmaP, Eigen::MatrixXd& Omega,
+                   double normTol = 1e-8, double epsTol = 1e-4);
 
 /**
  * This function returns the marginal Jacobian from two submatrices.
@@ -42,16 +41,6 @@ double marginalize(const
  */
 Eigen::MatrixXd marginalJacobian(cholmod_sparse* J_x, cholmod_sparse*
   J_thetat, cholmod_common* cholmod);
-
-/**
- * This function returns the column 2-norm of a sparse matrix.
- * \brief Sparse matrix column 2-norm
- *
- * \return 2-norm of the specified column
- * \param[in] A sparse matrix
- * \param[in] j column index
- */
-double colNorm(cholmod_sparse* A, size_t j);
 
 }  // namespace truncated_svd_solver
 

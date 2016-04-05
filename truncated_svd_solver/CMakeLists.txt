@@ -13,13 +13,11 @@ cs_add_library(${PROJECT_NAME}
   src/tsvd-solver.cc
   src/tsvd-solver-options.cc
 )
-
-find_package(Boost REQUIRED COMPONENTS system thread)
-target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} ${TBB_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} pthread ${TBB_LIBRARIES})
 
 catkin_add_gtest(${PROJECT_NAME}_test
   test/test_main.cpp
-  test/LinearSolverTest.cpp
+  test/test-tsvd-solver.cc
 )
 target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 

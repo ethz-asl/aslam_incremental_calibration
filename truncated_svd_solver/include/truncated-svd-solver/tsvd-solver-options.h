@@ -7,8 +7,8 @@ namespace truncated_svd_solver {
     LinearSolver class.
     \brief Linear solver options
   */
-struct LinearSolverOptions {
-  LinearSolverOptions();
+struct TruncatedSvdSolverOptions {
+  TruncatedSvdSolverOptions();
 
   /// Perform column scaling/normalization
   bool columnScaling;

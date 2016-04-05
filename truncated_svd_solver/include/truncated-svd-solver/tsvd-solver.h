@@ -22,11 +22,11 @@ namespace truncated_svd_solver {
   */
 class TruncatedSvdSolver {
  public:
-  typedef LinearSolverOptions Options;
+  typedef TruncatedSvdSolverOptions Options;
 
   TruncatedSvdSolver(const Options& options = Options());
   TruncatedSvdSolver(const TruncatedSvdSolver& other) = delete;
-  TruncatedSvdSolver& operator= (const Self& other) = delete;
+  TruncatedSvdSolver& operator= (const TruncatedSvdSolver& other) = delete;
   TruncatedSvdSolver(TruncatedSvdSolver&& other) = delete;
   TruncatedSvdSolver& operator= (TruncatedSvdSolver&& other) = delete;
   virtual ~TruncatedSvdSolver();
@@ -80,9 +80,6 @@ class TruncatedSvdSolver {
   std::ptrdiff_t getMargStartIndex() const;
   /// Sets the marginalization start index
   void setMargStartIndex(std::ptrdiff_t index);
-  /// Returns the current Jacobian transpose
-  const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
-    getJacobianTranspose() const;
   /// Returns the current tolerance used by SPQR
   double getQRTolerance() const;
   /// Returns the current tolerance used by SVD
@@ -125,31 +122,31 @@ protected:
   void analyzeSVD(cholmod_sparse * Omega);
 
   /// Linear solver options
-  Options _options;
+  Options options_;
   /// Cholmod common structure
-  cholmod_common _cholmod;
+  cholmod_common cholmod_;
   /// Caching current factorization if needed
-  SuiteSparseQR_factorization<double>* _factor;
+  SuiteSparseQR_factorization<double>* factor_;
   /// Caching current estimated numerical rank for SVD
-  std::ptrdiff_t _svdRank;
+  std::ptrdiff_t svdRank_;
   /// Caching current gap in estimated singular values at the rank
-  double _svGap;
+  double svGap_;
   /// Caching current estimated numerical rank deficiency for SVD
-  std::ptrdiff_t _svdRankDeficiency;
+  std::ptrdiff_t svdRankDeficiency_;
   /// Marginalization start index
-  std::ptrdiff_t _margStartIndex;
+  std::ptrdiff_t margStartIndex_;
   /// Caching current SVD tolerance
-  double _svdTolerance;
+  double svdTolerance_;
   /// Caching current singular values
-  Eigen::VectorXd _singularValues;
+  Eigen::VectorXd singularValues_;
   /// Caching left-singular vectors
-  Eigen::MatrixXd _matrixU;
+  Eigen::MatrixXd matrixU_;
   /// Caching right-singular vectors
-  Eigen::MatrixXd _matrixV;
+  Eigen::MatrixXd matrixV_;
   /// Linear solver time
-  double _linearSolverTime;
+  double linearSolverTime_;
   /// Marginal analysis time
-  double _marginalAnalysisTime;
+  double marginalAnalysisTime_;
 };
 
 }  // namespace truncated_svd_solver
