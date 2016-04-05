@@ -41,7 +41,7 @@ class TruncatedSvdSolver {
    * \param[in] j starting column index for the marginalization
    * \param[out] x solution
    */
-  void solve(cholmod_sparse* A, cholmod_dense* b, std::ptrdiff_t j,
+  void solve(cholmod_sparse* A, cholmod_dense* b, size_t j,
     Eigen::VectorXd& x);
 
   /**
@@ -55,7 +55,7 @@ class TruncatedSvdSolver {
    * \param[in] A sparse matrix left-hand side
    * \param[in] j starting column index for the marginalization
    */
-  void analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j);
+  void analyzeMarginal(cholmod_sparse* A, size_t j);
 
   /// Clear the cached variables
   void clear();

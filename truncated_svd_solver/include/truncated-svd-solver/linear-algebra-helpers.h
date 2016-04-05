@@ -17,6 +17,20 @@ template <typename Entry> struct SuiteSparseQR_factorization;
 namespace truncated_svd_solver {
 
 /**
+ * This function computes a covariance block from the R matrix of a QR
+ * factorization.
+ * \brief Covariance block recovery
+ *
+ * \param[in] R upper triangular R matrix
+ * \param[in] colBegin column index where to start recovery
+ * \param[in] colEnd column index where to stop recovery
+ * \return covariance block
+ */
+template <typename T>
+Eigen::MatrixXd computeCovariance(const T& R, size_t colBegin,
+                                  size_t colEnd);
+
+/**
  * This function extracts a submatrix based on column indices from a sparse
  * matrix.
  * \brief Submatrix column extraction
@@ -250,5 +264,5 @@ cholmod_dense* solveQR(SuiteSparseQR_factorization<double>* factor,
   cholmod_common* cholmod);
 
 }  // namespace truncated_svd_solver
-
+#include "./internal/linear-algebra-helpers-inl.h"
 #endif // ASLAM_CALIBRATION_ALGORITHMS_LINALG_H

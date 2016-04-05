@@ -6,6 +6,9 @@ catkin_simple()
 
 add_definitions("-std=c++11")
 
+###########
+# LIBRARY #
+###########
 cs_add_library(${PROJECT_NAME}
   src/linear-algebra-helpers.cc
   src/marginalization.cc
@@ -15,12 +18,21 @@ cs_add_library(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} pthread ${TBB_LIBRARIES})
 
-catkin_add_gtest(${PROJECT_NAME}_test
-  test/test_main.cpp
+#########
+# TESTS #
+#########
+catkin_add_gtest(test_svd_solver
   test/test-tsvd-solver.cc
+)
+target_link_libraries(test_svd_solver ${PROJECT_NAME})
+
+catkin_add_gtest(test_marginalization
   test/test-marginalization.cc
 )
-target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
+target_link_libraries(test_marginalization ${PROJECT_NAME})
 
+###########
+# EXPORTS #
+###########
 cs_install()
 cs_export()

@@ -26,62 +26,40 @@ void evaluateSVDSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   Eigen::VectorXd x_est;
   truncated_svd_solver::TruncatedSvdSolver linearSolver;
   for (std::ptrdiff_t i = 1; i < A.cols(); ++i) {
-//    double before = truncated_svd_solver::Timestamp::now();
     linearSolver.solve(A_CS, &b_CD, i, x_est);
-//    double after = truncated_svd_solver::Timestamp::now();
     double error = (b - A * x_est).norm();
-//    std::cout << std::fixed << std::setprecision(18) << "noscale: " << "error: "
-//      << error << " est_diff: " << (x - x_est).norm() << " time: "
-//      << after - before << std::endl;
     ASSERT_NEAR(error, 0, tol);
     linearSolver.getOptions().columnScaling = true;
-//    before = truncated_svd_solver::Timestamp::now();
     linearSolver.solve(A_CS, &b_CD, i, x_est);
-//    after = truncated_svd_solver::Timestamp::now();
     error = (b - A * x_est).norm();
-//    std::cout << std::fixed << std::setprecision(18) << "onscale: " << "error: "
-//      << error << " est_diff: " << (x - x_est).norm() << " time: "
-//      << after - before << std::endl;
     linearSolver.getOptions().columnScaling = false;
     ASSERT_NEAR(error, 0, tol);
-//    std::cout << "SVD rank: " << linearSolver.getSVDRank() << std::endl;
-//    std::cout << "SVD rank deficiency: " << linearSolver.getSVDRankDeficiency()
-//      << std::endl;
-//    std::cout << "QR rank: " << linearSolver.getQRRank() << std::endl;
-//    std::cout << "QR rank deficiency: "
-//      << linearSolver.getQRRankDeficiency() << std::endl;
-//    std::cout << "SV gap: " << linearSolver.getSvGap() << std::endl;
   }
   cholmod_l_free_sparse(&A_CS, &cholmod);
   cholmod_l_finish(&cholmod);
+
+  EXPECT_TRUE(EIGEN_MATRIX_NEAR(x_est, x, 1e-8));
 }
 
 void evaluateSVDSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
     const Eigen::VectorXd& x) {
-//  const double before = truncated_svd_solver::Timestamp::now();
   const Eigen::JacobiSVD<Eigen::MatrixXd> svd(A,
     Eigen::ComputeThinU | Eigen::ComputeThinV);
   Eigen::VectorXd x_est = svd.solve(b);
-//  const double after = truncated_svd_solver::Timestamp::now();
-//  const double error = (b - A * x_est).norm();
-//  std::cout << std::fixed << std::setprecision(18) << "error: " << error
-//    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
-//    << std::endl;
-//  std::cout << "estimated rank: " << svd.nonzeroSingularValues() << std::endl;
-//  std::cout << "estimated rank deficiency: "
-//    << A.cols() - svd.nonzeroSingularValues() << std::endl;
+
+  EXPECT_TRUE(EIGEN_MATRIX_NEAR(x_est, x, 1e-8));
 }
 
-void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
-    const Eigen::VectorXd& x) {
+void evaluateSPQRSolver(const Eigen::MatrixXd& A,
+                                   const Eigen::VectorXd& b,
+                                   const Eigen::VectorXd& x) {
   cholmod_common cholmod;
   cholmod_l_start(&cholmod);
-  cholmod_sparse* A_CS = truncated_svd_solver::eigenDenseToCholmodSparseCopy(A,
-    &cholmod);
+  cholmod_sparse* A_CS =
+      truncated_svd_solver::eigenDenseToCholmodSparseCopy(A, &cholmod);
   cholmod_dense b_CD;
   truncated_svd_solver::eigenDenseToCholmodDenseView(b, &b_CD);
   Eigen::VectorXd x_est;
-//  const double before = truncated_svd_solver::Timestamp::now();
   SuiteSparseQR_factorization<double>* factor = SuiteSparseQR_factorize<double>(
     SPQR_ORDERING_BEST, SPQR_DEFAULT_TOL, A_CS, &cholmod);
   cholmod_dense* Qtb = SuiteSparseQR_qmult<double>(SPQR_QTX, factor, &b_CD,
@@ -91,27 +69,21 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
   cholmod_l_free_dense(&Qtb, &cholmod);
   truncated_svd_solver::cholmodDenseToEigenDenseCopy(x_est_cd, x_est);
   cholmod_l_free_dense(&x_est_cd, &cholmod);
-//  std::cout << "estimated rank: " << factor->rank << std::endl;
-//  std::cout << "estimated rank deficiency: " << A.cols() - factor->rank
-//    << std::endl;
   SuiteSparseQR_free(&factor, &cholmod);
-//  const double after = truncated_svd_solver::Timestamp::now();
-//  const double error = (b - A * x_est).norm();
-//  std::cout << std::fixed << std::setprecision(18) << "error: " << error
-//    << " est_diff: " << (x - x_est).norm() << " time: " << after - before
-//    << std::endl;
   cholmod_l_free_sparse(&A_CS, &cholmod);
   cholmod_l_finish(&cholmod);
+
+  EXPECT_TRUE(EIGEN_MATRIX_NEAR(x_est, x, 1e-8));
 }
 
 void evaluateSPQRSolverDeterminedSystem(
     const truncated_svd_solver::TruncatedSvdSolverOptions& options) {
   // Create the system.
-  constexpr size_t kNumVariables = 10;
+  constexpr size_t kNumVariables = 10u;
   constexpr double kXResult = 2.0;
 
   Eigen::VectorXd Adiag(kNumVariables);
-  for(std::ptrdiff_t i = 0; i < kNumVariables; ++i){
+  for(size_t i = 0; i < kNumVariables; ++i){
     Adiag(i) =  kNumVariables - i;
   }
 
@@ -185,45 +157,39 @@ void evaluateSPQRSolverDeterminedSystem(
   cholmod_l_free_sparse(&A_cm, &cholmod);
 }
 
-TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithoutColumnScaling) {
+TEST(TruncatedSvdSolver, DeterminedSystemWithoutColumnScaling) {
   truncated_svd_solver::TruncatedSvdSolverOptions options;
   options.columnScaling = false;
   evaluateSPQRSolverDeterminedSystem(options);
 }
 
-TEST(AslamCalibrationTestSuite, testLinearSolverDeterminedSystemWithColumnScaling) {
+TEST(TruncatedSvdSolver, DeterminedSystemWithColumnScaling) {
   truncated_svd_solver::TruncatedSvdSolverOptions options;
   options.columnScaling = true;
   evaluateSPQRSolverDeterminedSystem(options);
 }
 
-TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
+TEST(TruncatedSvdSolver, OverdeterminedSystem) {
   Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 30);
   const Eigen::VectorXd x = Eigen::VectorXd::Random(30);
   Eigen::VectorXd b = A * x;
 
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  std::cout << "|                  Standard case                |" << std::endl;
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  std::cout << "SVD-SPQR solver" << std::endl;
+  std::cout << "-------------------------------------------------" << std::endl;
+  std::cout << "|                  Standard case                |" << std::endl;
+  std::cout << "-------------------------------------------------" << std::endl;
   evaluateSVDSPQRSolver(A, b, x);
-//  std::cout << "SVD solver" << std::endl;
   evaluateSVDSolver(A, b, x);
-//  std::cout << "SPQR solver" << std::endl;
   evaluateSPQRSolver(A, b, x);
 
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  std::cout << "|                 Badly scaled case             |" << std::endl;
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  A.col(2) = 1e6 * A.col(2);
-//  A.col(28) = 1e6 * A.col(28);
-//  b = A * x;
-//  std::cout << "SVD-SPQR solver" << std::endl;
-//  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  std::cout << "SVD solver" << std::endl;
-//  evaluateSVDSolver(A, b, x);
-//  std::cout << "SPQR solver" << std::endl;
-//  evaluateSPQRSolver(A, b, x);
+  std::cout << "-------------------------------------------------" << std::endl;
+  std::cout << "|                 Badly scaled case             |" << std::endl;
+  std::cout << "-------------------------------------------------" << std::endl;
+  A.col(2) = 1e6 * A.col(2);
+  A.col(28) = 1e6 * A.col(28);
+  b = A * x;
+  evaluateSVDSPQRSolver(A, b, x, 1e-3);
+  evaluateSVDSolver(A, b, x);
+  evaluateSPQRSolver(A, b, x);
 
 //  std::cout << "-------------------------------------------------" << std::endl;
 //  std::cout << "|                 Rank-deficient case 1         |" << std::endl;
@@ -231,11 +197,8 @@ TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
 //  A = Eigen::MatrixXd::Random(100, 30);
 //  A.col(10) = Eigen::VectorXd::Zero(A.rows());
 //  b = A * x;
-//  std::cout << "SVD-SPQR solver" << std::endl;
 //  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  std::cout << "SVD solver" << std::endl;
 //  evaluateSVDSolver(A, b, x);
-//  std::cout << "SPQR solver" << std::endl;
 //  evaluateSPQRSolver(A, b, x);
 
 //  std::cout << "-------------------------------------------------" << std::endl;
@@ -244,11 +207,8 @@ TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
 //  A = Eigen::MatrixXd::Random(100, 30);
 //  A.col(10) = 2 * A.col(1) + 5 * A.col(20);
 //  b = A * x;
-//  std::cout << "SVD-SPQR solver" << std::endl;
 //  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  std::cout << "SVD solver" << std::endl;
 //  evaluateSVDSolver(A, b, x);
-//  std::cout << "SPQR solver" << std::endl;
 //  evaluateSPQRSolver(A, b, x);
 
 //  std::cout << "-------------------------------------------------" << std::endl;
@@ -260,11 +220,8 @@ TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
 //  A.col(10) = truncated_svd_solver::NormalDistribution<100>(
 //    Eigen::VectorXd::Zero(A.rows()),
 //    1e-6 * Eigen::MatrixXd::Identity(A.rows(), A.rows())).getSample();
-//  std::cout << "SVD-SPQR solver" << std::endl;
 //  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  std::cout << "SVD solver" << std::endl;
 //  evaluateSVDSolver(A, b, x);
-//  std::cout << "SPQR solver" << std::endl;
 //  evaluateSPQRSolver(A, b, x);
 
 //  std::cout << "-------------------------------------------------" << std::endl;
@@ -275,10 +232,17 @@ TEST(AslamCalibrationTestSuite, testLinearSolverOverdeterminedSystem) {
 //  b = A * x;
 //  A.col(10) = truncated_svd_solver::NormalDistribution<100>(A.col(10),
 //    1e-20 * Eigen::MatrixXd::Identity(A.rows(), A.rows())).getSample();
-//  std::cout << "SVD-SPQR solver" << std::endl;
 //  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  std::cout << "SVD solver" << std::endl;
 //  evaluateSVDSolver(A, b, x);
-//  std::cout << "SPQR solver" << std::endl;
 //  evaluateSPQRSolver(A, b, x);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  google::InitGoogleLogging(argv[0]);
+  google::InstallFailureSignalHandler();\
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+  FLAGS_alsologtostderr = true;
+  FLAGS_colorlogtostderr = true;
+  return RUN_ALL_TESTS();
 }

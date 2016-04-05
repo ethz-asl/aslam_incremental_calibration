@@ -182,7 +182,7 @@ double TruncatedSvdSolver::getNumericFactorizationTime() const {
 }
 
 void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
-                               std::ptrdiff_t j, Eigen::VectorXd& x) {
+                               size_t j, Eigen::VectorXd& x) {
   CHECK_EQ(A->nrow, b->nrow);
   const bool hasQrPart = j > 0;
   const bool hasSvdPart = j < A->ncol;
@@ -315,7 +315,7 @@ void TruncatedSvdSolver::analyzeSVD(cholmod_sparse * Omega) {
   }
 }
 
-void TruncatedSvdSolver::analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j) {
+void TruncatedSvdSolver::analyzeMarginal(cholmod_sparse* A, size_t j) {
   const double t0 = Timestamp::now();
   const bool hasQrPart = j > 0;
   const bool hasSvdPart = j < A->ncol;

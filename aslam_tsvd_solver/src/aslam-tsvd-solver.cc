@@ -8,6 +8,7 @@
 #include <Eigen/Dense>
 #include <glog/logging.h>
 #include <sm/PropertyTree.hpp>
+#include <truncated-svd-solver/cholmod-helpers.h>
 #include <truncated-svd-solver/linear-algebra-helpers.h>
 
 namespace aslam {
@@ -35,7 +36,8 @@ AslamTruncatedSvdSolver::AslamTruncatedSvdSolver(const sm::PropertyTree& config)
 
 AslamTruncatedSvdSolver::~AslamTruncatedSvdSolver() {}
 
-void AslamTruncatedSvdSolver::buildSystem(size_t numThreads, bool useMEstimator) {
+void AslamTruncatedSvdSolver::buildSystem(size_t numThreads,
+                                          bool useMEstimator) {
   jacobian_builder_.buildSystem(numThreads, useMEstimator);
 }
 
@@ -78,22 +80,23 @@ void AslamTruncatedSvdSolver::initMatrixStructureImplementation(const
 
 bool AslamTruncatedSvdSolver::analyzeMarginal() {
   aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>& Jt =
-      _jacobianBuilder.J_transpose();
+      jacobian_builder_.J_transpose();
   cholmod_sparse Jt_CS;
   Jt.getView(&Jt_CS);
   cholmod_common cholmod;
   truncated_svd_solver::SelfFreeingCholmodPtr<cholmod_sparse> J_CS(
-      cholmod_l_transpose(&Jt_CS, 1, &_cholmod), cholmod);
+      cholmod_l_transpose(&Jt_CS, 1, &cholmod), cholmod);
   if (J_CS == nullptr) {
     return false;
   }
-  analyzeMarginal(J_CS, margStartIndex_);
+  truncated_svd_solver::TruncatedSvdSolver::analyzeMarginal(
+      J_CS, margStartIndex_);
   return true;
 }
 
 const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
   AslamTruncatedSvdSolver::getJacobianTranspose() const {
-  return jacobianBuilder_.J_transpose();
+  return jacobian_builder_.J_transpose();
 }
 
 }  // namespace backend

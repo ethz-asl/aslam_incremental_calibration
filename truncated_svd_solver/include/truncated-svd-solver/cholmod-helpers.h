@@ -1,6 +1,11 @@
 #ifndef TRUNCATED_SVD_SOLVER_CHOLMOD_HELPERS_H
 #define TRUNCATED_SVD_SOLVER_CHOLMOD_HELPERS_H
 
+#include <vector>
+
+#include <Eigen/CholmodSupport>
+#include <Eigen/Sparse>
+
 namespace truncated_svd_solver {
 
 inline void deleteCholdmodPtr(cholmod_sparse* & ptr,
@@ -20,14 +25,14 @@ template<typename T>
 struct SelfFreeingCholmodPtr {
   explicit SelfFreeingCholmodPtr(T* ptr,
                                  cholmod_common& cholmod)
-      : ptr_(ptr),
-        cholmod_(cholmod) {}
+      : cholmod_(cholmod),
+        ptr_(ptr) {}
 
   ~SelfFreeingCholmodPtr() {
     reset(NULL);
   }
 
-  void reset(T* ptr) {
+  void reset(T* ptr = nullptr) {
     deleteCholdmodPtr(ptr_, cholmod_);
     ptr_ = ptr;
   }

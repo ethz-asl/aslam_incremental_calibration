@@ -7,7 +7,6 @@
 
 #include <aslam/backend/CompressedColumnJacobianTransposeBuilder.hpp>
 #include <aslam/backend/LinearSystemSolver.hpp>
-#include <cholmod.h>
 #include <Eigen/Core>
 
 #include <truncated-svd-solver/tsvd-solver.h>
@@ -63,7 +62,7 @@ class AslamTruncatedSvdSolver
     return std::string("marginal_spqr_svd");
   }
 
-  bool analyzeMarginal() const;
+  bool analyzeMarginal();
   const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
       getJacobianTranspose() const;
 
