@@ -215,10 +215,12 @@ namespace aslam {
         return _errorTerms[idx].get();
     }
 
-    void OptimizationProblem::getErrorsImplementation(const DesignVariable* dv,
-        std::set<ErrorTerm*>& outErrorSet) {
-      throw InvalidOperationException("not implemented (deprecated)", __FILE__,
-        __LINE__, __PRETTY_FUNCTION__);
+    void OptimizationProblem::getErrorsImplementation(const DesignVariable* dv, std::set<ErrorTerm*>& outErrorSet) {
+      for(const auto & et : _errorTerms){
+        if(et && std::count(et->designVariables().begin(), et->designVariables().end(), dv)){
+          outErrorSet.insert(et.get());
+        }
+      }
     }
 
     void OptimizationProblem::permuteErrorTerms(const std::vector<size_t>&
