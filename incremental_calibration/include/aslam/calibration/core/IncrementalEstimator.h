@@ -179,16 +179,17 @@ namespace aslam {
         */
       class TryBatchResult {
        public:
-        void accept() { _estimator->acceptBatch(*this); }
-        void reject(bool restoreDesignVariables) { _estimator->rejectBatch(*this, restoreDesignVariables); }
+        void accept() { _estimator->acceptBatch(*this); unset(); }
+        void reject(bool restoreDesignVariables) { _estimator->rejectBatch(*this, restoreDesignVariables); unset(); }
 
         const ReturnValue & getReturnValue() const { return *_ret; }
         friend IncrementalEstimator;
         TryBatchResult & operator = (TryBatchResult && tr) = default;
         TryBatchResult(TryBatchResult && tr) = default;
-        TryBatchResult() : _estimator(nullptr){};
-        bool isSet() { return _estimator != nullptr; }
+        TryBatchResult() : _estimator(nullptr), _batch(nullptr){};
+        bool isSet() { return _batch != nullptr; }
        private:
+        void unset() { _batch.reset(); }
         TryBatchResult(IncrementalEstimator & estimator, const BatchSP & batch) : _estimator(&estimator), _batch(batch), _ret(new ReturnValue()){}
         IncrementalEstimator * _estimator;
         BatchSP _batch;
