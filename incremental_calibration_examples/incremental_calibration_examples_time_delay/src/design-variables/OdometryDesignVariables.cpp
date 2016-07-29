@@ -77,9 +77,9 @@ namespace aslam {
         v_R_p->setActive(false);
 
       t_l = boost::make_shared<TimeDesignVariable>(
-        config.getInt("intrinsics/lwTimeDelay"));
+          Time::Integer(config.getInt("intrinsics/lwTimeDelay")));
       t_r = boost::make_shared<TimeDesignVariable>(
-        config.getInt("intrinsics/rwTimeDelay"));
+          Time::Integer(config.getInt("intrinsics/rwTimeDelay")));
       if (config.getBool("intrinsics/timeDelaysActive")) {
         t_l->setActive(true);
         t_r->setActive(true);
