@@ -60,6 +60,12 @@ bool AslamTruncatedSvdSolver::solveSystem(Eigen::VectorXd& dx) {
     std::cout << "QR rank: " << getQRRank() << std::endl;
     std::cout << "QR rank deficiency: " << getQRRankDeficiency()
       << std::endl;
+    std::cout.precision(3);
+    std::cout.width(4);
+    std::cout << "Singular values:\n" << getSingularValues().transpose()
+      << std::endl;
+    std::cout << "V-matrix (observability basis, column vectors correspond to singular values)\n" << getMatrixV()
+      << std::endl;
   }
   cholmod_l_free_sparse(&J_CS, &cholmod_);
   return status;
