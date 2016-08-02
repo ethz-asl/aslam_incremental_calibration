@@ -80,8 +80,8 @@ namespace aslam {
         Options() :
             infoGainDelta(0.2),
             checkValidity(false),
-            verbose(false) {
-        }
+            verbose(false)
+        {}
         /// Information gain delta
         double infoGainDelta;
         /// Check validity of the solution
@@ -93,6 +93,10 @@ namespace aslam {
       struct ReturnValue {
         /// True if the batch was accepted
         bool batchAccepted;
+        /// True if the optimization aborted prior to max iterations and actually decreased the cost
+        bool solutionValid;
+        /// True if information gain is above the threshold or the theta rank increased
+        bool isInformativeBatch;
         /// Information gain
         double informationGain;
         /// Numerical rank of J_psi
@@ -135,6 +139,12 @@ namespace aslam {
         double JFinal;
         /// Elapsed time for processing this batch [s]
         double elapsedTime;
+        /// The last log2 sum of the singular values
+        double svLog2Sum;
+
+        size_t peakMemoryUsage;
+        size_t memoryUsage;
+        size_t numFlops;
       };
       /** @}
         */
@@ -164,8 +174,44 @@ namespace aslam {
       /** \name Methods
         @{
         */
+      class TryBatchResult {
+       public:
+        void accept() { _estimator->acceptBatch(*this); }
+        void reject(bool restoreDesignVariables) { _estimator->rejectBatch(*this, restoreDesignVariables); }
+
+        const ReturnValue & getReturnValue() const { return *_ret; }
+        friend IncrementalEstimator;
+        TryBatchResult & operator = (TryBatchResult && tr) = default;
+        TryBatchResult(TryBatchResult && tr) = default;
+        TryBatchResult() : _estimator(nullptr){};
+        bool isSet() { return _estimator != nullptr; }
+       private:
+        TryBatchResult(IncrementalEstimator & estimator, const BatchSP & batch) : _estimator(&estimator), _batch(batch), _ret(new ReturnValue()){}
+        IncrementalEstimator * _estimator;
+        BatchSP _batch;
+        std::unique_ptr<ReturnValue> _ret;
+      };
+      friend TryBatchResult;
+
+      /// Try a measurement batch as candidate
+      TryBatchResult tryBatch(const BatchSP& batch, bool firstStoreDesignVariables);
+
       /// Adds a measurement batch to the estimator
-      ReturnValue addBatch(const BatchSP& batch, bool force = false);
+      /**
+       * This is a convenience function invoking first
+       * tryBatch and then accepting or rejecting it
+       * exactly when force or TryResult.getResult().isInformativeBatch
+       */
+      inline ReturnValue addBatch(const BatchSP& batch, bool force = false){
+        TryBatchResult tr = tryBatch(batch, !force);
+        if (force || tr.getReturnValue().isInformativeBatch){
+          tr.accept();
+        } else {
+          tr.reject(true);
+        }
+        return tr.getReturnValue();
+      }
+
       /// Removes a measurement batch from the estimator
       void removeBatch(size_t idx);
       /// Removes a measurement batch from the estimator
@@ -252,6 +298,13 @@ namespace aslam {
       void orderMarginalizedDesignVariables();
       /// Restores the linear solver
       void restoreLinearSolver();
+
+      /// update internal result variables base on given return value
+      void updateInternalVariables(const ReturnValue& ret);
+
+      void acceptBatch(TryBatchResult & tryBatchResult);
+      void rejectBatch(TryBatchResult & tryBatchResult, bool restoreDesignVariables);
+
       /** @}
         */
 

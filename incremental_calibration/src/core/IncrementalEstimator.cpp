@@ -60,7 +60,8 @@ namespace aslam {
         _memoryUsage(0),
         _numFlops(0.0),
         _initialCost(0.0),
-        _finalCost(0.0) {
+        _finalCost(0.0)
+    {
       // create linear solver and trust region policy for the optimizer
       OptimizerOptions& optOptions = _optimizer->options();
       optOptions.linearSystemSolver =
@@ -86,7 +87,8 @@ namespace aslam {
         _memoryUsage(0),
         _numFlops(0.0),
         _initialCost(0.0),
-        _finalCost(0.0) {
+        _finalCost(0.0)
+        {
       // create the optimizer, linear solver, and trust region policy
       boost::shared_ptr<LinearSolver> linearSolver = boost::make_shared<LinearSolver>(sm::PropertyTree(config, "optimizer/linearSolver"));
       _optimizer = boost::make_shared<Optimizer>(sm::PropertyTree(config, "optimizer"), linearSolver, boost::make_shared<TrustRegionPolicy>());
@@ -329,8 +331,57 @@ namespace aslam {
       return ret;
     }
 
-    IncrementalEstimator::ReturnValue
-        IncrementalEstimator::addBatch(const BatchSP& problem, bool force) {
+    void IncrementalEstimator::updateInternalVariables(const ReturnValue& ret) {
+      // update internal variables
+      _informationGain = ret.informationGain;
+      _svLog2Sum = ret.svLog2Sum;
+      _nobsBasis = ret.nobsBasis;
+      _nobsBasisScaled = ret.nobsBasisScaled;
+      _obsBasis = ret.obsBasis;
+      _obsBasisScaled = ret.obsBasisScaled;
+      _sigma2Theta = ret.sigma2Theta;
+      _sigma2ThetaScaled = ret.sigma2ThetaScaled;
+      _sigma2ThetaObs = ret.sigma2ThetaObs;
+      _sigma2ThetaObsScaled = ret.sigma2ThetaObsScaled;
+      _singularValues = ret.singularValues;
+      _singularValuesScaled = ret.singularValuesScaled;
+      _svdTolerance = ret.svdTolerance;
+      _qrTolerance = ret.qrTolerance;
+      _rankTheta = ret.rankTheta;
+      _rankThetaDeficiency = ret.rankThetaDeficiency;
+      _rankPsi = ret.rankPsi;
+      _rankPsiDeficiency = ret.rankPsiDeficiency;
+      _peakMemoryUsage = ret.peakMemoryUsage;
+      _memoryUsage = ret.memoryUsage;
+      _numFlops = ret.numFlops;
+      _initialCost = ret.JStart;
+      _finalCost = ret.JFinal;
+    }
+
+    void IncrementalEstimator::acceptBatch(TryBatchResult & tr) {
+      ReturnValue & ret = *tr._ret;
+
+      // warning for rank going down
+      if (ret.rankTheta < _rankTheta && _options.verbose) {
+        std::cerr << "IncrementalEstimator::addBatch(): WARNING: RANK GOING DOWN!" << std::endl;
+      }
+      ret.batchAccepted = true;
+      updateInternalVariables(ret);
+    }
+
+    void IncrementalEstimator::rejectBatch(TryBatchResult & tr, bool restoreDesignVariables) {
+      if(restoreDesignVariables){
+        _problem->restoreDesignVariables();
+      }
+      // kick out the problem from the container
+      _problem->remove(tr._batch);
+      // restore the linear solver
+      if (_problem->getNumOptimizationProblems() > 0)
+        restoreLinearSolver();
+    }
+
+    IncrementalEstimator::TryBatchResult
+        IncrementalEstimator::tryBatch(const BatchSP& problem, bool firstStoreDesignVariables) {
       // query the time
       const double timeStart = Timestamp::now();
 
@@ -341,7 +392,7 @@ namespace aslam {
       orderMarginalizedDesignVariables();
 
       // save design variables in case the batch is rejected
-      if (!force)
+      if (firstStoreDesignVariables)
         _problem->saveDesignVariables();
 
       // set the marginalization index of the linear solver
@@ -357,14 +408,15 @@ namespace aslam {
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
       // return value
-      ReturnValue ret;
+      TryBatchResult tr(*this, problem);
+      ReturnValue & ret = *tr._ret;
 
       // fill statistics from optimizer
       ret.numIterations = srv.iterations;
       ret.JStart = srv.JStart;
       ret.JFinal = srv.JFinal;
 
-      // grep the scaled singular values if scaling enabled
+      // grab the scaled singular values if scaling enabled
       if (linearSolver->getOptions().columnScaling) {
         ret.singularValuesScaled = linearSolver->getSingularValues();
         ret.nobsBasisScaled = linearSolver->getNullSpace();
@@ -395,73 +447,28 @@ namespace aslam {
       ret.sigma2Theta = linearSolver->getCovariance();
       ret.sigma2ThetaObs = linearSolver->getRowSpaceCovariance();
       ret.singularValues = linearSolver->getSingularValues();
+      ret.peakMemoryUsage = linearSolver->getPeakMemoryUsage();
+      ret.memoryUsage = linearSolver->getMemoryUsage();
+      ret.numFlops = linearSolver->getNumFlops();
 
       // check if the solution is valid
-      bool solutionValid = true;
-      if (_options.checkValidity && (srv.iterations ==
-          _optimizer->options().maxIterations || srv.JFinal >= srv.JStart))
-        solutionValid = false;
+      ret.solutionValid = srv.iterations < _optimizer->options().maxIterations && srv.JFinal < srv.JStart;
 
       // compute the information gain
-      const double svLog2Sum = linearSolver->getSingularValuesLog2Sum();
-      ret.informationGain = 0.5 * (svLog2Sum - _svLog2Sum);
+      ret.svLog2Sum = linearSolver->getSingularValuesLog2Sum();
+      ret.informationGain = 0.5 * (ret.svLog2Sum - _svLog2Sum);
 
-      // batch is kept? information gain improvement or rank goes up or force
-      bool keepBatch = false;
-      if (((ret.informationGain > _options.infoGainDelta ||
-          ret.rankTheta > _rankTheta) && solutionValid) || force) {
-        // warning for rank going down
-        if (ret.rankTheta < _rankTheta && _options.verbose)
-          std::cerr << "IncrementalEstimator::addBatch(): "
-            "WARNING: RANK GOING DOWN!" << std::endl;
+      // batch is kept? information gain improvement or rank goes up
+      ret.isInformativeBatch = (ret.informationGain > _options.infoGainDelta ||
+          ret.rankTheta > _rankTheta) && (ret.solutionValid || !_options.checkValidity);
 
-        keepBatch = true;
-
-        // update internal variables
-        _informationGain = ret.informationGain;
-        _svLog2Sum = svLog2Sum;
-        _nobsBasis = ret.nobsBasis;
-        _nobsBasisScaled = ret.nobsBasisScaled;
-        _obsBasis = ret.obsBasis;
-        _obsBasisScaled = ret.obsBasisScaled;
-        _sigma2Theta = ret.sigma2Theta;
-        _sigma2ThetaScaled = ret.sigma2ThetaScaled;
-        _sigma2ThetaObs = ret.sigma2ThetaObs;
-        _sigma2ThetaObsScaled = ret.sigma2ThetaObsScaled;
-        _singularValues = ret.singularValues;
-        _singularValuesScaled = ret.singularValuesScaled;
-        _svdTolerance = ret.svdTolerance;
-        _qrTolerance = ret.qrTolerance;
-        _rankTheta = ret.rankTheta;
-        _rankThetaDeficiency = ret.rankThetaDeficiency;
-        _rankPsi = ret.rankPsi;
-        _rankPsiDeficiency = ret.rankPsiDeficiency;
-        _peakMemoryUsage = linearSolver->getPeakMemoryUsage();
-        _memoryUsage = linearSolver->getMemoryUsage();
-        _numFlops = linearSolver->getNumFlops();
-        _initialCost = srv.JStart;
-        _finalCost = srv.JFinal;
-      }
-      ret.batchAccepted = keepBatch;
-
-      // remove batch if necessary
-      if (!keepBatch) {
-        // restore variables
-        _problem->restoreDesignVariables();
-
-        // kick out the problem from the container
-        _problem->remove(problem);
-
-        // restore the linear solver
-        if (_problem->getNumOptimizationProblems() > 0)
-          restoreLinearSolver();
-      }
+      ret.batchAccepted = false;
 
       // insert elapsed time
       ret.elapsedTime = Timestamp::now() - timeStart;
 
       // output informations
-      return ret;
+      return tr;
     }
 
     void IncrementalEstimator::removeBatch(size_t idx) {
