@@ -74,6 +74,7 @@ void AslamTruncatedSvdSolver::initMatrixStructureImplementation(const
     std::vector<aslam::backend::DesignVariable*>& dvs, const
     std::vector<aslam::backend::ErrorTerm*>& errors, bool
     useDiagonalConditioner) {
+  CHECK(!useDiagonalConditioner) << "useDiagonalConditioner not supported in AslamTruncatedSvdSolver";
   clear();
   jacobian_builder_.initMatrixStructure(dvs, errors);
 }
