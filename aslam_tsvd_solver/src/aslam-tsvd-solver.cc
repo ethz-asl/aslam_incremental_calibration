@@ -46,8 +46,7 @@ bool AslamTruncatedSvdSolver::solveSystem(Eigen::VectorXd& dx) {
     jacobian_builder_.J_transpose();
   cholmod_sparse Jt_CS;
   Jt.getView(&Jt_CS);
-  cholmod_common cholmod;
-  cholmod_sparse* J_CS = cholmod_l_transpose(&Jt_CS, 1, &cholmod);
+  cholmod_sparse* J_CS = cholmod_l_transpose(&Jt_CS, 1, &cholmod_);
   if (J_CS == NULL)
     return false;
   cholmod_dense e_CD;
@@ -62,7 +61,7 @@ bool AslamTruncatedSvdSolver::solveSystem(Eigen::VectorXd& dx) {
     std::cout << "QR rank deficiency: " << getQRRankDeficiency()
       << std::endl;
   }
-  cholmod_l_free_sparse(&J_CS, &cholmod);
+  cholmod_l_free_sparse(&J_CS, &cholmod_);
   return status;
 }
 
@@ -74,6 +73,7 @@ void AslamTruncatedSvdSolver::initMatrixStructureImplementation(const
     std::vector<aslam::backend::DesignVariable*>& dvs, const
     std::vector<aslam::backend::ErrorTerm*>& errors, bool
     useDiagonalConditioner) {
+  CHECK(!useDiagonalConditioner) << "useDiagonalConditioner not supported in AslamTruncatedSvdSolver";
   clear();
   jacobian_builder_.initMatrixStructure(dvs, errors);
 }
