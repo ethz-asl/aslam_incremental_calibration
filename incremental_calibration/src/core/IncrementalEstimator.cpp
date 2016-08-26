@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 #include <ostream>
+#include <stdexcept>
 
 #include <aslam-tsvd-solver/aslam-tsvd-solver.h>
 #include <aslam/backend/GaussNewtonTrustRegionPolicy.hpp>
@@ -304,7 +305,9 @@ namespace aslam {
 
       if(linearSolver){
         // analyze the unscaled marginal system
-        linearSolver->analyzeMarginal();
+        if(!linearSolver->analyzeMarginal()){
+          throw std::runtime_error("AnalyzeMarginal failed. " __FILE__ ":" + std::to_string(__LINE__));
+        }
 
         // retrieve informations from the linear solver
         _informationGain = 0.0;
@@ -458,7 +461,9 @@ namespace aslam {
 
       if(linearSolver){
         // analyze marginal system (unscaled system)
-        linearSolver->analyzeMarginal();
+        if(!linearSolver->analyzeMarginal()){
+          throw std::runtime_error("AnalyzeMarginal failed. " __FILE__ ":" + std::to_string(__LINE__));
+        }
 
         // fill statistics from the linear solver
         ret.rankPsi = linearSolver->getQRRank();
