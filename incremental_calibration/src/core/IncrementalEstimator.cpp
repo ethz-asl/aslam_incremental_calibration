@@ -285,6 +285,7 @@ namespace aslam {
         linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
 
       // optimize
+      _optimizer->initialize();
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
       // grep the scaled linear system informations
@@ -432,6 +433,7 @@ namespace aslam {
         linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
 
       // optimize
+      _optimizer->initialize();
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
       // return value
