@@ -89,9 +89,8 @@ bool AslamTruncatedSvdSolver::analyzeMarginal() {
       jacobian_builder_.J_transpose();
   cholmod_sparse Jt_CS;
   Jt.getView(&Jt_CS);
-  cholmod_common cholmod;
   truncated_svd_solver::SelfFreeingCholmodPtr<cholmod_sparse> J_CS(
-      cholmod_l_transpose(&Jt_CS, 1, &cholmod), cholmod);
+      cholmod_l_transpose(&Jt_CS, 1, &cholmod_), cholmod_);
   if (J_CS == nullptr) {
     return false;
   }
