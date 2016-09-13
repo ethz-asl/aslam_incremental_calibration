@@ -528,7 +528,7 @@ namespace aslam {
       linearSolver->initMatrixStructure(dvs, ets, false);
 
       // build the system
-      linearSolver->buildSystem(_optimizer->options().nThreads, true);
+      linearSolver->buildSystem(_optimizer->options().numThreadsJacobian, true);
     }
 
   }
