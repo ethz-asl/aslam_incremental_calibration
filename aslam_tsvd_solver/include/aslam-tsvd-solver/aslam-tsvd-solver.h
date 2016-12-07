@@ -15,7 +15,7 @@
 template<typename Entry> struct SuiteSparseQR_factorization;
 
 namespace sm {
-class PropertyTree;
+class ConstPropertyTree;
 }
 
 namespace aslam {
@@ -37,7 +37,7 @@ class AslamTruncatedSvdSolver
   /// Constructor with options structure
   AslamTruncatedSvdSolver(const Options& options = Options());
   /// Constructor with property tree configuration
-  AslamTruncatedSvdSolver(const sm::PropertyTree& config);
+  AslamTruncatedSvdSolver(const sm::ConstPropertyTree& config);
   /// Copy constructor
   AslamTruncatedSvdSolver(const AslamTruncatedSvdSolver& other) = delete;
   /// Copy assignment operator

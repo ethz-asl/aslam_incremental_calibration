@@ -32,7 +32,7 @@
 #include <Eigen/Core>
 
 namespace sm {
-  class PropertyTree;
+  class ConstPropertyTree;
 }
 
 namespace aslam {
@@ -160,7 +160,7 @@ namespace aslam {
         const LinearSolverOptions& linearSolverOptions = LinearSolverOptions(),
         const OptimizerOptions& optimizerOptions = OptimizerOptions());
       /// Constructs estimator with configuration in property tree
-      IncrementalEstimator(const sm::PropertyTree& config);
+      IncrementalEstimator(const sm::ConstPropertyTree& config);
       /// Copy constructor
       IncrementalEstimator(const Self& other) = delete;
       /// Copy assignment operator

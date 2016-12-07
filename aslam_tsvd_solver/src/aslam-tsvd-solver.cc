@@ -15,7 +15,7 @@ namespace aslam {
 namespace backend {
 
 AslamTruncatedSvdSolver::Options createTsvdOptionsFromPropertyTree(
-    const sm::PropertyTree& config) {
+    const sm::ConstPropertyTree& config) {
   AslamTruncatedSvdSolver::Options tsvd_options;
   tsvd_options.columnScaling =
       config.getBool("columnScaling", tsvd_options.columnScaling);
@@ -31,7 +31,7 @@ AslamTruncatedSvdSolver::Options createTsvdOptionsFromPropertyTree(
 AslamTruncatedSvdSolver::AslamTruncatedSvdSolver(const Options& options)
     : truncated_svd_solver::TruncatedSvdSolver(options) {}
 
-AslamTruncatedSvdSolver::AslamTruncatedSvdSolver(const sm::PropertyTree& config)
+AslamTruncatedSvdSolver::AslamTruncatedSvdSolver(const sm::ConstPropertyTree& config)
     : AslamTruncatedSvdSolver(createTsvdOptionsFromPropertyTree(config)) {}
 
 AslamTruncatedSvdSolver::~AslamTruncatedSvdSolver() {}

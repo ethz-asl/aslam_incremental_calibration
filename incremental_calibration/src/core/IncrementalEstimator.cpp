@@ -77,7 +77,7 @@ namespace aslam {
       _optimizer->setProblem(_problem);
     }
 
-    IncrementalEstimator::IncrementalEstimator(const sm::PropertyTree& config) :
+    IncrementalEstimator::IncrementalEstimator(const sm::ConstPropertyTree& config) :
         _informationGain(0.0),
         _svLog2Sum(0.0),
         _svdTolerance(0.0),
@@ -92,20 +92,21 @@ namespace aslam {
         _initialCost(0.0),
         _finalCost(0.0)
     {
-      sm::PropertyTree optimizerPT(config, "optimizer");
+      sm::ConstPropertyTree optimizerPT(config, "optimizer");
 
       std::string method = optimizerPT.getString("method", "ObservabilityAware");
 
       // create the optimizer, linear solver, and trust region policy
       if(method == "ObservabilityAware"){
-        boost::shared_ptr<LinearSolver> linearSolver = boost::make_shared<LinearSolver>(sm::PropertyTree(config, "optimizer/linearSolver"));
+        boost::shared_ptr<LinearSolver> linearSolver = boost::make_shared<LinearSolver>(sm::ConstPropertyTree(config, "optimizer/linearSolver"));
+        //TODO (HannesSommer) support choosing trust region policy by property tree
         _optimizer = boost::make_shared<Optimizer>(optimizerPT, linearSolver, boost::make_shared<TrustRegionPolicy>());
         _isObservabilityAware = true;
       } else if(method == "LevenbergMarquard"){
         _optimizer = boost::make_shared<Optimizer>(
           optimizerPT,
           nullptr,
-          boost::make_shared<backend::LevenbergMarquardtTrustRegionPolicy>(sm::PropertyTree(config, "optimizer/levenbergMarquardt"))
+          boost::make_shared<backend::LevenbergMarquardtTrustRegionPolicy>(sm::ConstPropertyTree(config, "optimizer/levenbergMarquardt"))
           );
         _isObservabilityAware = false;
       } else {
