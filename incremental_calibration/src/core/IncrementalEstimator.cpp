@@ -88,11 +88,8 @@ namespace aslam {
         _initialCost(0.0),
         _finalCost(0.0) {
       // create the optimizer, linear solver, and trust region policy
-      _optimizer = boost::make_shared<Optimizer>(
-        sm::PropertyTree(config, "optimizer"),
-        boost::make_shared<LinearSolver>(
-        sm::PropertyTree(config, "optimizer/linearSolver")),
-        boost::make_shared<TrustRegionPolicy>());
+      boost::shared_ptr<LinearSolver> linearSolver = boost::make_shared<LinearSolver>(sm::PropertyTree(config, "optimizer/linearSolver"));
+      _optimizer = boost::make_shared<Optimizer>(sm::PropertyTree(config, "optimizer"), linearSolver, boost::make_shared<TrustRegionPolicy>());
 
       // create the problem and attach it to the optimizer
       _problem = boost::make_shared<IncrementalOptimizationProblem>();
@@ -531,7 +528,7 @@ namespace aslam {
       linearSolver->initMatrixStructure(dvs, ets, false);
 
       // build the system
-      linearSolver->buildSystem(_optimizer->options().nThreads, true);
+      linearSolver->buildSystem(_optimizer->options().numThreadsJacobian, true);
     }
 
   }

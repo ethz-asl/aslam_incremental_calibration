@@ -30,14 +30,10 @@
 #include <aslam/splines/OPTBSpline.hpp>
 #include <aslam/splines/OPTUnitQuaternionBSpline.hpp>
 
+#include <bsplines/NsecTimePolicy.hpp>
 #include <bsplines/EuclideanBSpline.hpp>
 #include <bsplines/UnitQuaternionBSpline.hpp>
 
-namespace bsplines {
-
-  struct NsecTimePolicy;
-
-}
 namespace aslam {
   namespace calibration {
 

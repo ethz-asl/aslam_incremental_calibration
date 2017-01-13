@@ -233,6 +233,14 @@ namespace aslam {
       double getInitialCost() const;
       /// Returns the current final cost for the estimator
       double getFinalCost() const;
+
+      const Optimizer& getOptimizer() const {
+        return *_optimizer;
+      }
+      Optimizer & getOptimizer() {
+        return * _optimizer;
+      }
+
       /** @}
         */
 
