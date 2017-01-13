@@ -7,7 +7,7 @@
     calibration package.
   </description>
   <maintainer email="jerome.maye@mavt.ethz.ch">Jerome Maye</maintainer>
-  <license>LGPLv3</license>
+  <license>3-Clause BSD</license>
   <url type="website">https://github.com/ethz-asl/aslam_incremental_calibration</url>
   <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
 
