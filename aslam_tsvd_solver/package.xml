@@ -4,7 +4,7 @@
   <version>0.0.1</version>
   <description>Aslam solve interface for the truncated-SVD linear solver.</description>
   
-  <license>BSD</license>
+  <license>3-Clause BSD</license>
   <url type="website">https://github.com/ethz-asl/truncated_svd_solver</url>
   <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
   <maintainer email="schneith@ethz.ch">Thomas Schneider</maintainer>
