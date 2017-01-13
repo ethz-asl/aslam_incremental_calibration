@@ -5,7 +5,7 @@ aslam_incremental_calibration
 
 Toolbox for incremental self calibration
 
-# References
+## References
 Please cite this paper when using this code or parts of it in an academic publication:
 
 Jérôme Maye, Hannes Sommer, Gabriel Agamennoni, Roland Siegwart, and Paul Furgale. Online self-calibration for robotic systems. The International Journal of Robotics Research, 2015. ETHZ.
