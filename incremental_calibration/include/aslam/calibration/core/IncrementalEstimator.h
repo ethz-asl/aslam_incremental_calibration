@@ -143,7 +143,7 @@ namespace aslam {
         @{
         */
       /// Constructs estimator with group to marginalize and options
-      IncrementalEstimator(size_t groupId, const Options& options = Options(),
+      IncrementalEstimator(size_t margGroupId, const Options& options = Options(),
         const LinearSolverOptions& linearSolverOptions = LinearSolverOptions(),
         const OptimizerOptions& optimizerOptions = OptimizerOptions());
       /// Constructs estimator with configuration in property tree

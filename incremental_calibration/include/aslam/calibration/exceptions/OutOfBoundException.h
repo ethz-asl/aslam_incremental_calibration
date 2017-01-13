@@ -25,8 +25,8 @@
 #define ASLAM_CALIBRATION_EXCEPTIONS_OUTOFBOUNDEXCEPTION_H
 
 #include <cstddef>
-
 #include <string>
+#include <sstream>
 
 #include "aslam/calibration/exceptions/Exception.h"
 
@@ -51,23 +51,32 @@ namespace aslam {
       OutOfBoundException(const X& argument, const X& bound, const std::string&
         msg, const std::string& filename = " ", size_t line = 0, const
         std::string& function = " ");
-      /// Copy constructor
-      OutOfBoundException(const OutOfBoundException& other) throw();
-      /// Assignment operator
-      OutOfBoundException& operator = (const OutOfBoundException& other)
-        throw();
       /// Destructor
-      virtual ~OutOfBoundException() throw();
+      virtual ~OutOfBoundException() {}
       /** @}
         */
-
-    protected:
-
     };
 
+    template <typename X>
+    OutOfBoundException<X>::OutOfBoundException(const X& argument, const
+        std::string& msg, const std::string& filename, size_t line, const
+        std::string& function) : Exception(msg, filename, line, function) {
+      std::stringstream stream;
+      stream << "[argument = " << argument << "]";
+      mOutputMessage.append(stream.str());
+    }
+
+    template <typename X>
+    OutOfBoundException<X>::OutOfBoundException(const X& argument, const X&
+        bound, const std::string& msg, const std::string& filename, size_t line,
+        const std::string& function) :
+        Exception(msg, filename, line, function) {
+      std::stringstream stream;
+      stream << "[argument = " << argument << "]";
+      stream << "[bound = " << bound << "]";
+      mOutputMessage.append(stream.str());
+    }
   }
 }
-
-#include "aslam/calibration/exceptions/OutOfBoundException.tpp"
 
 #endif // ASLAM_CALIBRATION_EXCEPTIONS_OUTOFBOUNDEXCEPTION_H

@@ -41,11 +41,11 @@ namespace aslam {
 /* Constructors and Destructor                                                */
 /******************************************************************************/
 
-    IncrementalEstimator::IncrementalEstimator(size_t groupId,
+    IncrementalEstimator::IncrementalEstimator(size_t margGroupId,
         const Options& options, const LinearSolverOptions&
         linearSolverOptions, const OptimizerOptions& optimizerOptions) :
         _options(options),
-        _margGroupId(groupId),
+        _margGroupId(margGroupId),
         _optimizer(boost::make_shared<Optimizer>(optimizerOptions)),
         _problem(boost::make_shared<IncrementalOptimizationProblem>()),
         _informationGain(0.0),

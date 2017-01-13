@@ -47,23 +47,22 @@ namespace aslam {
       BadArgumentException(const X& argument, const std::string& msg, const
         std::string& filename = " ", size_t line = 0, const std::string&
         function = " ");
-      /// Copy constructor
-      BadArgumentException(const BadArgumentException& other) throw();
-      /// Assignment operator
-      BadArgumentException& operator = (const BadArgumentException& other)
-        throw();
       /// Destructor
-      virtual ~BadArgumentException() throw();
+      virtual ~BadArgumentException() {}
       /** @}
         */
-
-    protected:
-
     };
+
+    template <typename X>
+    BadArgumentException<X>::BadArgumentException(const X& argument,
+        const std::string& msg, const std::string& filename, size_t line, const
+        std::string& function) : Exception(msg, filename, line, function) {
+      std::stringstream stream;
+      stream << "[argument = " << argument << "]";
+      mOutputMessage.append(stream.str());
+    }
 
   }
 }
-
-#include "aslam/calibration/exceptions/BadArgumentException.tpp"
 
 #endif // ASLAM_CALIBRATION_EXCEPTIONS_BADARGUMENTEXCEPTION_H
