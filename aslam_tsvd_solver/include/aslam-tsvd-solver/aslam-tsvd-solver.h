@@ -73,6 +73,8 @@ class AslamTruncatedSvdSolver
       const std::vector<aslam::backend::ErrorTerm*>& errors,
       bool use_diagonal_conditioner);
 
+  virtual void handleNewAcceptConstantErrorTerms() override;
+
  private:
   aslam::backend::CompressedColumnJacobianTransposeBuilder<std::ptrdiff_t>
     jacobian_builder_;

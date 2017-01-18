@@ -104,5 +104,9 @@ const aslam::backend::CompressedColumnMatrix<std::ptrdiff_t>&
   return jacobian_builder_.J_transpose();
 }
 
+void AslamTruncatedSvdSolver::handleNewAcceptConstantErrorTerms() {
+  jacobian_builder_.J_transpose().setAcceptConstantErrorTerms(isAcceptConstantErrorTerms());
+}
+
 }  // namespace backend
 }  // namespace aslam
